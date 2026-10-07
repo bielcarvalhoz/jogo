@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { openRing, pointInPolygon, pointInRing, ringArea, ringCentroid, SpatialGrid, distToSegment } from './geo.js';
 import { createBuildingBuilder } from './buildings.js';
-import { pixelFacade, pixelRoof, helipadTexture, stripeTexture, pixelSign, labelTexture } from './textures.js';
+import { pixelRoof, helipadTexture, stripeTexture, pixelSign, labelTexture } from './textures.js';
 import { makeTreeMeshes, makePalmMeshes } from './vegetation.js';
 import { mulberry32 } from './rng.js';
+import { campusFacade, gateSignTexture, bradescoBannerTexture, buildCampusDetails } from './campus-details.js';
+import { facadeProfile, removeDuplicateCampusBarriers } from './campus-reference.js';
+import { createSidewalkTrees } from './nature.js';
+import { campusWallGeometry } from './campus-wall.js';
 
 // Núcleo Cidade de Deus (matriz do Bradesco), em estilo cartoon/pixel.
 // Dados: public/data/campus-cidade-de-deus.geojson (ver scripts/build-campus.mjs).
@@ -222,6 +226,7 @@ export function prepareCampus(geo, world, proj) {
   const wallGrid = C.wallGrid;
   const nearWall = (x, z, d) => { for (const s of wallGrid.query(x, z, d + 1)) if (distToSegment(x, z, s[0], s[1], s[2], s[3]).d < d) return true; return false; };
   C.nearWall = nearWall;
+  world.barriers = removeDuplicateCampusBarriers(world.barriers, nearWall);
   for (const [x, z] of C.treePts || []) {
     if (!inQuarter(x, z)) continue;
     if (RI.clearance(x, z).d < 1.0) continue;
@@ -230,6 +235,16 @@ export function prepareCampus(geo, world, proj) {
     const v = rnd();
     C.trees.push({ x, z, s: 0.95 + rnd() * 0.55, r: rnd() * Math.PI * 2, v, pink: rnd() < 0.045 });
   }
+  const streetTrees = createSidewalkTrees(world.roads, {
+    eligible: r => r.internal,
+    existing: C.trees, spacing: 11,
+    allowed: (x, z) => inQuarter(x, z) && C.inRegion(x, z, .4),
+    clearance: (x, z) => !insideSolid(x, z, 2.2) && !nearWall(x, z, 1.3)
+      && !noTree.some(rings => pointInPolygon(x, z, rings))
+      && !C.gates.some(g => Math.hypot(g.x - x, g.z - z) < 13),
+  });
+  C.trees.push(...streetTrees);
+  C.streetTreeCount = streetTrees.length;
   const treeGrid = new SpatialGrid(10);
   for (const t of C.trees) treeGrid.insertBox(t, t.x, t.z, t.x, t.z);
 
@@ -613,18 +628,19 @@ function computeParking(C, carRoads, RI, insideSolid, nearWall, treeGrid, stallS
 }
 
 // ================================================================ 2) construir
-export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
+export function buildCampus(C, { scene, renderer, terrain, world, roads, quality = 'high' }) {
   const root = new THREE.Group();
   root.name = 'campus-cidade-de-deus';
   const rnd = mulberry32(777);
   const H = (x, z) => terrain.heightAt(x, z);
 
-  // fachadas pixel (uma por cor de janela/estilo)
+  // Caixilhos, brises e vidro das referências, agrupados por perfil.
   const styles = {};
   const styleFor = (b) => {
     const kind = b.style === 'school' ? 'school' : b.style === 'garage' ? 'garage' : b.style === 'pavilion' ? 'pavilion' : 'office';
-    const key = `cdd_${kind}_${b.windows || '#2b3f55'}`;
-    if (!styles[key]) styles[key] = { texture: pixelFacade(renderer, b.windows || '#2b3f55', kind), bay: kind === 'pavilion' ? 2.4 : 3.2, floor: 3.4, mat: { roughness: 0.8, metalness: 0 } };
+    const profile = facadeProfile(b);
+    const key = `cdd_${kind}_${profile.type}_${profile.frame}_${b.windows || '#2b3f55'}`;
+    if (!styles[key]) styles[key] = { texture: campusFacade(renderer, b), bay: profile.type === 'louver' ? 3.2 : kind === 'pavilion' ? 2.4 : 3.2, floor: 3.4, mat: { roughness: 0.72, metalness: 0.03 } };
     return key;
   };
   // o mesmo objeto `styles` é preenchido sob demanda por styleFor() antes de cada add()
@@ -653,7 +669,7 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
     const style = styleFor(b);
     const info = builder.add({
       id: b.planId || b.name, rings: b.rings, height: b.height, style, floorH: b.height / (b.levels || 2),
-      wall: b.wall, roof: b.roof, roofShape: roofShapeFor(b), noRoof: b.roofShape === 'tent',
+      wall: facadeProfile(b).color, roof: b.roof, roofShape: roofShapeFor(b), noRoof: b.roofShape === 'tent',
       noParapet: b.roofShape === 'ribbed' || b.roofShape === 'green' || b.style === 'pavilion',
     });
     if (!info) continue;
@@ -682,7 +698,7 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
     if (b.accent === 'frisos') {
       for (const vo of vols) for (const e of ringEdges(vo.ring)) {
         box(accent, (e.ax + e.bx) / 2 + e.nx * 0.18, vo.top + 0.15, (e.az + e.bz) / 2 + e.nz * 0.18, e.L + 0.4, 1.1, 0.35, yawOf(e.dx, e.dz));
-        box(accent, (e.ax + e.bx) / 2 + e.nx * 0.12, vo.groundY + (vo.top - vo.groundY) * 0.5, (e.az + e.bz) / 2 + e.nz * 0.12, e.L + 0.25, 0.45, 0.25, yawOf(e.dx, e.dz));
+        box(accent, (e.ax + e.bx) / 2 + e.nx * 0.12, vo.groundY + (vo.top - vo.groundY) * 0.5, (e.az + e.bz) / 2 + e.nz * 0.12, e.L + 0.25, b.planId === 'b3' ? 1.25 : .45, 0.25, yawOf(e.dx, e.dz));
       }
     }
     if (b.accent === 'banner') {
@@ -692,8 +708,10 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
         const mx = (e.ax + e.bx) / 2 + e.nx * 0.25, mz = (e.az + e.bz) / 2 + e.nz * 0.25;
         const h0 = info.gMin + 6, h1 = info.top - 1.2;
         box(accent, mx, (h0 + h1) / 2, mz, 8, h1 - h0, 0.3, yawOf(e.dx, e.dz));
-        box('#ffffff', mx + e.nx * 0.17, h1 - 2.4, mz + e.nz * 0.17, 5.5, 0.6, 0.05, yawOf(e.dx, e.dz));
-        box('#ffffff', mx + e.nx * 0.17, h1 - 3.4, mz + e.nz * 0.17, 4.2, 0.45, 0.05, yawOf(e.dx, e.dz));
+        const banner = new THREE.Mesh(new THREE.PlaneGeometry(7.9, h1 - h0 - .12), new THREE.MeshBasicMaterial({ map: bradescoBannerTexture(renderer) }));
+        banner.name = 'banner-predio-prata';
+        banner.position.set(mx + e.nx * .165, (h0 + h1) / 2, mz + e.nz * .165);
+        banner.rotation.y = Math.atan2(e.nx, e.nz); root.add(banner);
       }
     }
     if (b.accent === 'faixa') {
@@ -860,26 +878,11 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
 
   // ---------------------------------------------------- muro
   {
-    const pos = [];
     for (const w of C.walls) {
-      for (let i = 0; i < w.length - 1; i++) {
-        const [x0, z0] = w[i], [x1, z1] = w[i + 1];
-        const L = Math.hypot(x1 - x0, z1 - z0);
-        if (L < 0.05) continue;
-        const nx = -(z1 - z0) / L * 0.11, nz = (x1 - x0) / L * 0.11;
-        const h0 = H(x0, z0) - 0.4, h1 = H(x1, z1) - 0.4;
-        for (const s of [1, -1]) {
-          const ax = x0 + nx * s, az = z0 + nz * s, bx = x1 + nx * s, bz = z1 + nz * s;
-          pos.push(ax, h0, az, bx, h1, bz, bx, h1 + 0.4 + WALL_H, bz, ax, h0, az, bx, h1 + 0.4 + WALL_H, bz, ax, h0 + 0.4 + WALL_H, az);
-        }
-        box('#b8b2a6', (x0 + x1) / 2, (h0 + h1) / 2 + 0.4 + WALL_H + 0.09, (z0 + z1) / 2, L + 0.1, 0.18, 0.4, yawOf(x1 - x0, z1 - z0));
-      }
       builder.addBarrier(w, WALL_H);
     }
-    const wg = new THREE.BufferGeometry();
-    wg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    wg.computeVertexNormals();
-    const wall = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: 0xd4d1ca, roughness: 0.95, side: THREE.DoubleSide }));
+    const wg = campusWallGeometry(C.walls, H, WALL_H);
+    const wall = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide }));
     wall.castShadow = wall.receiveShadow = true;
     wall.name = 'muro-campus';
     root.add(wall);
@@ -915,18 +918,19 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
     const mspan = Math.max(span + 2, w + 4), my = gy + 5.4;
     box('#ffffff', px + tx * 2, my, pz + tz * 2, mspan, 0.55, 8, across);
     for (const a of [-1, 1]) {
-      box(RED, px + tx * (2 + a * 4.2), my - 0.45, pz + tz * (2 + a * 4.2), mspan, 1.1, 0.35, across);
+      box('#eeeee9', px + tx * (2 + a * 4.2), my - 0.45, pz + tz * (2 + a * 4.2), mspan, 1.1, 0.35, across);
       for (const s of [-1, 1]) {
         const qx = px + nx * s * (mspan / 2 - 0.4) + tx * (2 + a * 3.6), qz = pz + nz * s * (mspan / 2 - 0.4) + tz * (2 + a * 3.6);
         const qy = H(qx, qz);
-        box(RED, qx, (qy + my) / 2, qz, 0.6, my - qy, 0.6);
+        box(RED, qx, (qy + my + .8) / 2, qz, 1.0, my + .8 - qy, 0.85, across);
       }
     }
     for (const a of [-1, 1]) {
-      const { texture, aspect } = pixelSign(renderer, (g.name || 'PORTARIA').toUpperCase());
-      const sh = 1.0, sw = Math.min(mspan - 1, sh * aspect);
+      const texture = gateSignTexture(renderer, g.name || 'Portaria');
+      const sh = 1.0, sw = mspan - 1.5;
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ map: texture }));
-      sign.position.set(px + tx * (2 + a * 4.4), my - 0.45, pz + tz * (2 + a * 4.4));
+      sign.name = `letreiro-${g.name}`;
+      sign.position.set(px + tx * (2 + a * 4.42), my - 0.45, pz + tz * (2 + a * 4.42));
       sign.rotation.y = Math.atan2(tx * a, tz * a);
       root.add(sign);
     }
@@ -970,6 +974,9 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
       spawnPoints.push({ name: g.name, x: sx, z: sz, yaw: Math.atan2(-(px - sx), -(pz - sz)) });
     }
   }
+
+  const details = buildCampusDetails(C, specs, { renderer, terrain, world, quality });
+  root.add(details.root);
   function pedestrianGate(g) {
     // guarita de pedestres junto ao vão do muro (lado de dentro)
     const ends = [];
@@ -1031,7 +1038,7 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
   }
 
   // ---------------------------------------------------- árvores, palmeiras, macacos
-  const trees = makeTreeMeshes(C.trees, terrain);
+  const trees = makeTreeMeshes(C.trees, terrain, { quality, detail: true, sidewalkHeightAt: roads?.sidewalkHeightAt });
   trees.name = 'arvores-campus';
   root.add(trees);
   if (C.palms.length) root.add(makePalmMeshes(C.palms, terrain));
@@ -1082,7 +1089,7 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
     flags.forEach((f) => { f.rotation.y = f.userData.base + Math.sin(t * 2.2 + f.userData.ph) * 0.25; });
   }
 
-  return { root, builder, sprites, update, spawnPoints, count: C.buildings.length, cars: C.cars.length, trees: C.trees.length };
+  return { root, builder, sprites, update, spawnPoints, details, surfaceHeightAt: details.surfaceHeightAt, count: C.buildings.length, cars: C.cars.length, trees: C.trees.length };
 
   // ================================================================ peças
   function ringEdges(ring) {
