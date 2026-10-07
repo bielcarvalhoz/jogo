@@ -84,6 +84,14 @@ scripts/build-campus.mjs dados do campus (referência visual)
 
 ## Créditos
 
+### Cenário baseado nas fotos
+
+O núcleo tem calçadas com meio-fio, travessias e arborização regular, totens físicos de identificação,
+fachadas específicas dos prédios coloridos, escadas e rampas, portarias detalhadas e campo nivelado.
+Vegetação, grama e água usam materiais com vento e ondulações inspirados em `sato-agents-lab` / Bruno Simon.
+Veja [as referências, limites e verificação](docs/campus-reference.md) e [a atribuição dos materiais](docs/nature-reference.md).
+Execute `npm test` para verificar a geometria e a navegação.
+
 Dados © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licença ODbL —
 a atribuição precisa continuar visível no jogo. Relevo: SRTM / Mapzen Terrarium (AWS Open Data).
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pointInPolygon } from './geo.js';
+import { pointInPolygon, ringCentroid, SpatialGrid, distToSegment } from './geo.js';
 
 // Terreno a partir da grade de elevação real (SRTM).
 // heightAt() reproduz EXATAMENTE a mesma triangulação da malha, então qualquer coisa
@@ -30,6 +30,82 @@ export function createTerrain(data, proj) {
     const a = H(i, j), b = H(i, j + 1), c = H(i + 1, j + 1), d = H(i + 1, j);
     if (u + v <= 1) return a + (d - a) * u + (b - a) * v;
     return c + (b - c) * (1 - u) + (d - c) * (1 - v);
+  }
+
+  // Edits the same elevation vertices used by both navigation and the visible mesh.
+  // A full-cell safety margin keeps triangles crossing a platform boundary level too.
+  const isPreserved = (x, z, regions) => regions.some((rings) => {
+    if (pointInPolygon(x, z, rings)) return true;
+    return rings[0].some((a, i, ring) => { const b = ring[(i + 1) % ring.length]; return distToSegment(x, z, a[0], a[1], b[0], b[1]).d < Math.hypot(dx, dz); });
+  });
+
+  function gradePlatform(rings, { level, padding = 0, band = 16, maxAdjustment = Infinity, preserve = [] } = {}) {
+    if (!rings?.[0]?.length) return null;
+    const ring = rings[0];
+    if (!Number.isFinite(level)) {
+      const samples = ring.map(([x, z]) => heightAt(x, z)).sort((a, b) => a - b);
+      level = samples[Math.floor(samples.length / 2)];
+    }
+    const margin = Math.hypot(dx, dz) + padding;
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const [x, z] of ring) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+    const i0 = Math.max(0, Math.floor((minX - margin - band - x0) / dx)), i1 = Math.min(nx - 1, Math.ceil((maxX + margin + band - x0) / dx));
+    const j0 = Math.max(0, Math.floor((minZ - margin - band - z0) / dz)), j1 = Math.min(ny - 1, Math.ceil((maxZ + margin + band - z0) / dz));
+    let changed = 0, cutFill = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const x = x0 + i * dx, z = z0 + j * dz, k = j * nx + i;
+      if (isPreserved(x, z, preserve)) continue;
+      let distance = 0;
+      if (!pointInPolygon(x, z, rings)) {
+        distance = Infinity;
+        for (let e = 0; e < ring.length; e++) {
+          const a = ring[e], b = ring[(e + 1) % ring.length];
+          distance = Math.min(distance, distToSegment(x, z, a[0], a[1], b[0], b[1]).d);
+        }
+      }
+      if (distance >= margin + band) continue;
+      const t = Math.max(0, (distance - margin) / band);
+      const weight = 1 - t * t * (3 - 2 * t);
+      const delta = Math.max(-maxAdjustment, Math.min(maxAdjustment, level - h[k])) * weight;
+      h[k] += delta;
+      if (Math.abs(delta) > 0.001) changed++;
+      cutFill = Math.max(cutFill, Math.abs(delta));
+    }
+    return { level, changed, cutFill };
+  }
+
+  function gradeCorridors(roads, { sidewalk = 2.5, band = 8, maxAdjustment = 0.9, preserve = [] } = {}) {
+    const grid = new SpatialGrid(24);
+    // Snapshot the ungraded centerline before any vertex is changed. Intersections
+    // are blended together, so road ordering cannot make a ridge or a trench.
+    for (const r of roads) for (let i = 1; i < r.pts.length; i++) {
+      const [ax, az] = r.pts[i - 1], [bx, bz] = r.pts[i];
+      const radius = r.w / 2 + sidewalk;
+      const s = { ax, az, bx, bz, radius, ya: heightAt(ax, az), yb: heightAt(bx, bz) };
+      const m = radius + band;
+      grid.insertBox(s, Math.min(ax, bx) - m, Math.min(az, bz) - m, Math.max(ax, bx) + m, Math.max(az, bz) + m);
+    }
+    let changed = 0, cutFill = 0;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = x0 + i * dx, z = z0 + j * dz, k = j * nx + i;
+      let target = 0, weights = 0, influence = 0;
+      for (const s of grid.query(x, z)) {
+        const q = distToSegment(x, z, s.ax, s.az, s.bx, s.bz);
+        if (q.d > s.radius + band) continue;
+        const t = Math.max(0, (q.d - s.radius) / band);
+        const weight = 1 - t * t * (3 - 2 * t);
+        target += (s.ya + (s.yb - s.ya) * q.t) * weight;
+        weights += weight;
+        influence = Math.max(influence, weight);
+      }
+      if (!weights) continue;
+      if (isPreserved(x, z, preserve)) continue;
+      const delta = Math.max(-maxAdjustment, Math.min(maxAdjustment, target / weights - h[k])) * influence;
+      h[k] += delta;
+      if (Math.abs(delta) > 0.001) changed++;
+      cutFill = Math.max(cutFill, Math.abs(delta));
+    }
+    return { changed, cutFill };
   }
 
   /**
@@ -169,5 +245,31 @@ export function createTerrain(data, proj) {
     return mesh;
   }
 
-  return { heightAt, carveWater, buildMesh, buildDetailMesh, base, bounds: { x0, z0, x1, z1, width, depth }, minAlt: data.min, maxAlt: data.max };
+  return { heightAt, carveWater, gradePlatform, gradeCorridors, buildMesh, buildDetailMesh, base, bounds: { x0, z0, x1, z1, width, depth }, minAlt: data.min, maxAlt: data.max };
+}
+
+/** Local civil-work grading, applied after water carving and before mesh generation. */
+export function gradeCampusTerrain(world, terrain, campus) {
+  const preserve = (world.areas || []).filter((a) => a.kind === 'water' || a.kind === 'pool').map((a) => a.rings);
+  const report = { roads: terrain.gradeCorridors(world.roads.filter((r) => r.internal && !r.bridge), { preserve }), platforms: [], sports: null };
+  // Keep SRTM's overall hills: only correct a metre near buildings and paved decks.
+  for (const b of campus.buildings) {
+    if (b.structure === 'pergola') continue;
+    const [x, z] = ringCentroid(b.rings[0]);
+    report.platforms.push(terrain.gradePlatform(b.rings, { level: terrain.heightAt(x, z), padding: 0.5, band: 9, maxAdjustment: 1.0, preserve }));
+  }
+  if (campus.track) {
+    const T = campus.track;
+    // The pitch, eight running lanes and bleachers share one engineered platform.
+    // Sampling the field centre avoids the hillside beside the grandstand biasing it.
+    report.sports = terrain.gradePlatform([T.outer], { level: terrain.heightAt(T.cx, T.cz), band: 24, preserve });
+    T.groundLevel = report.sports.level;
+    if (Number.isFinite(T.rOut) && Number.isFinite(T.straight)) {
+      const side = -T.uz >= 0 ? 1 : -1, sx = -T.uz * side, sz = T.ux * side;
+      const len = T.straight * 2 - 6, near = T.rOut + 1.5, far = near + 13;
+      const bleachers = [[-1, near], [1, near], [1, far], [-1, far]].map(([s, off]) => [T.cx + T.ux * s * len / 2 + sx * off, T.cz + T.uz * s * len / 2 + sz * off]);
+      terrain.gradePlatform([bleachers], { level: T.groundLevel, band: 16, preserve });
+    }
+  }
+  return report;
 }

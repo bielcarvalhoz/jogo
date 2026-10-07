@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { roadTexture, pavementTexture, ROAD_TILE_M } from './textures.js';
 import { SpatialGrid, distToSegment } from './geo.js';
+import { resampleRoad, roadFrames, offsetPoint, stripQuad, subtractConvex, triangleHeightAt } from './road-geometry.js';
 
 // Vias de carro viram fitas 3D apoiadas no relevo (3 vértices por seção: borda, eixo, borda).
 // Pontes/viadutos ganham tabuleiro reto entre as cabeceiras, guarda-corpo e pilares.
@@ -70,6 +71,9 @@ function bridgeChains(roads, terrain) {
 }
 
 export function buildRoads(world, terrain, renderer) {
+  // A separate, deterministic surface elevation also separates equal-priority roads
+  // at their overlapping OSM junctions (polygonOffset alone cannot do that).
+  const roadLifts = new Map(world.roads.map((r, i) => [r, 0.07 + r.order * 0.014 + i * 0.00004]));
   const chains = bridgeChains(world.roads, terrain);
   const texCache = new Map();
   const getTex = (key) => {
@@ -102,7 +106,7 @@ export function buildRoads(world, terrain, renderer) {
     const pts = resample(r.pts, 2.5);
     const n = pts.length;
     const hw = r.w / 2;
-    const lift = 0.07 + r.order * 0.014;
+    const lift = roadLifts.get(r);
 
     // comprimento acumulado
     const acc = [0];
@@ -221,6 +225,9 @@ export function buildRoads(world, terrain, renderer) {
     root.add(im);
   }
 
+  const sidewalks = buildCampusSidewalks(world, terrain, renderer, roadLifts);
+  root.add(sidewalks.root);
+
   const bridgeGrid = new SpatialGrid(16);
   for (const b of bridges)
     bridgeGrid.insertBox(b, Math.min(b.ax, b.bx) - b.hw, Math.min(b.az, b.bz) - b.hw, Math.max(b.ax, b.bx) + b.hw, Math.max(b.az, b.bz) + b.hw);
@@ -249,5 +256,173 @@ export function buildRoads(world, terrain, renderer) {
     return bd < 18 ? best : null;
   }
 
-  return { root, bridgeHeightAt, streetAt };
+  return { root, bridgeHeightAt, streetAt, sidewalkHeightAt: sidewalks.heightAt, sidewalkStats: sidewalks.stats };
+}
+
+function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
+  const root = new THREE.Group();
+  root.name = 'calcadas-cidade-de-deus';
+  const roads = world.roads.filter((r) => r.kind !== 'foot' && !r.bridge);
+  const footprints = new SpatialGrid(12), occupied = new SpatialGrid(8), surfaces = new SpatialGrid(8);
+  const sidewalkPos = [], sidewalkUv = [], sidewalkIdx = [], curbPos = [], curbColors = [], curbIdx = [];
+  const brickPos = [], brickUv = [], brickIdx = [], tactilePos = [], tactileIdx = [];
+  const whitePos = [], whiteIdx = [], yellowPos = [], yellowIdx = [];
+  const stats = { roads: 0, sidewalkArea: 0, curbMetres: 0, crossings: 0 };
+  const layout = new Map();
+  const bounds = (polygon) => {
+    const xs = polygon.map((p) => p[0]), zs = polygon.map((p) => p[1]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+  };
+  for (const r of roads) {
+    const frames = roadFrames(resampleRoad(r.pts, 1.2));
+    layout.set(r, frames);
+    for (let i = 1; i < frames.length; i++) {
+      const polygon = stripQuad(frames[i - 1], frames[i], -r.w / 2, r.w / 2);
+      const bb = bounds(polygon);
+      footprints.insertBox({ r, polygon, bb }, bb.x0, bb.z0, bb.x1, bb.z1);
+    }
+  }
+  const signedArea = (p) => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0) / 2;
+  const clipToRoads = (polygon, r, overlap = false) => {
+    const cx = polygon.reduce((s, p) => s + p[0], 0) / polygon.length, cz = polygon.reduce((s, p) => s + p[1], 0) / polygon.length;
+    let pieces = [polygon];
+    const bb = bounds(polygon);
+    const intersects = (other) => other.x1 > bb.x0 + 1e-7 && other.x0 < bb.x1 - 1e-7 && other.z1 > bb.z0 + 1e-7 && other.z0 < bb.z1 - 1e-7;
+    for (const obstacle of footprints.query(cx, cz, 5)) {
+      if (obstacle.r === r || !intersects(obstacle.bb)) continue;
+      pieces = pieces.flatMap((p) => subtractConvex(p, obstacle.polygon));
+      if (!pieces.length) break;
+    }
+    if (overlap) for (const obstacle of occupied.query(cx, cz, 5)) {
+      if (obstacle.r === r || !intersects(obstacle.bb)) continue;
+      pieces = pieces.flatMap((p) => subtractConvex(p, obstacle.polygon));
+      if (!pieces.length) break;
+    }
+    return pieces;
+  };
+  const addPolygon = (polygon, yAt, pos, idx, uv, color, reference) => {
+    if (polygon.length < 3 || Math.abs(signedArea(polygon)) < 1e-6) return;
+    // Fan triangles face upwards regardless of the road's direction or sidewalk side.
+    const p = signedArea(polygon) > 0 ? [...polygon].reverse() : polygon;
+    const base = pos.length / 3, vertices = [];
+    for (const [x, z] of p) {
+      const y = yAt(x, z); pos.push(x, y, z); vertices.push([x, y, z]);
+      if (uv) uv.push(x / 4, z / 4); // reference photo: roughly 1 m concrete slabs
+      if (color) curbColors.push(color.r, color.g, color.b);
+    }
+    for (let i = 1; i < p.length - 1; i++) {
+      idx.push(base, base + i, base + i + 1);
+      if (reference) {
+        const triangle = [vertices[0], vertices[i], vertices[i + 1]];
+        surfaces.insertBox(triangle, Math.min(...triangle.map((v) => v[0])), Math.min(...triangle.map((v) => v[2])), Math.max(...triangle.map((v) => v[0])), Math.max(...triangle.map((v) => v[2])));
+      }
+    }
+  };
+  const markedCrossings = [];
+  for (const r of roads.filter((r) => r.internal && r.name && !['parking_aisle', 'driveway'].includes(r.tags?.service))) {
+    const frames = layout.get(r), total = frames.at(-1)?.distance || 0;
+    if (total < 32) continue;
+    const crossings = [];
+    for (let at = Math.min(25, total / 2); at < total - 10; at += 85) {
+      const f = frames.reduce((best, q) => Math.abs(q.distance - at) < Math.abs(best.distance - at) ? q : best, frames[0]);
+      // Keep the crossing outside other carriageways, including a T junction.
+      if ([...footprints.query(f.x, f.z, 4)].some((o) => o.r !== r && o.polygon.some((p) => Math.hypot(p[0] - f.x, p[1] - f.z) < 4.2))) continue;
+      crossings.push(f.distance); markedCrossings.push({ r, f }); stats.crossings++;
+    }
+    r.sidewalkCrossings = crossings;
+  }
+  for (const r of roads.filter((r) => r.internal)) {
+    const frames = layout.get(r);
+    if (frames.length < 2) continue;
+    stats.roads++;
+    const width = r.tags?.service === 'parking_aisle' ? 1.4 : 2.5, hw = r.w / 2;
+    const lift = roadLifts.get(r), crossings = r.sidewalkCrossings || [];
+    const crossingFrames = crossings.map((at) => frames.reduce((best, q) => Math.abs(q.distance - at) < Math.abs(best.distance - at) ? q : best, frames[0]));
+    const sidewalkY = (x, z) => {
+      let distance = Infinity, lateral = Infinity;
+      for (const f of crossingFrames) {
+        const along = Math.abs((x - f.x) * f.tx + (z - f.z) * f.tz);
+        if (along < distance) { distance = along; lateral = Math.abs(-(x - f.x) * f.tz + (z - f.z) * f.tx) - hw; }
+      }
+      // A dropped kerb and shallow 1.5 m ramp at each zebra crossing.
+      const ramp = distance < 1.65 ? Math.min(1, Math.max(0, lateral / 1.5)) : 1;
+      return terrain.heightAt(x, z) + lift + 0.025 + 0.145 * ramp;
+    };
+    for (let i = 1; i < frames.length; i++) for (const side of [-1, 1]) {
+      const a = frames[i - 1], b = frames[i];
+      const sidewalk = stripQuad(a, b, side * (hw + 0.2), side * (hw + width));
+      for (const p of clipToRoads(sidewalk, r, true)) {
+        addPolygon(p, sidewalkY, sidewalkPos, sidewalkIdx, sidewalkUv, null, true);
+        stats.sidewalkArea += Math.abs(signedArea(p));
+      }
+      for (const p of clipToRoads(stripQuad(a, b, side * (hw + width - 0.16), side * (hw + width)), r, true))
+        addPolygon(p, (x, z) => sidewalkY(x, z) + 0.012, brickPos, brickIdx, brickUv);
+      const curb = stripQuad(a, b, side * hw, side * (hw + 0.2));
+      const color = new THREE.Color(Math.floor((a.distance + b.distance) / 2 / 1.1) % 2 ? 0x4b4b48 : 0xe6e3d9);
+      for (const p of clipToRoads(curb, r, true)) {
+        addPolygon(p, (x, z) => sidewalkY(x, z) + 0.005, curbPos, curbIdx, null, color, true);
+        // A physical kerb face, rather than a flat stripe painted into the ground.
+        for (let e = 0; e < p.length; e++) {
+          const pa = p[e], pb = p[(e + 1) % p.length], k = curbPos.length / 3;
+          const edgeL = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+          // Adjacent sections share their ends; emitting both caps causes flicker.
+          if (edgeL < 1e-5 || Math.abs((pb[0] - pa[0]) * a.tx + (pb[1] - pa[1]) * a.tz) < edgeL * 0.5) continue;
+          const ya = sidewalkY(...pa), yb = sidewalkY(...pb), bottomA = terrain.heightAt(...pa) + lift, bottomB = terrain.heightAt(...pb) + lift;
+          curbPos.push(pa[0], ya, pa[1], pb[0], yb, pb[1], pb[0], bottomB, pb[1], pa[0], bottomA, pa[1]);
+          for (let v = 0; v < 4; v++) curbColors.push(color.r, color.g, color.b);
+          curbIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+        }
+        stats.curbMetres += Math.abs(signedArea(p)) / 0.2;
+      }
+      for (const polygon of clipToRoads(stripQuad(a, b, side * hw, side * (hw + width)), r, true)) {
+        const bb = bounds(polygon);
+        occupied.insertBox({ r, polygon, bb }, bb.x0, bb.z0, bb.x1, bb.z1);
+      }
+    }
+    if (r.name && !['parking_aisle', 'driveway'].includes(r.tags?.service)) {
+      // Campus streets were all classified as service in OSM, losing their paint.
+      for (let i = 1; i < frames.length; i++) for (const offset of [-0.13, 0.13]) {
+        const a = frames[i - 1], b = frames[i];
+        if (crossings.some((at) => Math.abs((a.distance + b.distance) / 2 - at) < 2.1)) continue;
+        for (const p of clipToRoads(stripQuad(a, b, offset - 0.045, offset + 0.045), r))
+          addPolygon(p, (x, z) => terrain.heightAt(x, z) + lift + 0.018, yellowPos, yellowIdx);
+      }
+    }
+  }
+  for (const { r, f } of markedCrossings) {
+    const at = (along, across) => [f.x + f.tx * along - f.tz * across, f.z + f.tz * along + f.tx * across];
+    for (let across = -r.w / 2 + 0.25; across < r.w / 2 - 0.3; across += 0.85) {
+      addPolygon([at(-1.5, across), at(-1.5, across + 0.48), at(1.5, across + 0.48), at(1.5, across)], (x, z) => terrain.heightAt(x, z) + roadLifts.get(r) + 0.024, whitePos, whiteIdx);
+    }
+    for (const side of [-1, 1]) {
+      const inner = side * (r.w / 2 + 0.25), outer = side * (r.w / 2 + 0.75);
+      for (const p of clipToRoads([at(-0.55, inner), at(0.55, inner), at(0.55, outer), at(-0.55, outer)], r))
+        addPolygon(p, (x, z) => terrain.heightAt(x, z) + roadLifts.get(r) + 0.025 + 0.145 * Math.abs(-(x - f.x) * f.tz + (z - f.z) * f.tx - side * r.w / 2) / 1.5 + 0.014, tactilePos, tactileIdx);
+    }
+  }
+  const makeMesh = (name, pos, idx, mat, uv, colors) => {
+    if (!idx.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    if (colors) geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mat); mesh.name = name; mesh.receiveShadow = true;
+    root.add(mesh);
+  };
+  makeMesh('calcadas-lajes-concreto', sidewalkPos, sidewalkIdx, new THREE.MeshStandardMaterial({ map: pavementTexture(renderer), color: 0xe9dfc8, roughness: 0.94, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), sidewalkUv);
+  makeMesh('meios-fios-bicolor', curbPos, curbIdx, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }), null, curbColors);
+  makeMesh('bordas-tijolos-calcada', brickPos, brickIdx, new THREE.MeshStandardMaterial({ map: pavementTexture(renderer), color: 0xb89a82, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -3 }), brickUv.map((u) => u * 4));
+  makeMesh('piso-alerta-rampas', tactilePos, tactileIdx, new THREE.MeshStandardMaterial({ color: 0xdab74e, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
+  makeMesh('faixas-pedestres', whitePos, whiteIdx, new THREE.MeshStandardMaterial({ color: 0xf1eee2, roughness: 0.86, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+  makeMesh('eixos-amarelos-campus', yellowPos, yellowIdx, new THREE.MeshStandardMaterial({ color: 0xe7c347, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -3 }));
+  const heightAt = (x, z, maxY = Infinity) => {
+    let best = -Infinity;
+    for (const t of surfaces.query(x, z)) {
+      const y = triangleHeightAt(x, z, ...t);
+      if (y !== undefined && y <= maxY && y > best) best = y;
+    }
+    return best;
+  };
+  return { root, heightAt, stats };
 }

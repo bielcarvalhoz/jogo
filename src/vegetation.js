@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './rng.js';
 import { pointInPolygon } from './geo.js';
+import { createFoliageCloud, createFoliageMaterial, createSidewalkTrees } from './nature.js';
 
 // Árvores: as mapeadas no OSM (pontos e fileiras) + preenchimento por densidade em
 // matas, praças e áreas verdes reais + arborização de calçada. Tudo em InstancedMesh.
@@ -47,51 +49,45 @@ export function buildVegetation(world, masks, terrain, options = {}) {
     }
   }
 
-  // arborização de calçada nas ruas residenciais e avenidas
-  for (const r of world.roads) {
-    if (!['residential', 'tertiary', 'secondary', 'primary', 'unclassified'].includes(r.highway) || r.bridge) continue;
-    for (let i = 0; i < r.pts.length - 1; i++) {
-      const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
-      const L = Math.hypot(bx - ax, bz - az);
-      if (L < 1) continue;
-      const tx = (bx - ax) / L, tz = (bz - az) / L;
-      for (let s = rnd() * 10; s < L; s += 11 + rnd() * 8) {
-        for (const side of [1, -1]) {
-          if (rnd() > 0.32) continue;
-          const off = r.w / 2 + 1.5;
-          const x = ax + tx * s - tz * off * side, z = az + tz * s + tx * off * side;
-          if (!masks.tree.get(x, z)) add(x, z, 0.8);
-        }
-      }
-    }
-  }
+  // Ritmo regular nos passeios; máscara e vias transversais preservam as travessias.
+  const streetTrees = createSidewalkTrees(world.roads, {
+    existing: trees,
+    allowed: (x, z) => !excluded(x, z) && !masks.tree.get(x, z),
+    size: 0.9,
+  });
+  trees.push(...streetTrees.slice(0, Math.max(0, MAX_TREES - trees.length)));
 
-  const root = makeTreeMeshes(trees, terrain);
+  const root = makeTreeMeshes(trees, terrain, { quality: options.quality, sidewalkHeightAt: options.sidewalkHeightAt });
   root.name = 'vegetacao';
   return { root, count: trees.length };
 }
 
 // ---------------------------------------------------------------- malhas (reutilizadas pelo campus)
-let shared = null;
-function sharedAssets() {
-  if (shared) return shared;
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.22, 1, 6);
+const shared = new Map();
+function sharedAssets(cardCount, detail) {
+  const key = `${cardCount}:${detail}`;
+  if (shared.has(key)) return shared.get(key);
+  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.22, 1, detail ? 6 : 4);
   trunkGeo.translate(0, 0.5, 0);
-  const crownGeo = new THREE.IcosahedronGeometry(1, 1);
-  // deforma levemente a copa para não ficar uma bola perfeita
-  const pos = crownGeo.attributes.position;
-  const nr = mulberry32(9);
-  for (let i = 0; i < pos.count; i++) {
-    const k = 0.85 + nr() * 0.3;
-    pos.setXYZ(i, pos.getX(i) * k, pos.getY(i) * k * 0.85, pos.getZ(i) * k);
+  const wood = [trunkGeo];
+  for (let i = 0; detail && i < 3; i++) {
+    // Branch ends are enclosed by trunk/canopy; omitting caps halves their cost.
+    const branch = new THREE.CylinderGeometry(0.035, 0.11, 1, 3, 1, true);
+    branch.translate(0, 0.5, 0);
+    branch.rotateZ(-0.9);
+    branch.scale(1.05, 0.36, 1.05);
+    branch.rotateY(i / 3 * Math.PI * 2);
+    branch.translate(0, 0.65, 0);
+    wood.push(branch);
   }
-  crownGeo.computeVertexNormals();
-  shared = {
-    trunkGeo, crownGeo,
-    trunkMat: new THREE.MeshStandardMaterial({ color: 0x5b4330, roughness: 1 }),
-    crownMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }),
+  const assets = {
+    trunkGeo: mergeGeometries(wood), crownGeo: createFoliageCloud(cardCount),
+    trunkMat: new THREE.MeshStandardMaterial({ color: 0x796856, roughness: 1 }),
+    crownMat: createFoliageMaterial(),
   };
-  return shared;
+  wood.forEach((geometry) => geometry.dispose());
+  shared.set(key, assets);
+  return assets;
 }
 
 const GREENS = ['#3f6f2a', '#4c7d30', '#36622a', '#5a8a35', '#2f5a24', '#557a2e', '#6b8f3a'].map((c) => new THREE.Color(c));
@@ -101,8 +97,9 @@ const IPE = new THREE.Color('#d9579a'); // ipê-rosa florido
  * trees: [{ x, z, s (escala), r (rotação), v (0..1 variação), pink? }]
  * instâncias agrupadas em blocos de 250 m (frustum culling por bloco)
  */
-export function makeTreeMeshes(trees, terrain) {
-  const { trunkGeo, crownGeo, trunkMat, crownMat } = sharedAssets();
+export function makeTreeMeshes(trees, terrain, { quality = 'high', detail = false, sidewalkHeightAt } = {}) {
+  const cardCount = quality === 'low' ? (detail ? 40 : 16) : (detail ? 64 : 20);
+  const { trunkGeo, crownGeo, trunkMat, crownMat } = sharedAssets(cardCount, detail);
   const chunks = new Map();
   for (const t of trees) {
     const k = Math.floor(t.x / 250) + ',' + Math.floor(t.z / 250);
@@ -115,22 +112,41 @@ export function makeTreeMeshes(trees, terrain) {
   for (const list of chunks.values()) {
     const trunk = new THREE.InstancedMesh(trunkGeo, trunkMat, list.length);
     const crown = new THREE.InstancedMesh(crownGeo, crownMat, list.length);
+    const sidewalkTrees = list.filter((t) => t.sidewalk && Number.isFinite(sidewalkHeightAt?.(t.x, t.z)));
+    const soil = sidewalkTrees.length ? new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.06, 1.0), new THREE.MeshStandardMaterial({ color: 0x493b2c, roughness: 1 }), sidewalkTrees.length) : null;
+    if (soil) {
+      sidewalkTrees.forEach((t, i) => {
+        // Soil surface sits 4 cm above the finished pavement, not coplanar with it.
+        const top = sidewalkHeightAt(t.x, t.z);
+        m.compose(p.set(t.x, top + 0.01, t.z), q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.sidewalkYaw || 0), sc.set(1, 1, 1));
+        soil.setMatrixAt(i, m);
+      });
+      soil.name = 'canteiros-quadrados-arvores';
+      soil.receiveShadow = true;
+      soil.computeBoundingSphere();
+      root.add(soil);
+    }
     list.forEach((t, i) => {
-      const y = terrain.heightAt(t.x, t.z);
+      const walkY = t.sidewalk ? sidewalkHeightAt?.(t.x, t.z) : undefined;
+      const y = Number.isFinite(walkY) ? walkY : terrain.heightAt(t.x, t.z);
       const h = 2.4 * t.s;
       m.compose(p.set(t.x, y - 0.2, t.z), q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.r), sc.set(t.s, h + 0.6, t.s));
       trunk.setMatrixAt(i, m);
-      const cr = 2.0 * t.s;
-      m.compose(p.set(t.x, y + h + cr * 0.55, t.z), q, sc.set(cr, cr * (0.9 + t.v * 0.4), cr));
+      const cr = 2.15 * t.s;
+      m.compose(p.set(t.x, y + h + cr * 0.55, t.z), q, sc.set(cr * (1.05 + t.v * 0.2), cr * (0.75 + t.v * 0.25), cr));
       crown.setMatrixAt(i, m);
       if (t.pink) col.copy(IPE).offsetHSL(0, 0, (t.v - 0.5) * 0.08);
-      else col.copy(GREENS[Math.floor(t.v * GREENS.length)]).offsetHSL(0, 0, (t.v - 0.5) * 0.06);
+      else col.copy(GREENS[Math.min(GREENS.length - 1, Math.floor(t.v * GREENS.length))]).offsetHSL(0, 0, (t.v - 0.5) * 0.06);
       crown.setColorAt(i, col);
     });
     trunk.computeBoundingSphere();
     crown.computeBoundingSphere();
-    trunk.castShadow = crown.castShadow = true;
-    crown.receiveShadow = true;
+    // The campus retains detailed wood and sun shadows; the surrounding city
+    // uses compact silhouettes and no extra forest shadow passes.
+    trunk.castShadow = detail;
+    // Leaf cards shade their own cores in the shader, avoiding a second forest
+    // draw for every shadow cascade and preserving the mobile quality budget.
+    crown.castShadow = false;
     trunk.name = 'troncos';
     crown.name = 'copas';
     root.add(trunk, crown);
@@ -142,14 +158,13 @@ export function makeTreeMeshes(trees, terrain) {
 export function makePalmMeshes(palms, terrain) {
   const trunkGeo = new THREE.CylinderGeometry(0.17, 0.24, 1, 7);
   trunkGeo.translate(0, 0.5, 0);
-  const leaf = new THREE.ConeGeometry(0.5, 4.2, 4, 1);
-  leaf.translate(0, 2.1, 0);
-  leaf.rotateZ(-1.15);
+  // Frondes arqueadas e folíolos abertos, como as palmeiras dos jardins reais.
+  const leaf = palmFrond();
   const leaves = [];
   for (let k = 0; k < 8; k++) { const g = leaf.clone(); g.rotateY((k / 8) * Math.PI * 2); leaves.push(g); }
   const crownGeo = mergeLeaves(leaves);
   const trunk = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x9a9184, roughness: 0.9 }), palms.length);
-  const crown = new THREE.InstancedMesh(crownGeo, new THREE.MeshStandardMaterial({ color: 0x4f8a32, roughness: 0.9, flatShading: true }), palms.length);
+  const crown = new THREE.InstancedMesh(crownGeo, new THREE.MeshStandardMaterial({ color: 0x4f8a32, roughness: 0.9, flatShading: true, side: THREE.DoubleSide }), palms.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
   palms.forEach((pl, i) => {
     const y = terrain.heightAt(pl.x, pl.z);
@@ -164,6 +179,27 @@ export function makePalmMeshes(palms, terrain) {
   g.name = 'palmeiras';
   g.add(trunk, crown);
   return g;
+}
+
+function palmFrond() {
+  const positions = [];
+  const at = (t, side = 0) => [t * 4.2, Math.sin(t * Math.PI) * 0.65 - t * t * 1.6, side];
+  const triangle = (a, b, c) => positions.push(...a, ...b, ...c);
+  for (let i = 0; i < 10; i++) {
+    const t = i / 10, u = (i + 1) / 10, width = 0.075 * (1 - t) + 0.018;
+    const a = at(t, -width), b = at(t, width), c = at(u, width * 0.8), d = at(u, -width * 0.8);
+    triangle(a, c, b); triangle(a, d, c);
+  }
+  for (let i = 1; i < 14; i++) for (const side of [-1, 1]) {
+    const t = i / 15, base = at(t, side * 0.025), width = Math.sin(t * Math.PI) * 0.62;
+    const tip = at(t + 0.10, side * width); tip[1] -= 0.16;
+    const end = at(t + 0.06, side * 0.025);
+    triangle(base, tip, end);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 function mergeLeaves(geoms) {

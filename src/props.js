@@ -1,15 +1,14 @@
 import * as THREE from 'three';
 import { labelTexture } from './textures.js';
 import { ringCentroid, ringArea, SpatialGrid, distToSegment } from './geo.js';
+import { createWaterMaterial } from './nature.js';
 
 // Água, muros/grades, semáforos, rótulos de lugares e a "cortina" do limite do bairro.
 
 // ---------------------------------------------------------------- água
-export function buildWater(world, terrain) {
+export function buildWater(world, terrain, { quality = 'high' } = {}) {
   const root = new THREE.Group();
   root.name = 'agua';
-  const matPool = new THREE.MeshStandardMaterial({ color: 0x3bb0dc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.88 });
-  const matLake = new THREE.MeshStandardMaterial({ color: 0x2a6a8e, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.92 });
   const matEdgePool = new THREE.MeshStandardMaterial({ color: 0xdcd6ca, roughness: 0.8 });
   const matEdgeLake = new THREE.MeshStandardMaterial({ color: 0x5b6b45, roughness: 1 });
 
@@ -39,10 +38,11 @@ export function buildWater(world, terrain) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.computeVertexNormals();
-    // lago do campus: água esverdeada (lentilha-d'água), como nas imagens
-    const mat = a.waterColor ? new THREE.MeshStandardMaterial({ color: a.waterColor, roughness: 0.3, metalness: 0.05 }) : a.kind === 'pool' ? matPool : matLake;
+    // O lago mantém o verde-oliva das fotos; piscinas têm água turquesa.
+    // Um mapa de distância às margens também respeita ilhas e recortes do lago.
+    const mat = createWaterMaterial(a.rings, { pool: a.kind === 'pool', color: a.waterColor, quality });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.receiveShadow = true;
+    mesh.name = a.kind === 'pool' ? 'piscina-ondulacoes' : 'lago-ondulacoes';
     root.add(mesh);
 
     // borda (vai do espelho d'água até o chão)

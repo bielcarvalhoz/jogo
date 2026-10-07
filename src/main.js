@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { createProjection } from './geo.js';
-import { createTerrain } from './terrain.js';
+import { createTerrain, gradeCampusTerrain } from './terrain.js';
 import { parseWorld } from './world.js';
 import { paintGround, buildMasks } from './ground.js';
 import { buildRoads } from './roads.js';
@@ -13,6 +13,7 @@ import { createPlayer } from './player.js';
 import { createHud } from './hud.js';
 import { prepareCampus, buildCampus, campusQA } from './campus.js';
 import { createStyler } from './style.js';
+import { updateNature, buildCampusGrass } from './nature.js';
 import './style.css';
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +35,7 @@ const updateOrientation = () => document.body.classList.toggle('portrait', inner
 updateOrientation();
 
 async function main() {
+  const inspectionView = import.meta.env.DEV ? new URLSearchParams(location.search).get('inspect') : null;
   // ---------------------------------------------------------------- dados reais
   await status('Baixando dados do OpenStreetMap e relevo...');
   const base = import.meta.env.BASE_URL;
@@ -126,6 +128,7 @@ async function main() {
   world.bounds = terrain.bounds;
   const campusData = campusGeo ? prepareCampus(campusGeo, world, proj) : null;
   for (const a of world.areas) if (a.kind === 'water') a.waterLevel = terrain.carveWater(a.rings);
+  const grading = campusData ? gradeCampusTerrain(world, terrain, campusData) : null;
 
   await status('Pintando uso do solo, calçadas e rios...');
   const ground = paintGround(world, terrain.bounds, renderer, QUALITY.groundPx);
@@ -153,7 +156,7 @@ async function main() {
   let campus = null;
   if (campusData) {
     await status('Construindo o núcleo Cidade de Deus (portarias, muros, prédios)...');
-    campus = buildCampus(campusData, { scene, renderer, terrain, world, masks, quality: QUALITY.name });
+    campus = buildCampus(campusData, { scene, renderer, terrain, world, roads, masks, quality: QUALITY.name });
   }
 
   await status('Preenchendo quadras sem prédios mapeados (procedural)...');
@@ -163,11 +166,14 @@ async function main() {
   procRoot.name = 'predios-procedurais';
 
   await status('Plantando árvores...');
-  const veg = buildVegetation(world, masks, terrain, { exclude: campus ? [world.quarter] : [] });
+  const veg = buildVegetation(world, masks, terrain, { quality: QUALITY.name, sidewalkHeightAt: roads.sidewalkHeightAt, exclude: campus ? [world.quarter] : [] });
   scene.add(veg.root);
+  if (campusData) scene.add(buildCampusGrass(world, masks, terrain, {
+    quality: QUALITY.name, inside: (x, z) => !campusData.insideSolid(x, z),
+  }).root);
 
   await status('Água, muros, semáforos e placas...');
-  scene.add(buildWater(world, terrain));
+  scene.add(buildWater(world, terrain, { quality: QUALITY.name }));
   scene.add(buildBarriers(world, terrain, real));
   const signals = buildTrafficSignals(world, terrain);
   scene.add(signals.root);
@@ -229,7 +235,7 @@ async function main() {
   const player = createPlayer(camera, renderer.domElement, {
     terrain,
     bounds: terrain.bounds,
-    bridgeHeightAt: roads.bridgeHeightAt,
+    bridgeHeightAt: (x, z, maxY) => Math.max(roads.bridgeHeightAt(x, z, maxY), roads.sidewalkHeightAt(x, z, maxY), campus?.surfaceHeightAt(x, z, maxY) ?? -Infinity),
     collide: (x, z, r, feetY) => {
       [x, z] = real.collide(x, z, r, feetY);
       if (procOn) [x, z] = proc.collide(x, z, r, feetY);
@@ -253,7 +259,7 @@ async function main() {
   });
 
   $('stat-line').textContent =
-    `${campus ? campus.count + ' prédios no núcleo Cidade de Deus · ' + campus.trees + ' árvores reais · ' + campus.cars + ' carros · ' : ''}${real.count()} prédios do OSM · ${proc.count()} procedurais · ${world.roads.length} vias · relevo ${terrainData.min.toFixed(0)}–${terrainData.max.toFixed(0)} m`;
+    `${campus ? campus.count + ' prédios no núcleo Cidade de Deus · ' + campus.trees + ' árvores no campus · ' + campus.cars + ' carros · ' : ''}${real.count()} prédios do OSM · ${proc.count()} procedurais · ${world.roads.length} vias · relevo ${terrainData.min.toFixed(0)}–${terrainData.max.toFixed(0)} m`;
   $('places-list').innerHTML = places.map((p, i) => `<li><button data-i="${i}"><kbd class="only-desktop">${i + 1}</kbd>${p.name}</button></li>`).join('');
 
   // ---------------------------------------------------------------- estilo (cartoon por padrão)
@@ -356,12 +362,14 @@ async function main() {
   const timer = new THREE.Timer();
   const texel = (SH * 2) / sun.shadow.mapSize.x;
   const shadowCenter = new THREE.Vector3();
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   let frame = 0;
   renderer.setAnimationLoop((now) => {
     timer.update(now);
     const dt = timer.getDelta();
     const t = timer.getElapsed();
-    player.update(dt);
+    updateNature(t, motionPreference.matches);
+    if (!inspectionView) player.update(dt);
     skyMesh.position.copy(camera.position);
 
     // sombra acompanha o jogador (com "snap" ao texel para não tremular)
@@ -378,7 +386,10 @@ async function main() {
   });
 
   // acesso para depuração no console
-  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler, campusData, campusQA: () => campusData && campusQA(campusData) };
+  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler, campusData, roads, grading, campusQA: () => campusData && campusQA(campusData) };
+  if (import.meta.env.DEV) {
+    if (inspectionView) (await import('./inspection.js')).inspectScene(window.__cdd, inspectionView);
+  }
 }
 
 main().catch((err) => {
