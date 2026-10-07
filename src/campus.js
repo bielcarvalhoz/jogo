@@ -760,7 +760,7 @@ export function buildCampus(C, { scene, renderer, terrain, quality = 'high' }) {
     roofItems(b, outer, info.top, A);
 
     // rótulo
-    if (b.name) label(`${b.num ? String(b.num).padStart(2, '0') + ' · ' : ''}${b.name}`, A.cx, vols[vols.length - 1].top + 3, A.cz, b.name.startsWith('Fundação') ? '🎓' : b.name.startsWith('Espaço') ? '🌿' : b.name.startsWith('Museu') ? '🏛' : b.name.startsWith('Ginásio') ? '🏀' : b.name.includes('Heliponto') ? '🚁' : b.name.startsWith('Estacionamento') ? '🅿' : b.name.startsWith('Portaria') ? '🚧' : '🏦');
+    if (b.name && !b.gateBuilding) label(`${b.num ? String(b.num).padStart(2, '0') + ' · ' : ''}${b.name}`, A.cx, vols[vols.length - 1].top + 3, A.cz, b.name.startsWith('Fundação') ? '🎓' : b.name.startsWith('Espaço') ? '🌿' : b.name.startsWith('Museu') ? '🏛' : b.name.startsWith('Ginásio') ? '🏀' : b.name.includes('Heliponto') ? '🚁' : b.name.startsWith('Estacionamento') ? '🅿' : b.name.startsWith('Portaria') ? '🚧' : '🏦');
     specs.push({ b, info, A });
   }
 

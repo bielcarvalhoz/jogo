@@ -54,3 +54,54 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; margin-right: 3
 #bigmap { position: absolute; inset: 40px 20px 50px; width: calc(100% - 40px); height: calc(100% - 90px); cursor: crosshair; }
 .map-help { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 13px; }
 #map-close { position: absolute; top: 8px; right: 14px; background: none; border: 0; color: #fff; font-size: 22px; cursor: pointer; }
+
+/* ------------------------------------------------------------------ celular / toque */
+html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+#app canvas { touch-action: none; }
+.only-touch { display: none !important; }
+body.touch .only-touch { display: revert !important; }
+body.touch .only-desktop { display: none !important; }
+body.touch .touch-buttons.only-touch { display: flex !important; }
+body.touch #crosshair { display: none; }
+
+.places button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 3px 6px; margin: 1px -6px; border-radius: 6px; }
+.places button:hover, .places button:active { background: rgba(255, 201, 64, 0.15); }
+
+.touch-buttons { position: absolute; right: 14px; bottom: 34px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+.touch-buttons button { width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8); background: var(--bg); color: #fff; font-size: 22px; line-height: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
+body.flying #hud-mode { color: #4fc3f7; }
+
+/* aviso de girar o celular (retrato bloqueado em telas de toque) */
+#rotate { display: none; position: fixed; inset: 0; z-index: 60; background: radial-gradient(circle at 50% 40%, #1d2630, #0b0e12); color: #fff; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; }
+#rotate .phone { font-size: 64px; animation: girar 1.8s ease-in-out infinite; }
+#rotate .rotate-title { font-size: 24px; font-weight: 800; letter-spacing: 0.04em; }
+#rotate .rotate-sub { color: var(--muted); font-size: 15px; }
+@keyframes girar { 0%, 20% { transform: rotate(0deg); } 50%, 70% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+body.touch.portrait #rotate { display: flex; }
+
+/* telas baixas (celular deitado) */
+@media (max-height: 540px) {
+  .brand { font-size: 22px; }
+  .brand span { font-size: 11px; }
+  #overlay { padding: 8px; align-items: stretch; }
+  .card { padding: 12px 18px; max-height: calc(100vh - 16px); overflow-y: auto; border-radius: 12px; }
+  .card .sub { font-size: 12px; margin: 6px 0 2px; }
+  .card .stats { font-size: 11px; margin-bottom: 10px; }
+  #play { padding: 10px; font-size: 16px; }
+  .cols { margin-top: 10px; gap: 14px; grid-template-columns: 1.2fr 1fr; }
+  .controls { font-size: 12px; }
+  .controls li { margin: 4px 0; }
+  #hud .panel { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); min-width: 0; max-width: 46vw; padding: 7px 11px; border-radius: 10px; }
+  #hud .title { font-size: 9px; letter-spacing: 0.1em; }
+  #hud .street { font-size: 14px; margin: 2px 0 1px; }
+  #hud .zone { font-size: 11px; margin-bottom: 3px; }
+  #hud .row { font-size: 10px; }
+  #minimap { width: 118px; height: 118px; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); border-width: 2px; }
+  #hud-fps { top: 130px; right: 12px; font-size: 10px; }
+  .touch-buttons { right: max(12px, env(safe-area-inset-right)); bottom: 26px; }
+  .help { bottom: 10px; font-size: 11px; padding: 5px 10px; }
+  .attrib { font-size: 9px; bottom: 2px; }
+  #toast { top: 18%; font-size: 13px; padding: 7px 12px; }
+  #bigmap { inset: 30px 8px 34px; width: calc(100% - 16px); height: calc(100% - 64px); }
+  .map-help { bottom: 8px; font-size: 12px; }
+}

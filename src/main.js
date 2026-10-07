@@ -29,6 +29,10 @@ const QUALITY = IS_TOUCH
   ? { name: 'low', pixelRatio: Math.min(devicePixelRatio, 1.5), shadowMap: 1024, shadowExtent: 90, far: 1800, fog: [220, 1200], groundPx: 2048, detailPx: 2048, antialias: false }
   : { name: 'high', pixelRatio: Math.min(devicePixelRatio, 2), shadowMap: 4096, shadowExtent: 150, far: 3500, fog: [350, 1900], groundPx: 4096, detailPx: 4096, antialias: true };
 
+document.body.classList.toggle('touch', IS_TOUCH);
+const updateOrientation = () => document.body.classList.toggle('portrait', innerHeight > innerWidth);
+updateOrientation();
+
 async function main() {
   // ---------------------------------------------------------------- dados reais
   await status('Baixando dados do OpenStreetMap e relevo...');
@@ -250,7 +254,7 @@ async function main() {
 
   $('stat-line').textContent =
     `${campus ? campus.count + ' prédios no núcleo Cidade de Deus · ' + campus.trees + ' árvores reais · ' + campus.cars + ' carros · ' : ''}${real.count()} prédios do OSM · ${proc.count()} procedurais · ${world.roads.length} vias · relevo ${terrainData.min.toFixed(0)}–${terrainData.max.toFixed(0)} m`;
-  $('places-list').innerHTML = places.map((p, i) => `<li><kbd>${i + 1}</kbd> ${p.name}</li>`).join('');
+  $('places-list').innerHTML = places.map((p, i) => `<li><button data-i="${i}"><kbd class="only-desktop">${i + 1}</kbd>${p.name}</button></li>`).join('');
 
   // ---------------------------------------------------------------- estilo (cartoon por padrão)
   const styler = createStyler(scene, renderer, hemi);
@@ -261,12 +265,40 @@ async function main() {
   const overlay = $('overlay'), mapPanel = $('map-panel'), help = $('help');
   $('loading').classList.add('hidden');
   overlay.classList.remove('hidden');
-  $('play').addEventListener('click', () => player.start());
+  // início: mouse/teclado usa pointer lock; toque entra em tela cheia deitada
+  let touchSession = IS_TOUCH, lastTouchUp = 0;
+  const startGame = async (touch) => {
+    touchSession = touch;
+    if (touch) {
+      document.body.classList.add('touch');
+      try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { /* iOS não suporta */ }
+      try { await screen.orientation?.lock?.('landscape'); } catch { /* só funciona em tela cheia (Android) */ }
+    }
+    player.start(touch);
+  };
+  const isTouchEvent = (e) => e.pointerType === 'touch' || e.pointerType === 'pen';
+  $('play').addEventListener('pointerup', (e) => { if (isTouchEvent(e)) { lastTouchUp = Date.now(); startGame(true); } });
+  $('play').addEventListener('click', () => { if (Date.now() - lastTouchUp > 800) startGame(false); });
+  $('places-list').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-i]');
+    if (!b) return;
+    const p = places[+b.dataset.i];
+    player.placeAt(p.x, p.z, p.yaw);
+    startGame(isTouchEvent(e) || touchSession);
+    toast(`Teletransportado: ${p.name}`);
+  });
   player.events.addEventListener('lock', (e) => {
     overlay.classList.add('hidden');
     mapPanel.classList.remove('open');
-    if (e.detail.dragMode) toast('Modo arrastar: segure o botão do mouse e arraste para olhar');
+    if (e.detail.touch) toast('Arraste para olhar · toque duas vezes para voar');
+    else if (e.detail.dragMode) toast('Modo arrastar: segure o botão do mouse e arraste para olhar');
   });
+  player.events.addEventListener('fly', (e) => {
+    document.body.classList.toggle('flying', e.detail.flying);
+    toast(e.detail.flying ? '✈ Voando — olhe para baixo para descer · toque 2× para parar' : 'Pousando');
+  });
+  $('btn-map').addEventListener('click', () => openMap());
+  $('btn-menu').addEventListener('click', () => player.stop());
   player.events.addEventListener('unlock', () => { if (!mapPanel.classList.contains('open')) overlay.classList.remove('hidden'); });
 
   const toast = (msg) => {
@@ -278,7 +310,7 @@ async function main() {
   };
 
   const openMap = () => { mapPanel.classList.add('open'); overlay.classList.add('hidden'); player.stop(); };
-  const closeMap = (relock) => { mapPanel.classList.remove('open'); if (relock) player.start(); else overlay.classList.remove('hidden'); };
+  const closeMap = (relock) => { mapPanel.classList.remove('open'); if (relock) startGame(touchSession); else overlay.classList.remove('hidden'); };
   $('bigmap').addEventListener('click', (e) => {
     const w = hud.bigMapToWorld(e.clientX, e.clientY);
     if (!w) return;
@@ -312,6 +344,9 @@ async function main() {
   });
 
   addEventListener('resize', () => {
+    updateOrientation();
+    // celular em pé: pausa (o aviso de girar aparece por cima)
+    if (document.body.classList.contains('touch') && innerHeight > innerWidth && player.active) player.stop();
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
