@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cidade de Deus 3D · Osasco</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="loading">
+      <div class="brand">CIDADE DE DEUS <span>OSASCO · SP</span></div>
+      <div class="spinner"></div>
+      <div id="loading-text">Iniciando...</div>
+    </div>
+
+    <div id="overlay" class="hidden">
+      <div class="card">
+        <div class="brand">CIDADE DE DEUS <span>OSASCO · SP</span></div>
+        <p class="sub">Mapa 3D gerado a partir de dados reais do OpenStreetMap e relevo SRTM.</p>
+        <p id="stat-line" class="stats"></p>
+        <button id="play">▶ Clique para jogar</button>
+        <div class="cols">
+          <ul class="controls">
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</li>
+            <li><kbd>Mouse</kbd> olhar</li>
+            <li><kbd>Shift</kbd> correr</li>
+            <li><kbd>Espaço</kbd> pular</li>
+            <li><kbd>F</kbd> voo livre (<kbd>E</kbd>/<kbd>Q</kbd> sobe/desce)</li>
+            <li><kbd>M</kbd> mapa (clique para se teletransportar)</li>
+            <li><kbd>P</kbd> liga/desliga prédios procedurais</li>
+            <li><kbd>B</kbd> limite do bairro · <kbd>L</kbd> placas</li>
+            <li><kbd>T</kbd> cartoon / realista · <kbd>V</kbd> modo pixel</li>
+            <li><kbd>H</kbd> ajuda · <kbd>Esc</kbd> pausa</li>
+          </ul>
+          <div>
+            <div class="places-title">Teletransporte</div>
+            <ul id="places-list" class="controls"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud">
+      <div class="panel">
+        <div class="title">CIDADE DE DEUS · OSASCO/SP <span id="hud-mode">A PÉ</span></div>
+        <div id="hud-street" class="street">—</div>
+        <div id="hud-zone" class="zone">—</div>
+        <div class="row"><span>lat, lon</span><b id="hud-coords">—</b></div>
+        <div class="row"><span>altitude</span><b id="hud-alt">—</b></div>
+      </div>
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <div id="hud-fps"></div>
+      <div id="help" class="help">WASD andar · Shift correr · Espaço pular · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
+      <div id="crosshair"></div>
+      <div id="toast"></div>
+      <div class="attrib">Dados © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · Relevo: SRTM / Mapzen Terrarium</div>
+    </div>
+
+    <div id="map-panel">
+      <canvas id="bigmap"></canvas>
+      <div class="map-help">Clique no mapa para se teletransportar · <kbd>M</kbd> volta ao jogo · <kbd>Esc</kbd> pausa</div>
+      <button id="map-close">✕</button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

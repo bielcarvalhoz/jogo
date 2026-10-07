@@ -1,0 +1,21 @@
+{
+  "name": "cidade-de-deus-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/fetch-data.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "campus": "node scripts/build-campus.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "osmtogeojson": "^3.0.0-beta.5",
+    "pngjs": "^7.0.0",
+    "vite": "^8.3.3"
+  }
+}

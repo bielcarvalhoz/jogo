@@ -1,0 +1,1181 @@
+{
+ "type": "FeatureCollection",
+ "name": "Campus Cidade de Deus (detalhes)",
+ "source": "referência visual Google Earth 05/2024 (aproximado)",
+ "osmOverrides": {
+  "way/632090628": {
+   "kind": "building",
+   "name": "Prédio Rubi",
+   "height": 18,
+   "levels": 5,
+   "wall": "#f0eee9",
+   "roof": "#e3e3df",
+   "windows": "#2b3f55"
+  },
+  "way/643880242": {
+   "kind": "building",
+   "name": "Arena",
+   "height": 14,
+   "levels": 3,
+   "wall": "#e8e8e4",
+   "roof": "#cfd1cf",
+   "windows": "#3a4a5a",
+   "roofShape": "ribbed"
+  },
+  "way/549773522": {
+   "kind": "track"
+  },
+  "way/632090629": {
+   "kind": "court"
+  },
+  "way/632090630": {
+   "kind": "court"
+  },
+  "way/549773523": {
+   "kind": "lawn"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Prédio Prata",
+    "height": 18,
+    "levels": 5,
+    "wall": "#e6e8ea",
+    "roof": "#c4c8cb",
+    "windows": "#2b3f55",
+    "accent": "bandaCentral",
+    "accentColor": "#c8102e"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7743775,
+       -23.5482831
+      ],
+      [
+       -46.7733567,
+       -23.5480254
+      ],
+      [
+       -46.7732585,
+       -23.5483569
+      ],
+      [
+       -46.7742793,
+       -23.5486146
+      ],
+      [
+       -46.7743775,
+       -23.5482831
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "label": "Prédio do Heliponto",
+    "height": 22,
+    "levels": 6,
+    "wall": "#e4e6e8",
+    "roof": "#cfd3d6",
+    "windows": "#2c5a8f",
+    "accent": "moldura",
+    "accentColor": "#c8102e",
+    "roofShape": "heliport",
+    "helipadAt": 0.78
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7728273,
+       -23.5486583
+      ],
+      [
+       -46.7720438,
+       -23.5495739
+      ],
+      [
+       -46.7723207,
+       -23.5497757
+      ],
+      [
+       -46.7731042,
+       -23.5488601
+      ],
+      [
+       -46.7728273,
+       -23.5486583
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Prédio Cinza",
+    "height": 12,
+    "levels": 3,
+    "wall": "#a7adb2",
+    "roof": "#80868b",
+    "windows": "#26323f"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7748114,
+       -23.548422
+      ],
+      [
+       -46.7746021,
+       -23.5495175
+      ],
+      [
+       -46.7750846,
+       -23.549596
+      ],
+      [
+       -46.7752939,
+       -23.5485005
+      ],
+      [
+       -46.7748114,
+       -23.548422
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 9,
+    "levels": 2,
+    "wall": "#eeece6",
+    "roof": "#dcdcd7",
+    "windows": "#2b3f55"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7748134,
+       -23.5495496
+      ],
+      [
+       -46.7747147,
+       -23.5500662
+      ],
+      [
+       -46.7751586,
+       -23.5501384
+      ],
+      [
+       -46.7752573,
+       -23.5496218
+      ],
+      [
+       -46.7748134,
+       -23.5495496
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Bradesco Prime",
+    "height": 11,
+    "levels": 3,
+    "wall": "#f1efe9",
+    "roof": "#d3d3cf",
+    "windows": "#2b3f55"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7717837,
+       -23.5495048
+      ],
+      [
+       -46.771417,
+       -23.5494451
+      ],
+      [
+       -46.7713643,
+       -23.5497212
+      ],
+      [
+       -46.771731,
+       -23.5497809
+      ],
+      [
+       -46.7717837,
+       -23.5495048
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 10,
+    "levels": 3,
+    "wall": "#eeece6",
+    "roof": "#d8d8d4",
+    "windows": "#2b3f55"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.770444,
+       -23.549265
+      ],
+      [
+       -46.769991,
+       -23.549182
+      ],
+      [
+       -46.769954,
+       -23.549404
+      ],
+      [
+       -46.770406,
+       -23.549474
+      ],
+      [
+       -46.770444,
+       -23.549265
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "label": "Galpão",
+    "height": 12,
+    "levels": 2,
+    "wall": "#e6e6e2",
+    "roof": "#f2f2ef",
+    "windows": "#3a4a5a",
+    "roofShape": "ribbed"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.769728,
+       -23.548952
+      ],
+      [
+       -46.769049,
+       -23.548674
+      ],
+      [
+       -46.768785,
+       -23.549091
+      ],
+      [
+       -46.769539,
+       -23.549335
+      ],
+      [
+       -46.769728,
+       -23.548952
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "label": "Heliponto",
+    "height": 14,
+    "levels": 3,
+    "wall": "#eef0f2",
+    "roof": "#3b78c9",
+    "windows": "#2c5a8f",
+    "roofShape": "heliport",
+    "helipadAt": 0.5
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.769313,
+       -23.548187
+      ],
+      [
+       -46.768899,
+       -23.548013
+      ],
+      [
+       -46.768597,
+       -23.548187
+      ],
+      [
+       -46.768559,
+       -23.54857
+      ],
+      [
+       -46.769049,
+       -23.548639
+      ],
+      [
+       -46.769275,
+       -23.548465
+      ],
+      [
+       -46.769313,
+       -23.548187
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 12,
+    "levels": 3,
+    "wall": "#eeece6",
+    "roof": "#d6d6d2",
+    "windows": "#2b3f55"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7700402,
+       -23.547384
+      ],
+      [
+       -46.7694533,
+       -23.5475291
+      ],
+      [
+       -46.7695598,
+       -23.547896
+      ],
+      [
+       -46.7701467,
+       -23.5477509
+      ],
+      [
+       -46.7700402,
+       -23.547384
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Agência Bradesco 2856",
+    "height": 8,
+    "levels": 2,
+    "wall": "#f2f0ea",
+    "roof": "#d9d9d4",
+    "windows": "#2b3f55",
+    "accent": "faixa",
+    "accentColor": "#c8102e"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7720299,
+       -23.5463337
+      ],
+      [
+       -46.7717261,
+       -23.5463337
+      ],
+      [
+       -46.7717261,
+       -23.5466503
+      ],
+      [
+       -46.7720299,
+       -23.5466503
+      ],
+      [
+       -46.7720299,
+       -23.5463337
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Prédio Azul",
+    "height": 22,
+    "levels": 6,
+    "wall": "#eef1f4",
+    "roof": "#c9cfd6",
+    "windows": "#2f6db5",
+    "accent": "moldura",
+    "accentColor": "#2f6db5"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7709404,
+       -23.5463379
+      ],
+      [
+       -46.7704127,
+       -23.5466506
+      ],
+      [
+       -46.7705556,
+       -23.5468561
+      ],
+      [
+       -46.7710833,
+       -23.5465434
+      ],
+      [
+       -46.7709404,
+       -23.5463379
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Prédio Verde",
+    "height": 15,
+    "levels": 4,
+    "wall": "#eef1ee",
+    "roof": "#e9ebe8",
+    "windows": "#2e7d4f",
+    "roofShape": "ribbed",
+    "accent": "faixa",
+    "accentColor": "#2e8b57"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7674126,
+       -23.5461022
+      ],
+      [
+       -46.7667035,
+       -23.5463404
+      ],
+      [
+       -46.7668074,
+       -23.5466038
+      ],
+      [
+       -46.7675165,
+       -23.5463656
+      ],
+      [
+       -46.7674126,
+       -23.5461022
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": "Fundação Bradesco",
+    "height": 8,
+    "levels": 2,
+    "wall": "#f3efe6",
+    "roof": "#c9622f",
+    "windows": "#33475b",
+    "roofShape": "tile"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7718416,
+       -23.5449427
+      ],
+      [
+       -46.7713124,
+       -23.5449427
+      ],
+      [
+       -46.7713124,
+       -23.5454673
+      ],
+      [
+       -46.7718416,
+       -23.5454673
+      ],
+      [
+       -46.7718416,
+       -23.5449427
+      ]
+     ],
+     [
+      [
+       -46.771724,
+       -23.5450603
+      ],
+      [
+       -46.771724,
+       -23.5453497
+      ],
+      [
+       -46.77143,
+       -23.5453497
+      ],
+      [
+       -46.77143,
+       -23.5450603
+      ],
+      [
+       -46.771724,
+       -23.5450603
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 7,
+    "levels": 2,
+    "wall": "#f3efe6",
+    "roof": "#c55a2b",
+    "windows": "#33475b",
+    "roofShape": "pyramid"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7718212,
+       -23.5455383
+      ],
+      [
+       -46.7714488,
+       -23.5455383
+      ],
+      [
+       -46.7714488,
+       -23.5456377
+      ],
+      [
+       -46.7718212,
+       -23.5456377
+      ],
+      [
+       -46.7718212,
+       -23.5455383
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 7,
+    "levels": 2,
+    "wall": "#f3efe6",
+    "roof": "#c55a2b",
+    "windows": "#33475b",
+    "roofShape": "pyramid"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7718212,
+       -23.5457053
+      ],
+      [
+       -46.7714488,
+       -23.5457053
+      ],
+      [
+       -46.7714488,
+       -23.5458047
+      ],
+      [
+       -46.7718212,
+       -23.5458047
+      ],
+      [
+       -46.7718212,
+       -23.5457053
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 7,
+    "levels": 2,
+    "wall": "#f3efe6",
+    "roof": "#c55a2b",
+    "windows": "#33475b",
+    "roofShape": "pyramid"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7718212,
+       -23.5458723
+      ],
+      [
+       -46.7714488,
+       -23.5458723
+      ],
+      [
+       -46.7714488,
+       -23.5459717
+      ],
+      [
+       -46.7718212,
+       -23.5459717
+      ],
+      [
+       -46.7718212,
+       -23.5458723
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "building",
+    "name": null,
+    "height": 7,
+    "levels": 2,
+    "wall": "#f3efe6",
+    "roof": "#c55a2b",
+    "windows": "#33475b",
+    "roofShape": "pyramid"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7712775,
+       -23.545575
+      ],
+      [
+       -46.7712775,
+       -23.546199
+      ],
+      [
+       -46.7714245,
+       -23.546199
+      ],
+      [
+       -46.7714245,
+       -23.545575
+      ],
+      [
+       -46.7712775,
+       -23.545575
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "obelisk",
+    "name": "Obelisco",
+    "height": 28,
+    "base": 2.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.773893,
+     -23.5488
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "tent",
+    "name": null,
+    "radius": 24,
+    "sides": 8,
+    "wallHeight": 3.5,
+    "height": 13
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.769919,
+     -23.545852
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "pool"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7694982,
+       -23.545734
+      ],
+      [
+       -46.7695011,
+       -23.5457508
+      ],
+      [
+       -46.7695094,
+       -23.5457659
+      ],
+      [
+       -46.7695224,
+       -23.5457779
+      ],
+      [
+       -46.7695388,
+       -23.5457856
+      ],
+      [
+       -46.769557,
+       -23.5457883
+      ],
+      [
+       -46.7695752,
+       -23.5457856
+      ],
+      [
+       -46.7695916,
+       -23.5457779
+      ],
+      [
+       -46.7696046,
+       -23.5457659
+      ],
+      [
+       -46.7696129,
+       -23.5457508
+      ],
+      [
+       -46.7696158,
+       -23.545734
+      ],
+      [
+       -46.7696129,
+       -23.5457172
+      ],
+      [
+       -46.7696046,
+       -23.5457021
+      ],
+      [
+       -46.7695916,
+       -23.5456901
+      ],
+      [
+       -46.7695752,
+       -23.5456824
+      ],
+      [
+       -46.769557,
+       -23.5456797
+      ],
+      [
+       -46.7695388,
+       -23.5456824
+      ],
+      [
+       -46.7695224,
+       -23.5456901
+      ],
+      [
+       -46.7695094,
+       -23.5457021
+      ],
+      [
+       -46.7695011,
+       -23.5457172
+      ],
+      [
+       -46.7694982,
+       -23.545734
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "parking",
+    "angle": -12
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7748833,
+       -23.5476775
+      ],
+      [
+       -46.7739248,
+       -23.5474894
+      ],
+      [
+       -46.7738067,
+       -23.5480025
+      ],
+      [
+       -46.7747652,
+       -23.5481906
+      ],
+      [
+       -46.7748833,
+       -23.5476775
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "parking",
+    "angle": -10
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.7744952,
+       -23.5494238
+      ],
+      [
+       -46.7732599,
+       -23.5492228
+      ],
+      [
+       -46.7731408,
+       -23.5498462
+      ],
+      [
+       -46.7743761,
+       -23.5500472
+      ],
+      [
+       -46.7744952,
+       -23.5494238
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "parking",
+    "angle": 0
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.771424,
+       -23.54923
+      ],
+      [
+       -46.770444,
+       -23.54923
+      ],
+      [
+       -46.770444,
+       -23.549613
+      ],
+      [
+       -46.771424,
+       -23.549613
+      ],
+      [
+       -46.771424,
+       -23.54923
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "forest"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -46.771728,
+       -23.546826
+      ],
+      [
+       -46.770296,
+       -23.546409
+      ],
+      [
+       -46.769391,
+       -23.546757
+      ],
+      [
+       -46.767954,
+       -23.546965
+      ],
+      [
+       -46.767049,
+       -23.547452
+      ],
+      [
+       -46.769084,
+       -23.547452
+      ],
+      [
+       -46.769351,
+       -23.547978
+      ],
+      [
+       -46.770331,
+       -23.548257
+      ],
+      [
+       -46.77084,
+       -23.548452
+      ],
+      [
+       -46.770796,
+       -23.547131
+      ],
+      [
+       -46.771728,
+       -23.546826
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portaria",
+    "name": "Portaria R. Venceslau Brás"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.771147,
+     -23.550003
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portaria",
+    "name": "Portaria R. Aurora Soares Barbosa"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.772295,
+     -23.546572
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portaria",
+    "name": "Portaria R. Aurora Soares Barbosa",
+    "booth": false
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.772194,
+     -23.546337
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portaria",
+    "name": "Portaria Vila Yara"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.766712,
+     -23.547399
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portao"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.767148,
+     -23.547809
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "portao"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.767944,
+     -23.548666
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "source": "referência visual Google Earth 05/2024 (aproximado)",
+    "kind": "gate",
+    "type": "pedestre"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -46.773729,
+     -23.547431
+    ]
+   }
+  }
+ ]
+}
