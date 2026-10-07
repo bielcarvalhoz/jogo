@@ -39,7 +39,9 @@ export function buildWater(world, terrain) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, a.kind === 'pool' ? matPool : matLake);
+    // lago do campus: água esverdeada (lentilha-d'água), como nas imagens
+    const mat = a.waterColor ? new THREE.MeshStandardMaterial({ color: a.waterColor, roughness: 0.3, metalness: 0.05 }) : a.kind === 'pool' ? matPool : matLake;
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.receiveShadow = true;
     root.add(mesh);
 

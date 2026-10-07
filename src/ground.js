@@ -7,7 +7,10 @@ import { mulberry32 } from './rng.js';
 
 const AREA_STYLE = {
   residential: '#a29d8f',
-  campus: '#78a453',
+  campus: '#6f9a4b',
+  lawn: '#7cab55',
+  deck: '#d6c4a0',
+  tennis: '#3f8a5c',
   retail: '#a8a29a',
   industrial: '#9a958d',
   school: '#b2a88e',
@@ -27,16 +30,20 @@ const AREA_STYLE = {
   pool: '#39a3cf',
 };
 // ordem de pintura (o último fica por cima)
-const AREA_ORDER = ['campus', 'residential', 'retail', 'industrial', 'school', 'sports', 'grass', 'scrub', 'park', 'golf', 'wood', 'plaza', 'parking', 'playground', 'track', 'pitch', 'court', 'water', 'pool'];
+const AREA_ORDER = ['campus', 'residential', 'retail', 'industrial', 'school', 'sports', 'grass', 'scrub', 'park', 'golf', 'lawn', 'wood', 'plaza', 'deck', 'parking', 'playground', 'track', 'pitch', 'court', 'tennis', 'water', 'pool'];
 
 // áreas onde NÃO se inventa casa
-const NO_BUILD = new Set(['track', 'court', 'school', 'industrial', 'plaza', 'parking', 'grass', 'scrub', 'park', 'golf', 'sports', 'playground', 'pitch', 'wood', 'water', 'pool']);
+const NO_BUILD = new Set(['lawn', 'deck', 'tennis', 'track', 'court', 'school', 'industrial', 'plaza', 'parking', 'grass', 'scrub', 'park', 'golf', 'sports', 'playground', 'pitch', 'wood', 'water', 'pool']);
 // áreas onde NÃO nasce árvore espontânea
-const NO_TREE = new Set(['track', 'court', 'plaza', 'parking', 'playground', 'pitch', 'water', 'pool']);
+const NO_TREE = new Set(['deck', 'tennis', 'track', 'court', 'plaza', 'parking', 'playground', 'pitch', 'water', 'pool']);
 
-export function paintGround(world, bounds, renderer) {
+/**
+ * Pinta o retângulo `bounds` ({x0, z0, width, depth}, em metros) numa textura de até
+ * `maxPx` px no lado maior. Usado para o mapa inteiro e, em alta resolução, só para o campus.
+ */
+export function paintGround(world, bounds, renderer, maxPx = 4096) {
   const { x0, z0, width, depth } = bounds;
-  const s = Math.min(4096 / width, 4096 / depth); // px por metro
+  const s = Math.min(maxPx / width, maxPx / depth); // px por metro
   const W = Math.round(width * s), H = Math.round(depth * s);
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
@@ -59,12 +66,11 @@ export function paintGround(world, bounds, renderer) {
   g.fillStyle = '#948f78';
   g.fillRect(0, 0, W, H);
   // variação de larga escala
-  const rnd = mulberry32(2024);
-  for (let i = 0; i < 900; i++) {
-    const x = rnd() * W, y = rnd() * H, r = (8 + rnd() * 40) * s;
-    const green = rnd() < 0.55;
-    g.fillStyle = green ? `rgba(95,130,60,${0.10 + rnd() * 0.15})` : `rgba(150,135,110,${0.10 + rnd() * 0.15})`;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  for (const b of worldBlobs(world)) {
+    const [x, y] = P([b.x, b.z]);
+    if (x < -b.r * s || y < -b.r * s || x > W + b.r * s || y > H + b.r * s) continue;
+    g.fillStyle = b.color;
+    g.beginPath(); g.arc(x, y, b.r * s, 0, Math.PI * 2); g.fill();
   }
 
   g.lineJoin = 'round';
@@ -74,9 +80,15 @@ export function paintGround(world, bounds, renderer) {
   for (const kind of AREA_ORDER)
     for (const a of world.areas) {
       if (a.kind !== kind) continue;
-      g.fillStyle = AREA_STYLE[kind];
+      g.fillStyle = a.color || AREA_STYLE[kind];
       pathRings(g, a.rings, s, P);
       g.fill('evenodd');
+      if (kind === 'tennis') {
+        // quadra de tênis: piso verde com faixa externa vermelha
+        g.strokeStyle = '#b8573a';
+        g.lineWidth = 3.2 * s;
+        g.stroke();
+      }
       if (kind === 'golf') {
         // faixas de corte da grama
         g.save(); g.clip('evenodd');
@@ -90,7 +102,7 @@ export function paintGround(world, bounds, renderer) {
         g.lineWidth = Math.max(1, 0.08 * s);
         for (const lane of a.lanes) { pathRings(g, [lane], s, P); g.stroke(); }
       }
-      if (kind === 'pitch' || kind === 'court') {
+      if (kind === 'pitch' || kind === 'court' || kind === 'tennis') {
         g.strokeStyle = 'rgba(255,255,255,0.85)';
         g.lineWidth = Math.max(1, 0.15 * s);
         pathRings(g, [a.rings[0]], s, P);
@@ -109,6 +121,17 @@ export function paintGround(world, bounds, renderer) {
         g.stroke();
       }
     }
+
+  // linhas extras pintadas no chão (vagas de estacionamento, marcações)
+  for (const e of world.paintExtras || []) {
+    g.strokeStyle = e.color;
+    g.lineWidth = Math.max(1, e.width * s);
+    g.lineCap = 'butt';
+    g.beginPath();
+    for (const [a, b] of e.segments) { const [x1, y1] = P(a), [x2, y2] = P(b); g.moveTo(x1, y1); g.lineTo(x2, y2); }
+    g.stroke();
+    g.lineCap = 'round';
+  }
 
   // rios e córregos a céu aberto
   for (const w of world.waterways) {
@@ -159,6 +182,23 @@ export function paintGround(world, bounds, renderer) {
 }
 
 // ---------------------------------------------------------------- máscaras de ocupação
+// manchas de variação do chão, em coordenadas do mundo (as mesmas em qualquer textura)
+let blobCache = null;
+function worldBlobs(world) {
+  if (blobCache) return blobCache;
+  const rnd = mulberry32(2024);
+  const b = world.bounds;
+  blobCache = [];
+  for (let i = 0; i < 900; i++) {
+    const green = rnd() < 0.55;
+    blobCache.push({
+      x: b.x0 + rnd() * b.width, z: b.z0 + rnd() * b.depth, r: 8 + rnd() * 40,
+      color: green ? `rgba(95,130,60,${0.10 + rnd() * 0.15})` : `rgba(150,135,110,${0.10 + rnd() * 0.15})`,
+    });
+  }
+  return blobCache;
+}
+
 export function buildMasks(world, bounds) {
   const { x0, z0, width, depth } = bounds;
   const W = Math.ceil(width), H = Math.ceil(depth);

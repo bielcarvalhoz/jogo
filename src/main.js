@@ -11,7 +11,7 @@ import { buildVegetation } from './vegetation.js';
 import { buildWater, buildBarriers, buildTrafficSignals, buildLabels, buildQuarterBoundary } from './props.js';
 import { createPlayer } from './player.js';
 import { createHud } from './hud.js';
-import { prepareCampus, buildCampus } from './campus.js';
+import { prepareCampus, buildCampus, campusQA } from './campus.js';
 import { createStyler } from './style.js';
 import './style.css';
 
@@ -22,6 +22,12 @@ const status = async (msg) => {
   // deixa o navegador pintar a mensagem (sem travar se a aba estiver em segundo plano)
   await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 50); });
 };
+
+// qualidade gráfica: celulares/tablets usam um perfil mais leve
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+const QUALITY = IS_TOUCH
+  ? { name: 'low', pixelRatio: Math.min(devicePixelRatio, 1.5), shadowMap: 1024, shadowExtent: 90, far: 1800, fog: [220, 1200], groundPx: 2048, detailPx: 2048, antialias: false }
+  : { name: 'high', pixelRatio: Math.min(devicePixelRatio, 2), shadowMap: 4096, shadowExtent: 150, far: 3500, fog: [350, 1900], groundPx: 4096, detailPx: 4096, antialias: true };
 
 async function main() {
   // ---------------------------------------------------------------- dados reais
@@ -49,8 +55,8 @@ async function main() {
   const proj = createProjection(lon0, lat0);
 
   // ---------------------------------------------------------------- renderer / cena
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ antialias: QUALITY.antialias, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(QUALITY.pixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -60,7 +66,7 @@ async function main() {
   $('app').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 3500);
+  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, QUALITY.far);
 
   // céu + sol (hemisfério sul: o sol fica ao norte, ou seja, para -z)
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(40), Math.PI - 0.55);
@@ -96,13 +102,13 @@ async function main() {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.9;
-  scene.fog = new THREE.Fog(0xcbd8e2, 350, 1900);
+  scene.fog = new THREE.Fog(0xcbd8e2, QUALITY.fog[0], QUALITY.fog[1]);
 
   const sun = new THREE.DirectionalLight(0xfff0d8, 3.2);
   sun.castShadow = true;
-  const SH = 150;
+  const SH = QUALITY.shadowExtent;
   Object.assign(sun.shadow.camera, { left: -SH, right: SH, top: SH, bottom: -SH, near: 10, far: 1200 });
-  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.mapSize.set(QUALITY.shadowMap, QUALITY.shadowMap);
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
@@ -113,13 +119,22 @@ async function main() {
   await status('Gerando relevo real (SRTM)...');
   const terrain = createTerrain(terrainData, proj);
   const world = parseWorld(geojson, proj);
+  world.bounds = terrain.bounds;
   const campusData = campusGeo ? prepareCampus(campusGeo, world, proj) : null;
   for (const a of world.areas) if (a.kind === 'water') a.waterLevel = terrain.carveWater(a.rings);
 
   await status('Pintando uso do solo, calçadas e rios...');
-  const ground = paintGround(world, terrain.bounds, renderer);
+  const ground = paintGround(world, terrain.bounds, renderer, QUALITY.groundPx);
   const { mesh: terrainMesh, skirt } = terrain.buildMesh(ground.texture);
   scene.add(terrainMesh, skirt);
+  if (campusData) {
+    // chão do campus em alta resolução (vagas, quadras, raias, gramados)
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const [x, z] of world.quarter[0]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+    const rect = { x0: minX - 40, z0: minZ - 40, width: maxX - minX + 80, depth: maxZ - minZ + 80 };
+    const detail = paintGround(world, rect, renderer, QUALITY.detailPx);
+    scene.add(terrain.buildDetailMesh(rect, detail.texture));
+  }
   const masks = buildMasks(world, terrain.bounds);
 
   await status(`Traçando ${world.roads.length} vias...`);
@@ -134,7 +149,7 @@ async function main() {
   let campus = null;
   if (campusData) {
     await status('Construindo o núcleo Cidade de Deus (portarias, muros, prédios)...');
-    campus = buildCampus(campusData, { scene, renderer, terrain, world, masks });
+    campus = buildCampus(campusData, { scene, renderer, terrain, world, masks, quality: QUALITY.name });
   }
 
   await status('Preenchendo quadras sem prédios mapeados (procedural)...');
@@ -144,7 +159,7 @@ async function main() {
   procRoot.name = 'predios-procedurais';
 
   await status('Plantando árvores...');
-  const veg = buildVegetation(world, masks, terrain);
+  const veg = buildVegetation(world, masks, terrain, { exclude: campus ? [world.quarter] : [] });
   scene.add(veg.root);
 
   await status('Água, muros, semáforos e placas...');
@@ -234,7 +249,7 @@ async function main() {
   });
 
   $('stat-line').textContent =
-    `${real.count()} prédios do OSM · ${campus ? campus.count + ' no núcleo Cidade de Deus · ' : ''}${proc.count()} procedurais · ${world.roads.length} vias · ${veg.count} árvores · relevo ${terrainData.min.toFixed(0)}–${terrainData.max.toFixed(0)} m`;
+    `${campus ? campus.count + ' prédios no núcleo Cidade de Deus · ' + campus.trees + ' árvores reais · ' + campus.cars + ' carros · ' : ''}${real.count()} prédios do OSM · ${proc.count()} procedurais · ${world.roads.length} vias · relevo ${terrainData.min.toFixed(0)}–${terrainData.max.toFixed(0)} m`;
   $('places-list').innerHTML = places.map((p, i) => `<li><kbd>${i + 1}</kbd> ${p.name}</li>`).join('');
 
   // ---------------------------------------------------------------- estilo (cartoon por padrão)
@@ -320,7 +335,7 @@ async function main() {
     sun.position.copy(shadowCenter).addScaledVector(sunDir, 500);
 
     signals.update(t);
-    campus?.update(dt, player.feet);
+    campus?.update(dt, player.feet, t);
     boundary.userData.update?.(t);
     if (frame++ % 10 === 0) labels.update(camera.position);
     hud.update(t, dt, player.feet, player.yaw, player.fly);
@@ -328,7 +343,7 @@ async function main() {
   });
 
   // acesso para depuração no console
-  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler };
+  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler, campusData, campusQA: () => campusData && campusQA(campusData) };
 }
 
 main().catch((err) => {
