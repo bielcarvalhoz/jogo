@@ -189,7 +189,19 @@ export function pixelFacade(renderer, windowColor = '#2b3f55', kind = 'office') 
   const c = canvas(16, 16), g = c.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, 16, 16);
   g.fillStyle = '#e4e4e4'; g.fillRect(0, 14, 16, 2); // laje
-  if (kind === 'school') {
+  if (kind === 'garage') {
+    // garagem: vão horizontal aberto + pilar
+    g.fillStyle = '#3a3f44'; g.fillRect(0, 4, 16, 7);
+    g.fillStyle = '#ffffff'; g.fillRect(0, 4, 2, 7);
+    g.fillStyle = '#c8102e'; g.fillRect(0, 12, 16, 1);
+  } else if (kind === 'pavilion') {
+    // pavilhão: pano de vidro do piso ao teto com montantes metálicos
+    g.fillStyle = '#4b5a63'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = windowColor; g.fillRect(1, 1, 14, 13);
+    g.fillStyle = shade(windowColor, 1.8); g.fillRect(1, 1, 5, 1); g.fillRect(1, 2, 1, 4);
+    g.fillStyle = '#4b5a63'; g.fillRect(7, 1, 2, 13);
+    g.fillStyle = '#8d6e4f'; g.fillRect(0, 14, 16, 2); // madeira plástica
+  } else if (kind === 'school') {
     g.fillStyle = '#8a6a4a'; g.fillRect(4, 4, 8, 7);
     g.fillStyle = windowColor; g.fillRect(5, 5, 6, 5);
     g.fillStyle = '#ffffff'; g.fillRect(7, 5, 1, 5);

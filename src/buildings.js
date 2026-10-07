@@ -171,6 +171,118 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
     }
   }
 
+  /** desloca um anel para dentro (d > 0) ou para fora (d < 0) do seu próprio interior */
+  function offsetRing(ring, d) {
+    const n = ring.length, sign = Math.sign(ringArea(ring)) || 1;
+    const inN = (a, b) => { const ex = b[0] - a[0], ez = b[1] - a[1], L = Math.hypot(ex, ez) || 1; return sign > 0 ? [-ez / L, ex / L] : [ez / L, -ex / L]; };
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const p0 = ring[(i - 1 + n) % n], p1 = ring[i], p2 = ring[(i + 1) % n];
+      const n1 = inN(p0, p1), n2 = inN(p1, p2);
+      let bx = n1[0] + n2[0], bz = n1[1] + n2[1];
+      const bl = Math.hypot(bx, bz) || 1; bx /= bl; bz /= bl;
+      const k = d / Math.max(0.35, bx * n1[0] + bz * n1[1]);
+      out.push([p1[0] + bx * k, p1[1] + bz * k]);
+    }
+    return out;
+  }
+  function simpleRing(ring) {
+    const n = ring.length;
+    for (let i = 0; i < n; i++)
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        const [a, b] = [ring[i], ring[(i + 1) % n]], [c, d] = [ring[j], ring[(j + 1) % n]];
+        const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+        if (Math.abs(den) < 1e-12) continue;
+        const t = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den;
+        const u = ((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / den;
+        if (t > 0 && t < 1 && u > 0 && u < 1) return false;
+      }
+    return true;
+  }
+  /** retângulo orientado (eixo da aresta mais longa) e quanto da área ele ocupa */
+  function obbOf(ring) {
+    let best = 0, ux = 1, uz = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % ring.length];
+      const L = Math.hypot(bx - ax, bz - az);
+      if (L > best) { best = L; ux = (bx - ax) / L; uz = (bz - az) / L; }
+    }
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const [x, z] of ring) { const u = x * ux + z * uz, v = -x * uz + z * ux; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const at = (u, v) => [u * ux - v * uz, u * uz + v * ux];
+    return { ux, uz, u0, u1, v0, v1, at, fill: Math.abs(ringArea(ring)) / ((u1 - u0) * (v1 - v0) || 1) };
+  }
+  /** telhado de 4 águas sobre o retângulo orientado (cerâmica) + forro por baixo */
+  function addHipRoofOBB(g, ring, y, color) {
+    const o = obbOf(ring);
+    let L = o.u1 - o.u0, W = o.v1 - o.v0, uc = (o.u0 + o.u1) / 2, vc = (o.v0 + o.v1) / 2;
+    let along = true;
+    if (W > L) { along = false; }
+    const half = Math.min(L, W) / 2, rise = Math.min(4.5, half * 0.58);
+    const P = (u, v, h = 0) => { const [x, z] = o.at(u, v); return [x, y + h, z]; };
+    const A = P(o.u0, o.v0), B = P(o.u1, o.v0), Cc = P(o.u1, o.v1), D = P(o.u0, o.v1);
+    let R1, R2;
+    if (along) { R1 = P(o.u0 + half, vc, rise); R2 = P(o.u1 - half, vc, rise); }
+    else { R1 = P(uc, o.v0 + half, rise); R2 = P(uc, o.v1 - half, rise); }
+    const face = (pts) => {
+      // normal média para cima
+      const [p0, p1, p2] = pts;
+      v3a.set(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]);
+      v3b.set(p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]);
+      const nrm = new THREE.Vector3().crossVectors(v3a, v3b);
+      if (nrm.y < 0) nrm.negate();
+      for (let i = 1; i < pts.length - 1; i++) pushTri(g, pts[0], pts[i], pts[i + 1], [pts[0][0] / 2, pts[0][2] / 2], [pts[i][0] / 2, pts[i][2] / 2], [pts[i + 1][0] / 2, pts[i + 1][2] / 2], color, nrm);
+    };
+    if (along) { face([A, B, R2, R1]); face([Cc, D, R1, R2]); face([B, Cc, R2]); face([D, A, R1]); }
+    else { face([B, Cc, R2, R1]); face([D, A, R1, R2]); face([A, B, R1]); face([Cc, D, R2]); }
+    // forro (visto de baixo, onde o telhado avança além das paredes)
+    pushTri(g, A, Cc, B, [0, 0], [0, 0], [0, 0], color, DOWN);
+    pushTri(g, A, D, Cc, [0, 0], [0, 0], [0, 0], color, DOWN);
+    return rise;
+  }
+  /** telhado de 4 águas que acompanha a planta (inclusive pátio interno) */
+  function addHipRoofInset(g, rings, y, color) {
+    const outer = rings[0];
+    // largura útil: menor distância entre bordas opostas (aprox. pelo retângulo e pelo pátio)
+    let width = Math.min(obbOf(outer).u1 - obbOf(outer).u0, obbOf(outer).v1 - obbOf(outer).v0);
+    if (rings.length > 1) {
+      let dmin = Infinity;
+      for (const [x, z] of rings[1]) for (let i = 0; i < outer.length; i++) {
+        const [ax, az] = outer[i], [bx, bz] = outer[(i + 1) % outer.length];
+        const ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez || 1;
+        const t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / l2));
+        dmin = Math.min(dmin, Math.hypot(x - ax - ex * t, z - az - ez * t));
+      }
+      width = Math.min(width, dmin);
+    }
+    for (let s = width * 0.46; s > 0.8; s *= 0.6) {
+      const inner = offsetRing(outer, s);
+      const holes = rings.slice(1).map((h) => offsetRing(h, -s));
+      if (!simpleRing(inner) || holes.some((h) => !simpleRing(h))) continue;
+      if (Math.sign(ringArea(inner)) !== Math.sign(ringArea(outer))) continue;
+      const rise = Math.min(4.5, s * 0.58);
+      const strip = (a, b, upward) => {
+        for (let i = 0; i < a.length; i++) {
+          const j = (i + 1) % a.length;
+          const p0 = [a[i][0], y, a[i][1]], p1 = [a[j][0], y, a[j][1]], q0 = [b[i][0], y + rise, b[i][1]], q1 = [b[j][0], y + rise, b[j][1]];
+          v3a.set(p1[0] - p0[0], 0, p1[2] - p0[2]);
+          v3b.set(q0[0] - p0[0], rise, q0[2] - p0[2]);
+          const nrm = new THREE.Vector3().crossVectors(v3a, v3b);
+          if (nrm.y < 0) nrm.negate();
+          pushTri(g, p0, p1, q1, [p0[0] / 2, p0[2] / 2], [p1[0] / 2, p1[2] / 2], [q1[0] / 2, q1[2] / 2], color, nrm);
+          pushTri(g, p0, q1, q0, [p0[0] / 2, p0[2] / 2], [q1[0] / 2, q1[2] / 2], [q0[0] / 2, q0[2] / 2], color, nrm);
+        }
+      };
+      strip(outer, inner);
+      rings.slice(1).forEach((h, k) => strip(h, holes[k]));
+      addFlatRoof(g, [inner, ...holes], y + rise, color);
+      return rise;
+    }
+    addFlatRoof(g, rings, y, color);
+    return 0;
+  }
+
   function add(spec) {
     const outer = spec.rings[0];
     if (outer.length < 3) return;
@@ -180,6 +292,8 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
     for (const [x, z] of outer) sample(x, z);
     const [cx, cz] = ringCentroid([...outer, outer[0]]);
     sample(cx, cz);
+    // volume apoiado sobre outro (ex.: torre sobre embasamento): chão fixo
+    if (spec.groundY !== undefined) { gMin = gMax = spec.groundY; }
 
     chunk = Math.floor(cx / CHUNK) + ',' + Math.floor(cz / CHUNK);
     const outerSign = Math.sign(ringArea(outer)) || 1;
@@ -205,7 +319,13 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
     // pátios internos: a parede "externa" aponta para dentro do furo
     for (let h = 1; h < spec.rings.length; h++) addWalls(g, spec.rings[h], -(Math.sign(ringArea(spec.rings[h])) || 1), y0, top, gMin, bayOf(style), spec.floorH || floorOf(style), color);
 
-    if (spec.roofShape === 'pyramid' && spec.rings.length === 1 && outer.length <= 10 && isConvex(outer)) {
+    if (spec.noRoof) {
+      // cobertura feita fora do builder (ex.: tenda do ginásio)
+    } else if (spec.roofShape === 'hip') {
+      const o = obbOf(outer);
+      if (spec.rings.length === 1 && o.fill > 0.72) addHipRoofOBB(G('roofTile'), outer, top, roofColor);
+      else addHipRoofInset(G('roofTile'), spec.rings, top, roofColor);
+    } else if (spec.roofShape === 'pyramid' && spec.rings.length === 1 && outer.length <= 10 && isConvex(outer)) {
       let minDim = Infinity;
       for (const [x, z] of outer) minDim = Math.min(minDim, Math.hypot(x - cx, z - cz));
       addPyramidRoof(G('roofTile'), outer, top, Math.min(2.4, Math.max(0.8, minDim * 0.55)), roofColor);

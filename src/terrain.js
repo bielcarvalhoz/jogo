@@ -33,25 +33,44 @@ export function createTerrain(data, proj) {
   }
 
   /**
-   * Lagos: o nível da água é o ponto mais baixo da margem; o fundo é escavado abaixo
-   * disso. Assim a água nunca flutua sobre a margem nem some dentro do terreno.
+   * Lagos: nível = média da margem. O fundo é escavado e uma faixa de BAND metros em volta
+   * é nivelada suavemente até o nível da margem (desce o lado alto, aterra o lado baixo),
+   * para a água não flutuar nem aparecer "espinhos" de relevo em volta.
    * Precisa rodar antes de qualquer coisa consultar heightAt().
    */
-  function carveWater(rings) {
+  function carveWater(rings, { band = 10, depth = 1.0, bank = 0.25 } = {}) {
     const outer = rings[0];
-    let level = Infinity;
+    let sum = 0, cnt = 0;
     for (let k = 0; k < outer.length; k++) {
       const [ax, az] = outer[k], [bx, bz] = outer[(k + 1) % outer.length];
       const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 2));
-      for (let s = 0; s < n; s++) level = Math.min(level, heightAt(ax + ((bx - ax) * s) / n, az + ((bz - az) * s) / n));
+      for (let s = 0; s < n; s++) { sum += heightAt(ax + ((bx - ax) * s) / n, az + ((bz - az) * s) / n); cnt++; }
     }
+    const level = sum / cnt - 0.3;
+    const edgeDist = (x, z) => {
+      let d = Infinity;
+      for (let k = 0; k < outer.length; k++) {
+        const [ax, az] = outer[k], [bx, bz] = outer[(k + 1) % outer.length];
+        const ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez || 1;
+        const t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / l2));
+        d = Math.min(d, Math.hypot(x - ax - ex * t, z - az - ez * t));
+      }
+      return d;
+    };
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const [x, z] of outer) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
-    const i0 = Math.max(0, Math.floor((minX - x0) / dx)), i1 = Math.min(nx - 1, Math.ceil((maxX - x0) / dx));
-    const j0 = Math.max(0, Math.floor((minZ - z0) / dz)), j1 = Math.min(ny - 1, Math.ceil((maxZ - z0) / dz));
+    const i0 = Math.max(0, Math.floor((minX - band - x0) / dx)), i1 = Math.min(nx - 1, Math.ceil((maxX + band - x0) / dx));
+    const j0 = Math.max(0, Math.floor((minZ - band - z0) / dz)), j1 = Math.min(ny - 1, Math.ceil((maxZ + band - z0) / dz));
     for (let j = j0; j <= j1; j++)
-      for (let i = i0; i <= i1; i++)
-        if (pointInPolygon(x0 + i * dx, z0 + j * dz, rings)) h[j * nx + i] = Math.min(h[j * nx + i], level - 1.2);
+      for (let i = i0; i <= i1; i++) {
+        const x = x0 + i * dx, z = z0 + j * dz, k = j * nx + i;
+        if (pointInPolygon(x, z, rings)) { h[k] = level - depth; continue; }
+        const d = edgeDist(x, z);
+        if (d >= band) continue;
+        const t = d / band, sm = t * t * (3 - 2 * t);
+        const target = level + bank;
+        h[k] = target + (h[k] - target) * sm;
+      }
     return level;
   }
 
@@ -91,6 +110,43 @@ export function createTerrain(data, proj) {
     return { mesh, skirt };
   }
 
+  /**
+   * Malha de detalhe: o mesmo relevo (mesmos vértices) recortado no retângulo `rect`, com uma
+   * textura de alta resolução por cima (polygonOffset evita briga de profundidade com a base).
+   */
+  function buildDetailMesh(rect, texture) {
+    const i0 = Math.max(0, Math.floor((rect.x0 - x0) / dx)), i1 = Math.min(nx - 1, Math.ceil((rect.x0 + rect.width - x0) / dx));
+    const j0 = Math.max(0, Math.floor((rect.z0 - z0) / dz)), j1 = Math.min(ny - 1, Math.ceil((rect.z0 + rect.depth - z0) / dz));
+    const cw = i1 - i0 + 1, chh = j1 - j0 + 1;
+    const pos = new Float32Array(cw * chh * 3), uv = new Float32Array(cw * chh * 2);
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const k = (j - j0) * cw + (i - i0);
+        const x = x0 + i * dx, z = z0 + j * dz;
+        pos[k * 3] = x; pos[k * 3 + 1] = H(i, j); pos[k * 3 + 2] = z;
+        uv[k * 2] = (x - rect.x0) / rect.width;
+        uv[k * 2 + 1] = 1 - (z - rect.z0) / rect.depth;
+      }
+    const idx = new Uint32Array((cw - 1) * (chh - 1) * 6);
+    let n = 0;
+    for (let j = 0; j < chh - 1; j++)
+      for (let i = 0; i < cw - 1; i++) {
+        const a = j * cw + i, b = (j + 1) * cw + i, c = (j + 1) * cw + i + 1, d = j * cw + i + 1;
+        idx[n++] = a; idx[n++] = b; idx[n++] = d;
+        idx[n++] = b; idx[n++] = c; idx[n++] = d;
+      }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    geo.computeVertexNormals();
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+    mesh.receiveShadow = true;
+    mesh.name = 'terreno-detalhe-campus';
+    return mesh;
+  }
+
   function buildSkirt() {
     const pts = [];
     for (let i = 0; i < nx; i++) pts.push([i, 0]);
@@ -113,5 +169,5 @@ export function createTerrain(data, proj) {
     return mesh;
   }
 
-  return { heightAt, carveWater, buildMesh, base, bounds: { x0, z0, x1, z1, width, depth }, minAlt: data.min, maxAlt: data.max };
+  return { heightAt, carveWater, buildMesh, buildDetailMesh, base, bounds: { x0, z0, x1, z1, width, depth }, minAlt: data.min, maxAlt: data.max };
 }
