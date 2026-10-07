@@ -280,6 +280,42 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
     }
   }
 
+  if (C.track) {
+    const T = C.track, pitch = world.areas.find(a => a.kind === 'pitch' && a.rings[0].some(([x, z]) => Math.hypot(x - T.cx, z - T.cz) < 100));
+    if (pitch) {
+      const uv = pitch.rings[0].map(([x, z]) => [(x - T.cx) * T.ux + (z - T.cz) * T.uz, -(x - T.cx) * T.uz + (z - T.cz) * T.ux]);
+      const u0 = Math.min(...uv.map(p => p[0])) + .7, u1 = Math.max(...uv.map(p => p[0])) - .7;
+      const v0 = Math.min(...uv.map(p => p[1])) + .7, v1 = Math.max(...uv.map(p => p[1])) - .7, midU = (u0 + u1) / 2, midV = (v0 + v1) / 2;
+      const at = (u, v) => [T.cx + T.ux * u - T.uz * v, T.cz + T.uz * u + T.ux * v];
+      const y = H(T.cx, T.cz) + .055, lineParts = [];
+      const line = (a, b) => {
+        const [ax, az] = at(...a), [bx, bz] = at(...b), dx = bx - ax, dz = bz - az, length = Math.hypot(dx, dz);
+        if (length < .001) return;
+        const g = new THREE.PlaneGeometry(length, .13); g.rotateX(-Math.PI / 2); g.rotateY(Math.atan2(-dz, dx)); g.translate((ax + bx) / 2, y, (az + bz) / 2); lineParts.push(g);
+      };
+      const rectangle = (a, b, c, d) => { const r = [[a, c], [b, c], [b, d], [a, d]]; r.forEach((p, i) => line(p, r[(i + 1) % 4])); };
+      rectangle(u0, u1, v0, v1); line([midU, v0], [midU, v1]);
+      for (let i = 0; i < 64; i++) line([midU + Math.cos(i / 64 * Math.PI * 2) * 9.15, midV + Math.sin(i / 64 * Math.PI * 2) * 9.15], [midU + Math.cos((i + 1) / 64 * Math.PI * 2) * 9.15, midV + Math.sin((i + 1) / 64 * Math.PI * 2) * 9.15]);
+      for (const side of [-1, 1]) {
+        const end = side < 0 ? u0 : u1, direction = -side;
+        rectangle(Math.min(end, end + direction * 16.5), Math.max(end, end + direction * 16.5), Math.max(v0, midV - 20.16), Math.min(v1, midV + 20.16));
+        rectangle(Math.min(end, end + direction * 5.5), Math.max(end, end + direction * 5.5), midV - 9.16, midV + 9.16);
+        const postA = at(end, midV - 3.66), postB = at(end, midV + 3.66), backA = at(end + side * 1.8, midV - 3.66), backB = at(end + side * 1.8, midV + 3.66);
+        for (const p of [postA, postB]) rail([p[0], y, p[1]], [p[0], y + 2.44, p[1]], .06, '#f2f0e6');
+        rail([postA[0], y + 2.44, postA[1]], [postB[0], y + 2.44, postB[1]], .06, '#f2f0e6');
+        for (const [a, b] of [[postA, backA], [postB, backB]]) rail([a[0], y + 2.44, a[1]], [b[0], y, b[1]], .035, '#e3e6df');
+        // Back net is line geometry, so the grass remains visible through the goal.
+        const net = [];
+        for (let k = 0; k <= 22; k++) { const t = k / 22, x = backA[0] + (backB[0] - backA[0]) * t, z = backA[1] + (backB[1] - backA[1]) * t; net.push(x, y, z, x, y + 2.35, z); }
+        for (let h = 0; h <= 2.35; h += .24) net.push(backA[0], y + h, backA[1], backB[0], y + h, backB[1]);
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(net, 3));
+        const mesh = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: '#d3ded5', transparent: true, opacity: .55 })); mesh.name = 'rede-gol'; root.add(mesh);
+      }
+      const markings = new THREE.Mesh(mergeGeometries(lineParts, false), new THREE.MeshStandardMaterial({ color: '#ecefe5', roughness: .95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      markings.name = 'marcacoes-campo-futebol'; markings.receiveShadow = true; root.add(markings);
+    }
+  }
+
   for (const [color, geoms] of parts) {
     const buffers = geoms.map(g => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); return n; });
     const mesh = new THREE.Mesh(mergeGeometries(buffers, false), new THREE.MeshStandardMaterial({ color, roughness: .76 }));
