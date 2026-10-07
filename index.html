@@ -2,7 +2,11 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1014" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Cidade de Deus 3D · Osasco</title>
   </head>
   <body>
@@ -17,11 +21,11 @@
     <div id="overlay" class="hidden">
       <div class="card">
         <div class="brand">CIDADE DE DEUS <span>OSASCO · SP</span></div>
-        <p class="sub">Mapa 3D gerado a partir de dados reais do OpenStreetMap e relevo SRTM.</p>
+        <p class="sub">Núcleo Cidade de Deus (matriz do Bradesco) reconstruído a partir da planta oficial, imagens de satélite e dados do OpenStreetMap.</p>
         <p id="stat-line" class="stats"></p>
-        <button id="play">▶ Clique para jogar</button>
+        <button id="play"><span class="only-desktop">▶ Clique para jogar</span><span class="only-touch">▶ Tocar para jogar</span></button>
         <div class="cols">
-          <ul class="controls">
+          <ul class="controls only-desktop">
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</li>
             <li><kbd>Mouse</kbd> olhar</li>
             <li><kbd>Shift</kbd> correr</li>
@@ -33,12 +37,25 @@
             <li><kbd>T</kbd> cartoon / realista · <kbd>V</kbd> modo pixel</li>
             <li><kbd>H</kbd> ajuda · <kbd>Esc</kbd> pausa</li>
           </ul>
+          <ul class="controls only-touch">
+            <li>👆 <b>Arraste</b> o dedo para olhar</li>
+            <li>✌️ <b>Toque duas vezes</b> para começar a voar para onde está olhando</li>
+            <li>⬇️ Olhe para baixo para descer, para cima para subir</li>
+            <li>✌️ <b>Toque duas vezes</b> de novo para parar de voar</li>
+            <li>🗺 Mapa: toque num ponto para ir até lá</li>
+          </ul>
           <div>
             <div class="places-title">Teletransporte</div>
-            <ul id="places-list" class="controls"></ul>
+            <ul id="places-list" class="controls places"></ul>
           </div>
         </div>
       </div>
+    </div>
+
+    <div id="rotate">
+      <div class="phone">📱</div>
+      <div class="rotate-title">Gire o celular</div>
+      <div class="rotate-sub">O jogo funciona só com a tela deitada.</div>
     </div>
 
     <div id="hud">
@@ -51,7 +68,12 @@
       </div>
       <canvas id="minimap" width="220" height="220"></canvas>
       <div id="hud-fps"></div>
-      <div id="help" class="help">WASD andar · Shift correr · Espaço pular · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
+      <div class="touch-buttons only-touch">
+        <button id="btn-map" aria-label="Mapa">🗺</button>
+        <button id="btn-menu" aria-label="Menu">☰</button>
+      </div>
+      <div id="help" class="help only-desktop">WASD andar · Shift correr · Espaço pular · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
+      <div id="touch-help" class="help only-touch">Toque 2× para voar · arraste para olhar</div>
       <div id="crosshair"></div>
       <div id="toast"></div>
       <div class="attrib">Dados © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · Relevo: SRTM / Mapzen Terrarium</div>
@@ -59,7 +81,7 @@
 
     <div id="map-panel">
       <canvas id="bigmap"></canvas>
-      <div class="map-help">Clique no mapa para se teletransportar · <kbd>M</kbd> volta ao jogo · <kbd>Esc</kbd> pausa</div>
+      <div class="map-help"><span class="only-desktop">Clique no mapa para se teletransportar · <kbd>M</kbd> volta ao jogo · <kbd>Esc</kbd> pausa</span><span class="only-touch">Toque no mapa para ir até lá</span></div>
       <button id="map-close">✕</button>
     </div>
 
