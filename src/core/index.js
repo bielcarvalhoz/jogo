@@ -5,6 +5,10 @@ export { createEngine } from './engine.js';
 export { createEvents } from './events.js';
 export { createInput } from './input.js';
 export { createPhysics } from './physics.js';
-export { detectQuality, debugOptions, IS_TOUCH } from './quality.js';
+export { detectQuality, qualityProfile, debugOptions, IS_TOUCH } from './quality.js';
 export { setupVisualStyle } from './visual.js';
 export { createStyler } from './style.js';
+
+export { loadSettings, saveSettings, normalizeSettings, DEFAULT_SETTINGS } from './settings.js';
+export { createTour } from './tour.js';
+export { partitionStaticInstances } from './instances.js';

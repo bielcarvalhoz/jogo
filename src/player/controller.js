@@ -53,8 +53,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     setTimeout(() => { if (!controls.isLocked && !active) enableDragMode(); }, 700);
   }
   function stop() {
+    setActive(false);
+    dragging = false;
     if (controls.isLocked) controls.unlock();
-    else setActive(false);
   }
 
   // ---------------------------------------------------------------- olhar arrastando

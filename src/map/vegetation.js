@@ -98,7 +98,7 @@ const IPE = new THREE.Color('#d9579a'); // ipê-rosa florido
  * instâncias agrupadas em blocos de 250 m (frustum culling por bloco)
  */
 export function makeTreeMeshes(trees, terrain, { quality = 'high', detail = false, sidewalkHeightAt } = {}) {
-  const cardCount = quality === 'low' ? (detail ? 40 : 16) : (detail ? 64 : 20);
+  const cardCount = quality === 'low' ? (detail ? 40 : 16) : quality === 'med' ? (detail ? 48 : 18) : (detail ? 64 : 20);
   const { trunkGeo, crownGeo, trunkMat, crownMat } = sharedAssets(cardCount, detail);
   const chunks = new Map();
   for (const t of trees) {

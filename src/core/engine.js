@@ -5,7 +5,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 // Os módulos se penduram no laço com addSystem(fn, fase); as fases rodam nesta ordem:
 const PHASES = ['early', 'player', 'world', 'late'];
 
-export function createEngine({ quality, container }) {
+export function createEngine({ quality, container, isIdle = () => false }) {
   const renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, powerPreference: 'high-performance' });
   renderer.setPixelRatio(quality.pixelRatio);
   renderer.setSize(innerWidth, innerHeight);
@@ -48,6 +48,8 @@ export function createEngine({ quality, container }) {
   }
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
+  pmrem.dispose();
+  envScene.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
   scene.environmentIntensity = 0.9;
   scene.fog = new THREE.Fog(0xcbd8e2, quality.fog[0], quality.fog[1]);
 
@@ -75,7 +77,10 @@ export function createEngine({ quality, container }) {
     const timer = new THREE.Timer();
     const texel = (SH * 2) / sun.shadow.mapSize.x;
     const shadowCenter = new THREE.Vector3();
+    let lastFrame = -Infinity;
     renderer.setAnimationLoop((now) => {
+      if (isIdle() && now - lastFrame < 1000 / 15) return;
+      lastFrame = now;
       timer.update(now);
       const dt = timer.getDelta();
       const t = timer.getElapsed();

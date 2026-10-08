@@ -7,13 +7,16 @@ import { createPhysics } from './physics.js';
  * O "contexto do jogo": o único objeto que os módulos compartilham.
  * Cada módulo recebe `game`, usa o que precisa e se pendura nele (game.map, game.player...).
  */
-export function createGame({ quality, debug, status, container }) {
+export function createGame({ quality, debug, status, container, settings }) {
   const events = createEvents();
   const game = {
     quality,
+    settings,
+    mode: null,
+    mapPoints: [],
     debug,
     events,
-    engine: createEngine({ quality, container }),
+    engine: createEngine({ quality, container, isIdle: () => !game.mode }),
     physics: createPhysics(),
     /** destinos de teletransporte: { name, x, z, yaw } — mapa e campus adicionam */
     places: [],

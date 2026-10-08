@@ -1,3 +1,4 @@
+import { preparePaintColliders, intersectsPaintBounds } from './collision.js';
 import * as THREE from 'three';
 
 export const PAINTBALL_PALETTE = Object.freeze([
@@ -57,7 +58,9 @@ function tracePaintMeshes(raycaster, from, to, meshes, ignored) {
   if (length < 1e-8) return null;
   raycaster.set(from, delta.multiplyScalar(1 / length));
   raycaster.near = 0; raycaster.far = length;
-  const visible = meshes.filter(object => !excludedFromPaint(object, ignored));
+  const visible = meshes.filter(object => !excludedFromPaint(object, ignored) && intersectsPaintBounds(object, raycaster));
+  // Mixed material groups need all hits: a transparent face may precede a solid wall.
+  raycaster.firstHitOnly = visible.every(o => !Array.isArray(o.material) || o.material.every(paintableMaterial));
   for (const hit of raycaster.intersectObjects(visible, false)) {
     if (!hit.face || !hit.object.isMesh) continue;
     // Transparent water and decorative panels are scenery, not paintable walls.
@@ -129,14 +132,18 @@ export function createPaintball({ scene, camera, getActive = () => true, collide
   const raycaster = new THREE.Raycaster(), forward = new THREE.Vector3(), origin = new THREE.Vector3(), target = new THREE.Vector3();
   let colorIndex = 2, projectileIndex = 0, markIndex = 0, cooldown = 0, recoil = 0, shots = 0, disposed = false;
   const ignored = new Set([root, camera]);
-  let cachedRoots = null, colliders = [];
-  const trace = (from, to) => {
+  let cachedRoots = null, colliders = [], collisionStats = {};
+  const refreshColliders = () => {
     const targets = (typeof colliderRoots === 'function' ? colliderRoots() : colliderRoots) || [];
     if (!cachedRoots || targets.length !== cachedRoots.length || targets.some((target, i) => target !== cachedRoots[i])) {
       cachedRoots = targets.slice(); colliders = collectPaintableMeshes(targets, [...ignored]);
+      collisionStats = preparePaintColliders(colliders);
     }
-    return tracePaintMeshes(raycaster, from, to, colliders, ignored);
+    return colliders;
   };
+  // Enumerate and build BVHs before gameplay so the first click never builds them.
+  refreshColliders();
+  const trace = (from, to) => tracePaintMeshes(raycaster, from, to, refreshColliders(), ignored);
 
   function setColor(value) {
     const index = typeof value === 'number' ? value : PAINTBALL_PALETTE.findIndex(p => p.id === value);
@@ -191,6 +198,14 @@ export function createPaintball({ scene, camera, getActive = () => true, collide
   gun.visible = !!getActive();
   return {
     root, gun, update, shoot, setColor, palette: PAINTBALL_PALETTE, dispose,
+    async warmup(renderer) {
+      // Compile pooled effect shaders before the first shot, then restore visibility.
+      const visible = gun.visible;
+      gun.visible = true; projectiles[0].mesh.visible = true; marks[0].visible = true;
+      try { await renderer.compileAsync(scene, camera); renderer.render(scene, camera); }
+      finally { gun.visible = visible; projectiles[0].mesh.visible = false; marks[0].visible = false; }
+    },
+    get collisionStats() { return collisionStats; },
     get color() { return PAINTBALL_PALETTE[colorIndex]; },
     get colorIndex() { return colorIndex; },
     get stats() { return { projectiles: projectiles.filter(p => p.mesh.visible).length, marks: marks.filter(m => m.visible).length, shots }; },

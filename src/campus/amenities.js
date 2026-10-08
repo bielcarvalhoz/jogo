@@ -293,6 +293,7 @@ export function buildCampusAmenities(C, { renderer, terrain, world, sidewalkHeig
     }
     rotorMesh = new THREE.InstancedMesh(mergeGeometries(geometries), new THREE.MeshStandardMaterial({ color: STEEL, roughness: .42, metalness: .35 }), rotors.length);
     rotorMesh.name = 'catracas-tripodes';
+    rotorMesh.userData.dynamicInstances = true;
     rotors.forEach(setRotorMatrix); rotorMesh.computeBoundingSphere(); root.add(rotorMesh);
     geometries.forEach((geometry) => geometry.dispose());
   }

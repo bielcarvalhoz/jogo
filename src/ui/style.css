@@ -111,3 +111,124 @@ body.touch.portrait #rotate { display: flex; }
   #bigmap { inset: 30px 8px 34px; width: calc(100% - 16px); height: calc(100% - 64px); }
   .map-help { bottom: 8px; font-size: 12px; }
 }
+
+/* Front menu: bold outlined wordmark, city grid and warm editorial accents. */
+button, select { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+#overlay { justify-content: flex-start; padding: 4vh 7vw; background: linear-gradient(90deg, #0a1119f5 25%, #0a1119d9 58%, #0a11198c); backdrop-filter: blur(2px); overflow-y: auto; }
+.menu-card { position: relative; background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; max-width: 570px; max-height: none; }
+.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .22em; color: var(--gold); margin: 0 0 18px; }
+.gta-logo { display: inline-flex; flex-direction: column; margin: 5px 0 8px; transform: rotate(-3deg); }
+.gta-logo strong { font-family: Impact, 'Arial Black', sans-serif; font-weight: 1000; font-size: clamp(72px, 12vw, 138px); line-height: .85; letter-spacing: -.055em; color: #f6f2e9; -webkit-text-stroke: 2px #0b1117; paint-order: stroke fill; text-shadow: 4px 4px 0 #0b1117, -4px -4px 0 #0b1117, 7px 7px 0 #f6f2e9, -5px -5px 0 #f6f2e9; }
+.gta-logo strong span { font-size: .65em; }
+.logo-sub { font-family: Impact, 'Arial Black', sans-serif; align-self: center; color: #ffc940; font-size: clamp(29px, 4vw, 44px); line-height: 1.2; letter-spacing: -.03em; margin-top: 8px; -webkit-text-stroke: 1px #111; paint-order: stroke fill; text-shadow: 3px 3px 0 #111; }
+.menu-card .sub { color: #c4c9cd; margin: 18px 0 24px; font-size: 15px; }
+.menu-options { display: flex; flex-direction: column; gap: 9px; }
+.menu-options button, #play { display: flex; align-items: center; gap: 18px; width: 100%; padding: 16px 20px; text-align: left; color: #f7f7f5; background: #18252ebd; border: 1px solid #8295a92b; border-radius: 2px; transition: background .15s, transform .15s; }
+.menu-options button:hover { background: #2b3e48; transform: translateX(4px); }
+.menu-options #play { background: #ffc940; color: #171a1e; }
+.menu-options #play:hover { background: #ffda70; }
+.menu-num { font-size: 11px; font-weight: 500; opacity: .65; }
+.menu-options b { display: block; font-size: 20px; font-weight: 800; }
+.menu-options small { display: block; font-size: 11px; font-weight: 400; opacity: .78; margin-top: 4px; }
+.menu-options button > span:last-child { margin-left: auto; font-size: 25px; }
+.menu-art { position: fixed; pointer-events: none; inset: 0 0 0 40%; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 75% 25%, #8fa77438, transparent 60%); }
+.art-grid { position: absolute; inset: -30%; transform: rotate(-25deg); background: repeating-linear-gradient(0deg, transparent 0 84px, #97b9b01c 85px 87px, transparent 88px 115px), repeating-linear-gradient(90deg, transparent 0 160px, #97b9b016 162px 166px); mask-image: linear-gradient(90deg, transparent, #000); }
+.menu-art::after { content: 'CITY\A OF GOD'; white-space: pre; position: absolute; top: 28%; right: -25px; font: 1000 clamp(90px, 14vw, 220px)/.9 Impact, sans-serif; letter-spacing: -.02em; color: #b5c4a612; transform: rotate(-8deg); }
+.art-caption { position: absolute; right: 7vw; bottom: 7vh; font-size: 10px; color: #afc0c2; letter-spacing: .24em; }
+.menu-footer { display: flex; justify-content: space-between; gap: 10px; margin: 22px 0 0; font-size: 9px; letter-spacing: .2em; color: #8c9b9f; }
+.menu-footer span { color: #758188; }
+.menu-card .stats { margin: 12px 0; color: #86999f; font-size: 10px; }
+.menu-help { color: #a6b3ba; font-size: 11px; margin-top: 14px; }
+.menu-help summary { cursor: pointer; padding: 6px 0; }
+.menu-help p { max-width: 530px; line-height: 1.8; }
+#loading { position: static; display: block; background: transparent; padding-top: 8px; border-top: 1px solid #ffffff16; }
+.progress-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+#loading-text, .progress-label b { font-size: 11px; color: #aebbc0; }
+#loading small { color: #76878e; font-size: 10px; }
+progress { width: 100%; height: 4px; display: block; margin: 8px 0; border: 0; border-radius: 4px; overflow: hidden; appearance: none; background: #3c4850; accent-color: var(--gold); }
+progress::-webkit-progress-bar { background: #3c4850; }
+progress::-webkit-progress-value { background: var(--gold); transition: width .2s; }
+progress::-moz-progress-bar { background: var(--gold); }
+#loading-wait { position: fixed; z-index: 35; inset: 0; padding: 12vw; background: #0b131c; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+#loading-wait h2 { font-size: clamp(28px, 4vw, 56px); margin: 0 0 12px; }
+#loading-wait p { color: #b3bfc6; }
+#loading-wait progress { max-width: 580px; height: 6px; }
+#loading-wait b { font-size: 12px; color: var(--gold); }
+#loading-back { margin-top: 30px; }
+#settings-panel h2 { font-size: 24px; }
+#settings-panel > label { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid #ffffff20; font-size: 13px; }
+#settings-panel select { max-width: 64%; padding: 10px; background: #20313c; color: #fff; border: 1px solid #52636d; border-radius: 3px; }
+.setting-note { font-size: 12px; color: #96a6ae; line-height: 1.6; }
+.settings-actions { display: flex; justify-content: space-between; gap: 12px; margin: 18px 0; }
+.settings-actions button, #loading-back, .tour-actions button, .map-tools button, .desktop-menu { border: 1px solid #c1d0d64d; padding: 9px 14px; color: #fff; background: #14212ddd; border-radius: 3px; font-size: 12px; }
+#settings-apply { background: var(--gold); color: #111; font-weight: 700; border: 0; }
+body.menu-open #rotate { display: none; }
+body.menu-open #hud, body.menu-open #tour-panel, body.menu-open #tour-markers { display: none; }
+.desktop-menu { position: absolute; top: 235px; left: 14px; pointer-events: auto; }
+#minimap { pointer-events: auto; cursor: pointer; }
+body.tour-active #hud .panel, body.tour-active #crosshair, body.tour-active .paint-hud, body.tour-active .help, body.tour-active .touch-buttons, body.tour-active .desktop-menu { display: none !important; }
+#tour-panel { position: fixed; z-index: 12; left: 24px; right: 24px; bottom: 26px; background: #0c1720e6; backdrop-filter: blur(8px); border-left: 3px solid var(--gold); padding: 18px 22px; display: grid; grid-template-columns: 1fr auto; gap: 14px 24px; }
+#tour-panel .eyebrow { margin-bottom: 4px; font-size: 9px; }
+#tour-title { margin: 5px 0; font-size: 22px; }
+#tour-description { margin: 0; color: #aebcc5; font-size: 12px; max-width: 650px; }
+.tour-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#tour-orbit[aria-pressed="true"] { color: var(--gold); border-color: #ffc94088; }
+#tour-places { grid-column: 1 / -1; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+#tour-places button { flex: 0 0 auto; font-size: 11px; padding: 7px 11px; background: #293944; color: #d2dde1; border: 1px solid transparent; border-radius: 2px; }
+#tour-places button[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
+#tour-places b { margin-right: 6px; color: var(--gold); }
+#tour-markers { position: fixed; inset: 0; z-index: 11; pointer-events: none; }
+.tour-marker { position: absolute; pointer-events: auto; color: #17222b; background: var(--gold); border: 2px solid #fff; width: 33px; height: 33px; border-radius: 50%; font-size: 12px; font-weight: 800; box-shadow: 0 3px 10px #0009; transform: translate(-50%, -50%); }
+.tour-marker:hover { background: #fff; z-index: 1; }
+#bigmap { inset: 60px 290px 65px 20px; width: calc(100% - 310px); height: calc(100% - 125px); touch-action: none; cursor: grab; }
+#bigmap:active { cursor: grabbing; }
+.map-heading { position: absolute; top: 20px; left: 25px; display: flex; gap: 22px; font-size: 12px; letter-spacing: .12em; }
+.map-heading span { color: var(--gold); font-size: 10px; }
+.map-tools { position: absolute; bottom: 58px; left: 26px; display: flex; gap: 6px; }
+.map-tools button { background: #101c28; }
+.map-help { left: 20px; right: 20px; font-size: 11px; }
+#map-places { position: absolute; top: 62px; bottom: 62px; right: 20px; width: 240px; overflow-y: auto; padding-right: 5px; }
+#map-places button { display: flex; gap: 10px; width: 100%; text-align: left; background: transparent; color: #c1cdd4; border: 0; border-bottom: 1px solid #ffffff12; padding: 10px 8px; font-size: 11px; }
+#map-places button:hover { background: #ffc94020; color: #fff; }
+#map-places b { color: var(--gold); min-width: 22px; }
+@media (max-width: 700px) {
+  #overlay { padding: 30px 22px; align-items: flex-start; }
+  .menu-card { max-width: 100%; }
+  .menu-options b { font-size: 18px; }
+  .menu-options button { gap: 12px; padding: 14px; }
+  .menu-footer span { display: none; }
+  #tour-panel { left: 8px; right: 8px; bottom: 18px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  #tour-places { width: 100%; }
+  #tour-description { font-size: 10px; }
+  #tour-title { font-size: 16px; }
+  #map-places { display: none; }
+  #bigmap { right: 10px; left: 10px; width: calc(100% - 20px); }
+  .map-heading { gap: 10px; left: 15px; font-size: 10px; }
+  .map-heading span { font-size: 8px; }
+}
+@media (max-height: 540px) and (min-width: 701px) {
+  #overlay { padding: 22px 5vw; align-items: flex-start; }
+  .menu-card { max-width: 610px; }
+  .gta-logo strong { font-size: 78px; }
+  .logo-sub { font-size: 26px; }
+  .menu-card .sub { margin: 10px 0; font-size: 12px; }
+  .eyebrow { margin-bottom: 10px; }
+  .menu-options { gap: 5px; }
+  .menu-options button, #play { padding: 9px 16px; }
+  .menu-options b { font-size: 16px; }
+  .menu-help { margin-top: 4px; }
+  .menu-footer { margin-top: 10px; }
+  #tour-panel { bottom: 16px; padding: 10px 14px; gap: 8px; }
+  #tour-title { font-size: 16px; }
+  #tour-description { font-size: 10px; }
+  #tour-places button { padding: 5px 8px; }
+  .desktop-menu { top: 132px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.logo-sub { font-weight: 900; }
+body.menu-open.touch.portrait #rotate { display: none; }
+
+body.tour-active.touch #hud .touch-buttons.only-touch { display: none !important; }
