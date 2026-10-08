@@ -23,7 +23,9 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:5173 e clique em **Jogar**.
+Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon animado enquanto a cidade carrega.
+
+No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico e andar, e arraste do outro lado para mirar. Os dedos funcionam ao mesmo tempo. Use os botões para tinta, voo, mapa, menu e orientação (ou gire o aparelho quando o navegador não permite travá-la).
 
 | Tecla | Ação |
 |---|---|
@@ -110,7 +112,7 @@ advogado o uso dos nomes/cores da marca.
 
 ## Menu, tour e configurações
 
-A tela inicial GTA: City of God oferece **Campanha** (exploração atual), **Modo tour**
+A tela inicial Grand Treta Auto: City of God oferece **Campanha** (exploração atual), **Modo tour**
 (visão aérea, aproximação de estruturas e órbita) e **Configurações**. A cidade
 carrega em segundo plano com barra de progresso por etapas. O padrão é gráfico
 **Med** com o entorno de Osasco **desabilitado**. Configurações são salvas por aparelho;

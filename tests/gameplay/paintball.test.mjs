@@ -126,3 +126,14 @@ test('missed shots expire and first-person gun visibility follows player activat
   active = false; paint.update(.1); assert.equal(paint.gun.visible, false); assert.equal(paint.shoot(), false);
   active = true; paint.update(.1); assert.equal(paint.gun.visible, true); paint.dispose();
 });
+
+test('first-person paintball gun remains visible when the viewport changes to portrait', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70, 844 / 390, .1, 3500); scene.add(camera);
+  const paint = createPaintball({scene, camera, getActive: () => true});
+  for (const aspect of [844 / 390, 390 / 844, 844 / 390]) {
+    camera.aspect = aspect; camera.updateProjectionMatrix(); paint.update(.016); scene.updateMatrixWorld(true);
+    const gunCentre = paint.gun.getWorldPosition(new THREE.Vector3()).project(camera);
+    assert.ok(Math.abs(gunCentre.x) < 1 && Math.abs(gunCentre.y) < 1, 'weapon should remain within the visible frame');
+  }
+  paint.dispose();
+});

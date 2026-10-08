@@ -77,158 +77,182 @@ body.touch #crosshair { display: none; }
 .touch-buttons button { width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8); background: var(--bg); color: #fff; font-size: 22px; line-height: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
 body.flying #hud-mode { color: #4fc3f7; }
 
-/* aviso de girar o celular (retrato bloqueado em telas de toque) */
-#rotate { display: none; position: fixed; inset: 0; z-index: 60; background: radial-gradient(circle at 50% 40%, #1d2630, #0b0e12); color: #fff; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; }
-#rotate .phone { font-size: 64px; animation: girar 1.8s ease-in-out infinite; }
-#rotate .rotate-title { font-size: 24px; font-weight: 800; letter-spacing: 0.04em; }
-#rotate .rotate-sub { color: var(--muted); font-size: 15px; }
-@keyframes girar { 0%, 20% { transform: rotate(0deg); } 50%, 70% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
-body.touch.portrait #rotate { display: flex; }
 
-/* telas baixas (celular deitado) */
-@media (max-height: 540px) {
-  .brand { font-size: 22px; }
-  .brand span { font-size: 11px; }
-  #overlay { padding: 8px; align-items: stretch; }
-  .card { padding: 12px 18px; max-height: calc(100vh - 16px); overflow-y: auto; border-radius: 12px; }
-  .card .sub { font-size: 12px; margin: 6px 0 2px; }
-  .card .stats { font-size: 11px; margin-bottom: 10px; }
-  #play { padding: 10px; font-size: 16px; }
-  .cols { margin-top: 10px; gap: 14px; grid-template-columns: 1.2fr 1fr; }
-  .controls { font-size: 12px; }
-  .controls li { margin: 4px 0; }
-  #hud .panel { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); min-width: 0; max-width: 46vw; padding: 7px 11px; border-radius: 10px; }
-  #hud .title { font-size: 9px; letter-spacing: 0.1em; }
-  #hud .street { font-size: 14px; margin: 2px 0 1px; }
-  #hud .zone { font-size: 11px; margin-bottom: 3px; }
-  #hud .row { font-size: 10px; }
-  #minimap { width: 118px; height: 118px; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); border-width: 2px; }
-  #hud-fps { top: 130px; right: 12px; font-size: 10px; }
-  .touch-buttons { right: max(12px, env(safe-area-inset-right)); bottom: 26px; }
-  .help { bottom: 10px; font-size: 11px; padding: 5px 10px; }
-  .attrib { font-size: 9px; bottom: 2px; }
-  #toast { top: 18%; font-size: 13px; padding: 7px 12px; }
-  #bigmap { inset: 30px 8px 34px; width: calc(100% - 16px); height: calc(100% - 64px); }
-  .map-help { bottom: 8px; font-size: 12px; }
-}
-
-/* Front menu: bold outlined wordmark, city grid and warm editorial accents. */
+@font-face { font-family: 'Cover'; src: url('/fonts/Anton-Regular.woff') format('woff'); font-display: swap; }
 button, select { font: inherit; }
 button { cursor: pointer; }
-button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
-#overlay { justify-content: flex-start; padding: 4vh 7vw; background: linear-gradient(90deg, #0a1119f5 25%, #0a1119d9 58%, #0a11198c); backdrop-filter: blur(2px); overflow-y: auto; }
-.menu-card { position: relative; background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; max-width: 570px; max-height: none; }
-.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .22em; color: var(--gold); margin: 0 0 18px; }
-.gta-logo { display: inline-flex; flex-direction: column; margin: 5px 0 8px; transform: rotate(-3deg); }
-.gta-logo strong { font-family: Impact, 'Arial Black', sans-serif; font-weight: 1000; font-size: clamp(72px, 12vw, 138px); line-height: .85; letter-spacing: -.055em; color: #f6f2e9; -webkit-text-stroke: 2px #0b1117; paint-order: stroke fill; text-shadow: 4px 4px 0 #0b1117, -4px -4px 0 #0b1117, 7px 7px 0 #f6f2e9, -5px -5px 0 #f6f2e9; }
-.gta-logo strong span { font-size: .65em; }
-.logo-sub { font-family: Impact, 'Arial Black', sans-serif; align-self: center; color: #ffc940; font-size: clamp(29px, 4vw, 44px); line-height: 1.2; letter-spacing: -.03em; margin-top: 8px; -webkit-text-stroke: 1px #111; paint-order: stroke fill; text-shadow: 3px 3px 0 #111; }
-.menu-card .sub { color: #c4c9cd; margin: 18px 0 24px; font-size: 15px; }
-.menu-options { display: flex; flex-direction: column; gap: 9px; }
-.menu-options button, #play { display: flex; align-items: center; gap: 18px; width: 100%; padding: 16px 20px; text-align: left; color: #f7f7f5; background: #18252ebd; border: 1px solid #8295a92b; border-radius: 2px; transition: background .15s, transform .15s; }
-.menu-options button:hover { background: #2b3e48; transform: translateX(4px); }
-.menu-options #play { background: #ffc940; color: #171a1e; }
-.menu-options #play:hover { background: #ffda70; }
-.menu-num { font-size: 11px; font-weight: 500; opacity: .65; }
-.menu-options b { display: block; font-size: 20px; font-weight: 800; }
-.menu-options small { display: block; font-size: 11px; font-weight: 400; opacity: .78; margin-top: 4px; }
-.menu-options button > span:last-child { margin-left: auto; font-size: 25px; }
-.menu-art { position: fixed; pointer-events: none; inset: 0 0 0 40%; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 75% 25%, #8fa77438, transparent 60%); }
-.art-grid { position: absolute; inset: -30%; transform: rotate(-25deg); background: repeating-linear-gradient(0deg, transparent 0 84px, #97b9b01c 85px 87px, transparent 88px 115px), repeating-linear-gradient(90deg, transparent 0 160px, #97b9b016 162px 166px); mask-image: linear-gradient(90deg, transparent, #000); }
-.menu-art::after { content: 'CITY\A OF GOD'; white-space: pre; position: absolute; top: 28%; right: -25px; font: 1000 clamp(90px, 14vw, 220px)/.9 Impact, sans-serif; letter-spacing: -.02em; color: #b5c4a612; transform: rotate(-8deg); }
-.art-caption { position: absolute; right: 7vw; bottom: 7vh; font-size: 10px; color: #afc0c2; letter-spacing: .24em; }
-.menu-footer { display: flex; justify-content: space-between; gap: 10px; margin: 22px 0 0; font-size: 9px; letter-spacing: .2em; color: #8c9b9f; }
-.menu-footer span { color: #758188; }
-.menu-card .stats { margin: 12px 0; color: #86999f; font-size: 10px; }
-.menu-help { color: #a6b3ba; font-size: 11px; margin-top: 14px; }
-.menu-help summary { cursor: pointer; padding: 6px 0; }
-.menu-help p { max-width: 530px; line-height: 1.8; }
-#loading { position: static; display: block; background: transparent; padding-top: 8px; border-top: 1px solid #ffffff16; }
-.progress-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
-#loading-text, .progress-label b { font-size: 11px; color: #aebbc0; }
-#loading small { color: #76878e; font-size: 10px; }
-progress { width: 100%; height: 4px; display: block; margin: 8px 0; border: 0; border-radius: 4px; overflow: hidden; appearance: none; background: #3c4850; accent-color: var(--gold); }
-progress::-webkit-progress-bar { background: #3c4850; }
-progress::-webkit-progress-value { background: var(--gold); transition: width .2s; }
-progress::-moz-progress-bar { background: var(--gold); }
-#loading-wait { position: fixed; z-index: 35; inset: 0; padding: 12vw; background: #0b131c; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
-#loading-wait h2 { font-size: clamp(28px, 4vw, 56px); margin: 0 0 12px; }
-#loading-wait p { color: #b3bfc6; }
-#loading-wait progress { max-width: 580px; height: 6px; }
-#loading-wait b { font-size: 12px; color: var(--gold); }
+button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+/* Six independently animated comic panels form the cover. */
+#overlay { padding: 0; overflow: hidden; background: #070b10; backdrop-filter: none; }
+.menu-art { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1.1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; padding: 8px; overflow: hidden; pointer-events: none; }
+.art-panel { position: relative; overflow: hidden; container-type: size; min-height: 0; }
+.art-panel::before { content: ''; position: absolute; inset: 0; background-image: url('/art/city-of-god-cover.webp'); background-repeat: no-repeat; background-size: max(300cqw, 300cqh) max(200cqw, 200cqh); background-position: calc(50cqw - (var(--col) + .5) * max(100cqw, 100cqh)) calc(50cqh - (var(--row) + .5) * max(100cqw, 100cqh)); }
+.art-1 { --col: 0; --row: 0; --enter-x: -110%; --enter-y: -30%; --tilt: -9deg; }
+.art-2 { --col: 1; --row: 0; --enter-x: 0%; --enter-y: -110%; --tilt: 7deg; }
+.art-3 { --col: 2; --row: 0; --enter-x: 110%; --enter-y: -30%; --tilt: 9deg; }
+.art-4 { --col: 0; --row: 1; --enter-x: -110%; --enter-y: 60%; --tilt: 7deg; }
+.art-5 { --col: 1; --row: 1; --enter-x: 0%; --enter-y: 110%; --tilt: -8deg; }
+.art-6 { --col: 2; --row: 1; --enter-x: 110%; --enter-y: 60%; --tilt: -7deg; }
+.menu-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #030609f2, #030609a6 29%, transparent 60%), linear-gradient(0deg, #030609e8, transparent 38%); }
+.intro-playing .art-panel { animation: panel-arrive .85s cubic-bezier(.2,.75,.2,1) both; }
+.intro-playing .art-2 { animation-delay: .1s; }.intro-playing .art-3 { animation-delay: .22s; }.intro-playing .art-4 { animation-delay: .34s; }.intro-playing .art-5 { animation-delay: .46s; }.intro-playing .art-6 { animation-delay: .58s; }
+@keyframes panel-arrive { from { opacity: 0; transform: translate(var(--enter-x), var(--enter-y)) rotate(var(--tilt)) scale(1.15); } to { opacity: 1; transform: none; } }
+.menu-card { position: relative; width: 100%; height: 100%; padding: 0; max-width: none; max-height: none; overflow: hidden; }
+.gta-logo { position: absolute; left: 65%; top: 42%; transform: translate(-50%, -50%) rotate(-3deg); display: flex; align-items: center; flex-direction: column; font-family: 'Cover', Impact, sans-serif; color: #fff9ed; }
+.logo-word { display: block; font-size: clamp(76px, min(11vw, 14vh), 155px); line-height: .92; letter-spacing: -.045em; -webkit-text-stroke: 9px #090b0c; paint-order: stroke fill; text-shadow: 4px 5px 0 #090b0c; }
+.logo-sub { display: block; font-size: clamp(30px, min(4.4vw, 6vh), 62px); line-height: 1.2; margin-top: 8px; white-space: nowrap; color: #ed303b; -webkit-text-stroke: 7px #090b0c; paint-order: stroke fill; text-shadow: 3px 4px 0 #090b0c; letter-spacing: -.025em; }
+.intro-playing .gta-logo { animation: logo-arrive .65s .75s cubic-bezier(.2,.9,.3,1.15) both; }
+@keyframes logo-arrive { from { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(1.5); } to { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg); } }
+.menu-options { position: absolute; left: max(5vw, env(safe-area-inset-left)); bottom: max(22vh, 115px); display: flex; flex-direction: column; gap: 3px; width: min(40vw, 370px); }
+.menu-location { font-size: 9px; letter-spacing: .22em; color: #f2c377; font-weight: 800; margin: 0 0 14px 22px; }
+.menu-options button, .menu-options #play { position: relative; border: 0; border-radius: 0; width: 100%; min-height: 48px; padding: 4px 0 4px 23px; background: transparent; color: #fff7e7; text-align: left; font-family: 'Cover', Impact, sans-serif; font-size: clamp(24px, 3vw, 38px); line-height: 1.3; text-shadow: 2px 3px 0 #000; transition: color .12s, transform .12s; }
+.menu-options b { font-weight: 400; }
+.menu-options button::before { content: ''; position: absolute; top: 50%; left: 0; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 9px solid currentColor; transform: translateY(-50%); opacity: 0; }
+.menu-options #play, .menu-options button:hover, .menu-options button:focus-visible { color: #ffcb51; transform: translateX(4px); filter: none; }
+.menu-options #play::before, .menu-options button:hover::before, .menu-options button:focus-visible::before { opacity: 1; }
+.menu-options:has(button:hover) #play:not(:hover) { color: #fff7e7; transform: none; }.menu-options:has(button:hover) #play:not(:hover)::before { opacity: 0; }
+#intro-skip { position: absolute; right: max(25px, env(safe-area-inset-right)); bottom: max(25px, env(safe-area-inset-bottom)); border: 0; padding: 10px; color: #fff; background: #070b1080; font-size: 11px; }
+.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .18em; color: #efbd6c; }
+
+/* Identical fill and percentage: no native Safari progress styling. */
+#loading { position: absolute; inset: auto auto max(28px, env(safe-area-inset-bottom)) max(5vw, env(safe-area-inset-left)); display: block; width: min(40vw, 360px); background: transparent; padding: 0; }
+.progress-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-size: 11px; margin-bottom: 8px; }
+#loading-text { color: #d0cdc6; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.progress-label b { flex-shrink: 0; color: #ffcc67; font-variant-numeric: tabular-nums; font-size: 11px; }
+.load-track { width: 100%; height: 7px; padding: 0; background: #ffffff24; border-radius: 2px; overflow: hidden; }
+.load-fill { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #ce2636, #ffbd55); transform: scaleX(0); transform-origin: left center; }
+#loading small { display: block; margin-top: 9px; color: #a3a5a3; font-size: 10px; }
+#loading.error #loading-text { color: #ff8a80; }
+#loading-wait { position: fixed; z-index: 35; inset: 0; padding: 8vw; background: linear-gradient(90deg, #080d13f5, #080d13c7), url('/art/city-of-god-cover.webp') center / cover; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+#loading-wait h2 { font: 400 clamp(32px, 5vw, 65px)/1.2 'Cover', sans-serif; margin: 12px 0 30px; }
+.waiting-progress { width: min(100%, 550px); }
+#waiting-text { color: #c3cbd0; }
 #loading-back { margin-top: 30px; }
-#settings-panel h2 { font-size: 24px; }
-#settings-panel > label { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid #ffffff20; font-size: 13px; }
-#settings-panel select { max-width: 64%; padding: 10px; background: #20313c; color: #fff; border: 1px solid #52636d; border-radius: 3px; }
-.setting-note { font-size: 12px; color: #96a6ae; line-height: 1.6; }
-.settings-actions { display: flex; justify-content: space-between; gap: 12px; margin: 18px 0; }
-.settings-actions button, #loading-back, .tour-actions button, .map-tools button, .desktop-menu { border: 1px solid #c1d0d64d; padding: 9px 14px; color: #fff; background: #14212ddd; border-radius: 3px; font-size: 12px; }
-#settings-apply { background: var(--gold); color: #111; font-weight: 700; border: 0; }
-body.menu-open #rotate { display: none; }
+
+/* Settings are an optional pause screen, with their own scroll area. */
+.settings-open .gta-logo { opacity: .15; pointer-events: none; }
+.settings-open #loading { display: none; }
+#settings-panel { position: absolute; left: max(5vw, env(safe-area-inset-left)); top: max(22px, env(safe-area-inset-top)); bottom: max(22px, env(safe-area-inset-bottom)); width: min(560px, 90vw); padding: 24px; overflow-y: auto; background: #0a1018ed; border-left: 3px solid #ed303b; }
+#settings-panel h2 { font: 400 32px 'Cover', sans-serif; margin: 0 0 22px; }
+#settings-panel > label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #ffffff18; font-size: 13px; }
+#settings-panel select { max-width: 65%; padding: 10px; background: #18252e; color: #fff; border: 1px solid #ffffff30; border-radius: 2px; }
+.setting-note, .menu-help { font-size: 11px; color: #97a7ad; line-height: 1.6; }
+.menu-help summary { cursor: pointer; padding: 12px 0; }
+.settings-actions { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0; }
+.settings-actions button, #loading-back, .tour-actions button, .map-tools button, .desktop-menu { border: 1px solid #ffffff30; padding: 9px 14px; color: #fff; background: #17232ddd; border-radius: 3px; font-size: 12px; }
+#settings-apply { background: #ed303b; color: #fff; border: 0; }
+.stats { color: #83959b; font-size: 10px; }
 body.menu-open #hud, body.menu-open #tour-panel, body.menu-open #tour-markers { display: none; }
-.desktop-menu { position: absolute; top: 235px; left: 14px; pointer-events: auto; }
-#minimap { pointer-events: auto; cursor: pointer; }
-body.tour-active #hud .panel, body.tour-active #crosshair, body.tour-active .paint-hud, body.tour-active .help, body.tour-active .touch-buttons, body.tour-active .desktop-menu { display: none !important; }
-#tour-panel { position: fixed; z-index: 12; left: 24px; right: 24px; bottom: 26px; background: #0c1720e6; backdrop-filter: blur(8px); border-left: 3px solid var(--gold); padding: 18px 22px; display: grid; grid-template-columns: 1fr auto; gap: 14px 24px; }
-#tour-panel .eyebrow { margin-bottom: 4px; font-size: 9px; }
-#tour-title { margin: 5px 0; font-size: 22px; }
-#tour-description { margin: 0; color: #aebcc5; font-size: 12px; max-width: 650px; }
-.tour-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-#tour-orbit[aria-pressed="true"] { color: var(--gold); border-color: #ffc94088; }
-#tour-places { grid-column: 1 / -1; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-#tour-places button { flex: 0 0 auto; font-size: 11px; padding: 7px 11px; background: #293944; color: #d2dde1; border: 1px solid transparent; border-radius: 2px; }
-#tour-places button[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
-#tour-places b { margin-right: 6px; color: var(--gold); }
+
+/* Tour stays a single low row until a structure is selected. */
+body.tour-active #hud .panel, body.tour-active #crosshair, body.tour-active .paint-hud, body.tour-active .help, body.tour-active .touch-buttons, body.tour-active .desktop-menu, body.tour-active #minimap, body.tour-active #hud-fps { display: none !important; }
+body.tour-active.touch #hud .touch-buttons.only-touch { display: none !important; }
+#tour-panel { position: fixed; z-index: 12; left: max(14px, env(safe-area-inset-left)); right: max(14px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); background: #101d27ed; border-left: 3px solid #ed303b; padding: 7px 12px; }
+.tour-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tour-label { color: #f5bd60; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+.tour-actions { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.tour-actions button { white-space: nowrap; font-size: 11px; padding: 8px 12px; min-height: 34px; }
+#tour-orbit { display: none; }
+#tour-panel.focused #tour-orbit { display: block; }
+#tour-orbit[aria-pressed="true"] { color: #f5bd60; border-color: #f5bd6088; }
+.tour-detail, #tour-places { display: none; }
+#tour-panel.focused .tour-detail { display: block; margin-top: 8px; }
+#tour-title { margin: 0 0 3px; font-size: 16px; }
+#tour-description { margin: 0; color: #abbcc3; font-size: 11px; }
+#tour-panel.focused #tour-places { display: flex; gap: 6px; overflow-x: auto; margin-top: 9px; padding-bottom: 3px; }
+#tour-places button { flex: 0 0 auto; font-size: 10px; padding: 6px 9px; background: #253841; color: #d2dde1; border: 1px solid transparent; border-radius: 2px; }
+#tour-places button[aria-pressed="true"] { color: #f5bd60; border-color: #f5bd60; }
+#tour-places b { margin-right: 5px; color: #f5bd60; }
 #tour-markers { position: fixed; inset: 0; z-index: 11; pointer-events: none; }
-.tour-marker { position: absolute; pointer-events: auto; color: #17222b; background: var(--gold); border: 2px solid #fff; width: 33px; height: 33px; border-radius: 50%; font-size: 12px; font-weight: 800; box-shadow: 0 3px 10px #0009; transform: translate(-50%, -50%); }
-.tour-marker:hover { background: #fff; z-index: 1; }
-#bigmap { inset: 60px 290px 65px 20px; width: calc(100% - 310px); height: calc(100% - 125px); touch-action: none; cursor: grab; }
+.tour-marker { position: absolute; pointer-events: auto; color: #fff9e9; background: #122830e8; border: 1.5px solid #f5bd60; width: 26px; height: 26px; padding: 0; border-radius: 50%; font-size: 10px; font-weight: 800; box-shadow: 0 2px 6px #0006; transform: translate(-50%, -50%); }
+.tour-marker::after { content: ''; position: absolute; inset: -3px; }
+.tour-marker:hover, .tour-marker:focus-visible { background: #f5bd60; color: #14232d; z-index: 1; }
+.marker-leader { position: absolute; height: 1px; background: #f5bd6090; transform-origin: left center; pointer-events: none; }
+
+#bigmap { inset: 60px 290px 65px 20px; width: calc(100% - 310px); height: calc(100% - 125px); touch-action: none; cursor: grab; border: 1px solid #ffffff16; border-radius: 4px; }
 #bigmap:active { cursor: grabbing; }
-.map-heading { position: absolute; top: 20px; left: 25px; display: flex; gap: 22px; font-size: 12px; letter-spacing: .12em; }
-.map-heading span { color: var(--gold); font-size: 10px; }
+#map-panel { background: radial-gradient(ellipse at 50% 45%, #2b4848, #101e2a); }
+.map-heading { position: absolute; top: max(20px, env(safe-area-inset-top)); left: 25px; display: flex; gap: 22px; font-size: 12px; letter-spacing: .12em; }
+.map-heading span { color: #f5bd60; font-size: 10px; }
 .map-tools { position: absolute; bottom: 58px; left: 26px; display: flex; gap: 6px; }
-.map-tools button { background: #101c28; }
+.map-tools button { background: #101c28; min-width: 40px; min-height: 40px; }
 .map-help { left: 20px; right: 20px; font-size: 11px; }
 #map-places { position: absolute; top: 62px; bottom: 62px; right: 20px; width: 240px; overflow-y: auto; padding-right: 5px; }
 #map-places button { display: flex; gap: 10px; width: 100%; text-align: left; background: transparent; color: #c1cdd4; border: 0; border-bottom: 1px solid #ffffff12; padding: 10px 8px; font-size: 11px; }
 #map-places button:hover { background: #ffc94020; color: #fff; }
-#map-places b { color: var(--gold); min-width: 22px; }
-@media (max-width: 700px) {
-  #overlay { padding: 30px 22px; align-items: flex-start; }
-  .menu-card { max-width: 100%; }
-  .menu-options b { font-size: 18px; }
-  .menu-options button { gap: 12px; padding: 14px; }
-  .menu-footer span { display: none; }
-  #tour-panel { left: 8px; right: 8px; bottom: 18px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  #tour-places { width: 100%; }
-  #tour-description { font-size: 10px; }
-  #tour-title { font-size: 16px; }
+#map-places b { color: #f5bd60; min-width: 22px; }
+.desktop-menu { position: absolute; top: 150px; left: 14px; pointer-events: auto; }
+#minimap { pointer-events: auto; cursor: pointer; }
+
+/* Floating stick never steals right-hand gestures or blocks the camera. */
+#joystick { position: fixed; width: 112px; height: 112px; margin: -56px 0 0 -56px; border: 2px solid #ffffff60; border-radius: 50%; background: #12232b55; pointer-events: none; box-shadow: inset 0 0 25px #0003; }
+.joystick-thumb { position: absolute; left: 34px; top: 34px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffe6ba; background: #ffffff50; }
+body.touch #crosshair { display: block; }
+body.touch .desktop-menu { display: none; }
+body.touch .touch-buttons { right: max(12px, env(safe-area-inset-right)); bottom: max(42px, env(safe-area-inset-bottom)); gap: 9px; }
+body.touch .touch-buttons button { width: 44px; height: 44px; border: 1px solid #ffffff90; font-size: 21px; background: #13212bc7; touch-action: manipulation; }
+body.touch .touch-buttons #btn-fire { width: 58px; height: 58px; font-size: 27px; align-self: center; border: 2px solid #ffdfb0; background: #852836b0; }
+body.touch .touch-buttons #btn-fly[aria-pressed="true"] { color: #7cddff; border-color: #7cddff; }
+body.touch .paint-hud { right: 82px; bottom: max(42px, env(safe-area-inset-bottom)); font-size: 10px; padding: 7px 9px; }
+body.touch #touch-help { font-size: 10px; bottom: max(18px, env(safe-area-inset-bottom)); padding: 5px 10px; }
+body.touch .attrib { font-size: 8px; }
+body.touch #toast { width: max-content; max-width: 85vw; white-space: normal; text-align: center; font-size: 12px; padding: 8px 12px; }
+
+@media (orientation: portrait) and (max-width: 700px) {
+  .menu-art { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 6px; padding: 6px; }
+  .menu-art::after { background: linear-gradient(0deg, #030609f7, #030609b0 38%, #03060918 78%); }
+  .gta-logo { left: 50%; top: 30%; }
+  .logo-word { font-size: clamp(70px, min(21vw, 12vh), 120px); -webkit-text-stroke-width: 7px; }
+  .logo-sub { font-size: clamp(29px, 9vw, 46px); -webkit-text-stroke-width: 5px; }
+  .menu-options { width: 86%; left: 7%; bottom: max(18vh, 115px); gap: 3px; }
+  .menu-location { margin-bottom: 10px; }
+  .menu-options button, .menu-options #play { font-size: clamp(26px, 7.5vw, 36px); min-height: 48px; }
+  #loading { left: 7%; width: 86%; bottom: max(24px, env(safe-area-inset-bottom)); }
+  #intro-skip { top: max(10px, env(safe-area-inset-top)); bottom: auto; right: 10px; }
+  #settings-panel { left: 5%; width: 90%; padding: 20px; }
+  .tour-label { display: none; }
+  #tour-panel { left: 8px; right: 8px; padding: 7px 8px; }
+  .tour-actions { width: 100%; justify-content: space-between; gap: 4px; }
+  .tour-actions button { padding: 7px 8px; font-size: 10px; }
   #map-places { display: none; }
-  #bigmap { right: 10px; left: 10px; width: calc(100% - 20px); }
-  .map-heading { gap: 10px; left: 15px; font-size: 10px; }
-  .map-heading span { font-size: 8px; }
+  #bigmap { left: 10px; right: 10px; width: calc(100% - 20px); }
+  .map-heading { left: 15px; flex-direction: column; gap: 5px; font-size: 10px; }
+  .map-help { font-size: 10px; }
+  body.touch #hud .panel { top: max(12px, env(safe-area-inset-top)); left: 12px; min-width: 0; max-width: calc(100% - 125px); padding: 9px 11px; border-left-width: 2px; border-radius: 6px; }
+  body.touch #hud .title { font-size: 8px; letter-spacing: .05em; }
+  body.touch #hud .title { visibility: hidden; height: 12px; }
+  body.touch #hud-mode { visibility: visible; position: absolute; left: 11px; }
+  body.touch #hud .street { font-size: 14px; }
+  body.touch #hud .zone { font-size: 10px; margin-bottom: 0; }
+  body.touch #hud .row { display: none; }
+  body.touch #minimap { width: 100px; height: 100px; top: max(12px, env(safe-area-inset-top)); right: 12px; border-width: 2px; }
+  body.touch #hud-fps { top: 117px; right: 17px; font-size: 9px; }
 }
-@media (max-height: 540px) and (min-width: 701px) {
-  #overlay { padding: 22px 5vw; align-items: flex-start; }
-  .menu-card { max-width: 610px; }
-  .gta-logo strong { font-size: 78px; }
-  .logo-sub { font-size: 26px; }
-  .menu-card .sub { margin: 10px 0; font-size: 12px; }
-  .eyebrow { margin-bottom: 10px; }
-  .menu-options { gap: 5px; }
-  .menu-options button, #play { padding: 9px 16px; }
-  .menu-options b { font-size: 16px; }
-  .menu-help { margin-top: 4px; }
-  .menu-footer { margin-top: 10px; }
-  #tour-panel { bottom: 16px; padding: 10px 14px; gap: 8px; }
-  #tour-title { font-size: 16px; }
-  #tour-description { font-size: 10px; }
-  #tour-places button { padding: 5px 8px; }
-  .desktop-menu { top: 132px; font-size: 10px; }
+@media (max-height: 540px) and (orientation: landscape) {
+  .menu-options { bottom: 105px; left: max(5vw, env(safe-area-inset-left)); gap: 0; }
+  .menu-options button, .menu-options #play { font-size: 25px; min-height: 39px; }
+  .menu-location { margin-bottom: 9px; font-size: 8px; }
+  #loading { bottom: max(20px, env(safe-area-inset-bottom)); }
+  .gta-logo { top: 44%; left: 67%; }
+  .logo-word { font-size: clamp(55px, 17vh, 92px); -webkit-text-stroke-width: 7px; }
+  .logo-sub { font-size: clamp(24px, 7vh, 38px); -webkit-text-stroke-width: 5px; margin-top: 5px; }
+  body.touch #hud .panel { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); min-width: 0; max-width: 45vw; padding: 7px 10px; border-radius: 6px; }
+  #hud .title { font-size: 8px; }.street, #hud .street { font-size: 14px; } #hud .zone { font-size: 10px; } #hud .row { display: none; }
+  #minimap { width: 95px; height: 95px; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); border-width: 2px; }
+  #hud-fps { top: 107px; right: 14px; font-size: 9px; }
+  body.touch .touch-buttons.only-touch { display: grid !important; grid-template-columns: 44px 58px; align-items: end; gap: 8px; }
+  body.touch .touch-buttons #btn-fire { grid-column: 2; grid-row: 1 / 3; }
+  body.touch .touch-buttons #btn-fly { grid-column: 1; grid-row: 1; }
+  body.touch .touch-buttons #btn-orientation { grid-column: 1; grid-row: 2; }
+  body.touch .paint-hud { right: 133px; }
+  #tour-panel { bottom: max(15px, env(safe-area-inset-bottom)); }
+  #tour-title { font-size: 14px; } #tour-description { font-size: 10px; }
+  .desktop-menu { top: 98px; font-size: 10px; }
+  .help { font-size: 10px; bottom: 16px; }.attrib { font-size: 8px; }
+  #bigmap { top: 46px; height: calc(100% - 100px); }
+  .map-help { bottom: 8px; font-size: 10px; }
+  .map-tools { bottom: 45px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-
-.logo-sub { font-weight: 900; }
-body.menu-open.touch.portrait #rotate { display: none; }
-
-body.tour-active.touch #hud .touch-buttons.only-touch { display: none !important; }

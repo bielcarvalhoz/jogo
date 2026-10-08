@@ -14,6 +14,7 @@ export function createPaintballModule(game) {
 
   // cor da tinta (menu inicial + botão do HUD)
   const colorChoice = $('paint-color');
+  colorChoice.replaceChildren(); colorChoice.disabled = false;
   for (const color of paintball.palette) {
     const option = document.createElement('option');
     option.value = color.id;

@@ -5,7 +5,7 @@ import { createPlayer } from './controller.js';
 // colisões, pisos e telhados vêm de game.physics, preenchido pelo mapa e pelo campus.
 //
 // O objeto devolvido expõe: active, fly, yaw, feet, touchMode, dragMode, events (EventTarget com
-// 'lock', 'unlock', 'fly'), start(touch), stop(), placeAt(x, z, yaw), toggleAutoFly().
+// 'lock', 'unlock', 'fly', 'joystick'), start(touch), stop(), placeAt(x, z, yaw), toggleAutoFly().
 
 export { createPlayer } from './controller.js';
 

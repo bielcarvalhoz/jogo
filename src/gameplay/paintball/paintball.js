@@ -168,6 +168,8 @@ export function createPaintball({ scene, camera, getActive = () => true, collide
   function update(dt) {
     if (disposed) return;
     gun.visible = !!getActive();
+    // A narrow horizontal FOV must not put the entire first-person weapon offscreen.
+    gun.position.x = Math.min(.34, .32 * camera.aspect);
     const elapsed = Math.min(.1, Math.max(0, dt));
     cooldown = Math.max(0, cooldown - elapsed); recoil *= Math.exp(-elapsed * 16);
     gun.position.z = -.62 + recoil * .045; gun.rotation.x = -recoil * .09;

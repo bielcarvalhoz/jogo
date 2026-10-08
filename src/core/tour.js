@@ -20,12 +20,29 @@ export function createTour(game) {
   let bottomInset = 0;
   const campaignPosition = new THREE.Vector3(), campaignRotation = new THREE.Quaternion();
   const savedFog = { near: scene.fog.near, far: scene.fog.far };
+  const savedFogColor = scene.fog.color.clone();
+  let savedBackground = scene.background, savedSkyVisible = game.engine.sky.visible;
   const quarter = game.map.world.quarter?.[0];
   const b = game.map.terrain.bounds;
   const xs = quarter?.map(p => p[0]) || [b.x0, b.x1], zs = quarter?.map(p => p[1]) || [b.z0, b.z1];
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+  const campusWidth = Math.max(...xs) - Math.min(...xs), campusDepth = Math.max(...zs) - Math.min(...zs);
+  const span = Math.max(campusWidth, campusDepth);
   const centre = new THREE.Vector3(cx, game.map.terrain.heightAt(cx, cz), cz);
+  // A small static atlas-like backdrop replaces the white underside of the sky
+  // in aerial views. One flat mesh extends the land without generating a city.
+  const art = document.createElement('canvas'); art.width = art.height = 512;
+  const ctx = art.getContext('2d'), gradient = ctx.createRadialGradient(256, 220, 20, 256, 256, 380);
+  gradient.addColorStop(0, '#94aaa6'); gradient.addColorStop(.55, '#64847f'); gradient.addColorStop(1, '#29494c');
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = '#c7dbca18'; ctx.lineWidth = 1;
+  for (let i = 0; i < 16; i++) {
+    ctx.beginPath(); ctx.ellipse(256 + Math.sin(i) * 25, 256, 70 + i * 23, 45 + i * 19, -.4, 0, Math.PI * 2); ctx.stroke();
+  }
+  const backdrop = new THREE.CanvasTexture(art); backdrop.colorSpace = THREE.SRGBColorSpace;
+  const land = new THREE.Mesh(new THREE.CircleGeometry(12000, 64), new THREE.MeshBasicMaterial({ color: 0x809b8e, fog: true }));
+  land.name = 'Tour distant land'; land.userData.noPaintball = true;
+  land.rotation.x = -Math.PI / 2; land.position.set(cx, -8, cz); land.visible = false; scene.add(land);
 
   function moveTo(position, target, instant = false) {
     controls.autoRotate = false;
@@ -43,7 +60,8 @@ export function createTour(game) {
     // Fit the campus even in narrow viewports, with a slightly tilted aerial view.
     const halfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const availableHeight = Math.max(100, innerHeight - bottomInset);
-    const distance = span / (2 * halfFov) * Math.max(innerHeight / availableHeight, 1 / camera.aspect) * 1.22;
+    const distance = Math.max(campusWidth / camera.aspect, campusDepth * innerHeight / availableHeight) / (2 * halfFov) * 1.06;
+    controls.maxDistance = Math.max(2200, distance * 1.6);
     moveTo(centre.clone().add(new THREE.Vector3(0, distance, distance * .16)), centre.clone(), instant);
     game.events.emit('tour-focus', null);
   }
@@ -61,9 +79,11 @@ export function createTour(game) {
   function start() {
     if (active) return;
     campaignPosition.copy(camera.position); campaignRotation.copy(camera.quaternion);
+    savedBackground = scene.background; savedSkyVisible = game.engine.sky.visible;
     active = true; controls.enabled = true;
     applyFraming();
-    scene.fog.near = Math.max(savedFog.near, 2400); scene.fog.far = Math.max(savedFog.far, 4000);
+    scene.background = backdrop; game.engine.sky.visible = false; land.visible = true;
+    scene.fog.color.set(0x94aaa6);
     overview(true);
   }
 
@@ -73,6 +93,8 @@ export function createTour(game) {
     camera.clearViewOffset();
     camera.position.copy(campaignPosition); camera.quaternion.copy(campaignRotation);
     Object.assign(scene.fog, savedFog);
+    scene.fog.color.copy(savedFogColor); scene.background = savedBackground;
+    game.engine.sky.visible = savedSkyVisible; land.visible = false;
   }
 
   function applyFraming() {
@@ -92,6 +114,9 @@ export function createTour(game) {
       if (progress === 1) { transition = null; controls.autoRotate = !!focused && autoOrbit; }
     }
     controls.update(Math.min(dt, .1));
+    const altitude = Math.max(0, camera.position.y - centre.y);
+    scene.fog.near = Math.max(350, altitude * .9 + span * .25);
+    scene.fog.far = Math.max(scene.fog.near + span * 1.1, altitude * 1.7 + span);
     // Free orbit/pan can never take the camera under the terrain.
     camera.position.y = Math.max(camera.position.y, game.map.terrain.heightAt(camera.position.x, camera.position.z) + 4);
   }, 'player');

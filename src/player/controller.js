@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { createTouchControls } from './touch-controls.js';
 
 // Primeira pessoa.
 //  Teclado/mouse: WASD + mouse, Shift corre, Espaço pula, F alterna voo livre.
-//  Toque (celular, tela deitada): arrastar = olhar; toque duplo = começa a voar para onde
+//  Toque (celular, qualquer orientação): analógico esquerdo = andar, direita = olhar;
+//  toque duplo à direita = começa a voar para onde
 //  está olhando (olhar para baixo desce, para cima sobe); toque duplo de novo = para de voar.
 
 const EYE = 1.7;
@@ -29,7 +31,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   const setActive = (v) => {
     if (active === v) return;
     active = v;
-    if (!v) { keys.clear(); lookId = null; }
+    if (!v) { keys.clear(); touchControls.reset(); }
     events.dispatchEvent(new CustomEvent(v ? 'lock' : 'unlock', { detail: { dragMode: mode === 'drag', touch: mode === 'touch' } }));
   };
   controls.addEventListener('lock', () => { mode = 'mouse'; setActive(true); });
@@ -67,42 +69,18 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     camera.quaternion.setFromEuler(euler);
   };
   let dragging = false;
-  let lookId = null, lastX = 0, lastY = 0;
-  let downT = 0, downX = 0, downY = 0, moved = 0;
-  let lastTap = { t: 0, x: 0, y: 0 };
+  let stickX = 0, stickY = 0;
+  const touchControls = createTouchControls(dom, {
+    isActive: () => active && mode === 'touch', onLook: look, onDoubleTap: toggleAutoFly,
+    onStick(state) {
+      stickX = state.x; stickY = state.y;
+      events.dispatchEvent(new CustomEvent('joystick', { detail: state }));
+    },
+  });
   dom.addEventListener('pointerdown', (e) => {
     if (!active) return;
-    if (e.pointerType === 'touch') {
-      if (lookId !== null) return; // um dedo só controla a câmera
-      lookId = e.pointerId; lastX = downX = e.clientX; lastY = downY = e.clientY; downT = performance.now(); moved = 0;
-      dom.setPointerCapture?.(e.pointerId);
-      e.preventDefault();
-    } else if (mode === 'drag') dragging = true;
+    if (e.pointerType !== 'touch' && mode === 'drag') dragging = true;
   });
-  dom.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch') {
-      if (e.pointerId !== lookId) return;
-      const dx = e.clientX - lastX, dy = e.clientY - lastY;
-      lastX = e.clientX; lastY = e.clientY;
-      moved += Math.abs(dx) + Math.abs(dy);
-      // meia largura da tela de arrasto ~ 100 graus
-      look(dx, dy, (Math.PI * 1.1) / Math.max(innerWidth, 1));
-      e.preventDefault();
-    }
-  });
-  const endTouch = (e) => {
-    if (e.pointerType !== 'touch' || e.pointerId !== lookId) return;
-    lookId = null;
-    const now = performance.now();
-    const tap = now - downT < 260 && moved < 14;
-    if (!tap) return;
-    if (now - lastTap.t < 340 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 60) {
-      lastTap.t = 0;
-      toggleAutoFly();
-    } else lastTap = { t: now, x: e.clientX, y: e.clientY };
-  };
-  dom.addEventListener('pointerup', endTouch);
-  dom.addEventListener('pointercancel', (e) => { if (e.pointerId === lookId) lookId = null; });
   window.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') dragging = false; });
   window.addEventListener('pointermove', (e) => {
     if (!dragging || e.pointerType === 'touch') return;
@@ -170,7 +148,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
       if (keys.has('KeyS') || keys.has('ArrowDown')) move.sub(fwd);
       if (keys.has('KeyD') || keys.has('ArrowRight')) move.add(right);
       if (keys.has('KeyA') || keys.has('ArrowLeft')) move.sub(right);
-      if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed * dt);
+      move.addScaledVector(fwd, stickY).addScaledVector(right, stickX);
+      if (move.lengthSq() > 1) move.normalize();
+      move.multiplyScalar(speed * dt);
       if (fly) {
         if (keys.has('KeyE') || keys.has('Space')) move.y += speed * dt;
         if (keys.has('KeyQ') || keys.has('ControlLeft')) move.y -= speed * dt;
