@@ -20,7 +20,7 @@ test('leaf crowns have open card topology, finite unit normals and bounded insta
     assert.ok(mesh.boundingSphere.radius > 0);
     assert.ok(mesh.instanceMatrix.array.every(Number.isFinite));
   }
-  assert.equal(trees.getObjectByName('copas').geometry.attributes.position.count, 20 * 4);
+  assert.equal(trees.getObjectByName('copas').geometry.attributes.position.count, 32 * 4);
   assert.equal(trees.getObjectByName('copas').castShadow, false);
   const background = makeTreeMeshes([{ x: 0, z: 0, s: 1, r: 0, v: 0.5 }], { heightAt: () => 0 });
   const backgroundTriangles = background.children.reduce((total, mesh) => total + mesh.geometry.index.count / 3, 0);

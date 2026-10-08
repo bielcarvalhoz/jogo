@@ -10,15 +10,21 @@ export function joystickVector(dx, dy, radius = 52, deadZone = .12) {
 
 /** Each pointer owns one role until release: left movement and remaining look.
  * UI buttons sit outside the canvas and never start a movement/look gesture. */
-export function createTouchControls(dom, { isActive, onLook, onStick, onDoubleTap }) {
-  let stick = null, look = null, lastTap = null;
+export function createTouchControls(dom, { isActive, onLook, onStick, onDoubleTap = () => {} }) {
+  let stick = null, look = null, lastTap = null, fire = null;
+  const sensitivity = () => Math.PI * 1.1 / Math.max(1, Math.min(innerWidth, innerHeight * 1.5));
   const emitStick = (dx = 0, dy = 0) => {
     const v = joystickVector(dx, dy);
     onStick({ ...v, active: !!stick, originX: stick?.x || 0, originY: stick?.y || 0 });
   };
-  const release = id => { try { if (dom.hasPointerCapture?.(id)) dom.releasePointerCapture(id); } catch { /* detached pointer */ } };
+  const release = (id, target = dom) => { try { if (target.hasPointerCapture?.(id)) target.releasePointerCapture(id); } catch { /* detached pointer */ } };
+  const releaseFire = () => {
+    const previous = fire; fire = null;
+    if (previous) { previous.onFire(false); release(previous.id, previous.button); }
+  };
   const reset = () => {
     const ids = [stick?.id, look?.id]; stick = look = lastTap = null; emitStick();
+    releaseFire();
     ids.forEach(id => { if (id !== undefined) release(id); });
   };
   dom.addEventListener('pointerdown', e => {
@@ -40,7 +46,7 @@ export function createTouchControls(dom, { isActive, onLook, onStick, onDoubleTa
     } else if (e.pointerId === look?.id) {
       const dx = e.clientX - look.x, dy = e.clientY - look.y;
       look.moved += Math.abs(dx) + Math.abs(dy); look.x = e.clientX; look.y = e.clientY;
-      onLook(dx, dy, Math.PI * 1.1 / Math.max(1, Math.min(innerWidth, innerHeight * 1.5)));
+      onLook(dx, dy, sensitivity());
       e.preventDefault();
     }
   });
@@ -59,5 +65,23 @@ export function createTouchControls(dom, { isActive, onLook, onStick, onDoubleTa
   window.addEventListener('blur', reset);
   window.addEventListener('resize', reset);
   document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
-  return { reset };
+  return {
+    reset,
+    // Fire owns its own pointer/capture: a thumb can aim and shoot together,
+    // with an independent movement finger and optional third look finger.
+    bindFireButton(button, onFire) {
+      button.addEventListener('pointerdown', e => {
+        if (!isActive() || fire || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        fire = { id: e.pointerId, x: e.clientX, y: e.clientY, button, onFire };
+        button.setPointerCapture?.(e.pointerId); e.preventDefault(); onFire(true);
+      });
+      button.addEventListener('pointermove', e => {
+        if (!isActive() || fire?.id !== e.pointerId) return;
+        onLook(e.clientX - fire.x, e.clientY - fire.y, sensitivity());
+        fire.x = e.clientX; fire.y = e.clientY; e.preventDefault();
+      });
+      const endFire = e => { if (fire?.id === e.pointerId) releaseFire(); };
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, endFire);
+    },
+  };
 }

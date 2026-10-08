@@ -137,3 +137,48 @@ test('first-person paintball gun remains visible when the viewport changes to po
   }
   paint.dispose();
 });
+
+test('held automatic fire has bounded cadence/pools and stops on release, switch and pause', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70), wall = wallAt(-8); scene.add(wall);
+  let active = true;
+  const paint = createPaintball({scene,camera,getActive:()=>active,colliderRoots:[wall]});
+  const poolSize = paint.root.children.length;
+  paint.setTrigger(true);
+  for(let i=0;i<20;i++)paint.update(.05);
+  assert.equal(paint.stats.shots,1,'holding a semi-automatic trigger only fires once');
+  paint.setTrigger(false);paint.setTrigger(true);assert.equal(paint.stats.shots,2);
+  paint.setWeapon('automatic');assert.equal(paint.firing,false);paint.update(.2);
+  assert.equal(paint.gun.getObjectByName('metralhadora-paintball').visible,true);
+  const initial=paint.stats.shots;paint.setTrigger(true);
+  for(let i=0;i<100;i++)paint.update(.02);
+  assert.ok(paint.stats.shots-initial>=12&&paint.stats.shots-initial<=18);
+  assert.equal(paint.root.children.length,poolSize);assert.ok(paint.stats.projectiles<=PAINTBALL_LIMITS.projectiles);
+  let shots=paint.stats.shots;paint.update(5);assert.ok(paint.stats.shots-shots<=1,'no catch-up burst after a stalled frame');
+  paint.setTrigger(false);shots=paint.stats.shots;for(let i=0;i<20;i++)paint.update(.05);assert.equal(paint.stats.shots,shots);
+  paint.setTrigger(true);paint.setWeapon('pistol');shots=paint.stats.shots;paint.update(.1);assert.equal(paint.stats.shots,shots);
+  paint.setWeapon('automatic');paint.update(.2);paint.setTrigger(true);active=false;paint.update(.1);
+  assert.equal(paint.firing,false);shots=paint.stats.shots;active=true;paint.update(.1);assert.equal(paint.stats.shots,shots);
+  paint.dispose();
+});
+
+test('focused aim smoothly centres either weapon and restores the camera on pause/disposal', () => {
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,390/844);let active=true;
+  const paint=createPaintball({scene,camera,getActive:()=>active,colliderRoots:[]});
+  for(const weapon of ['pistol','automatic']) {
+    paint.setWeapon(weapon);paint.setAiming(true);paint.update(.016);
+    assert.ok(camera.fov<70&&camera.fov>45);
+    for(let i=0;i<40;i++)paint.update(.016);
+    assert.ok(Math.abs(camera.fov-45)<.05);assert.ok(Math.abs(paint.gun.position.x)<.001);
+    active=false;paint.update(.016);assert.equal(paint.aiming,false);assert.equal(camera.fov,70);active=true;
+  }
+  paint.setAiming(true);paint.update(.1);paint.resetInput();assert.equal(camera.fov,70);
+  paint.setAiming(true);paint.update(.1);paint.dispose();assert.equal(camera.fov,70);
+});
+
+test('a focused long barrel cannot spawn paint behind a nearby wall', () => {
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70),wall=wallAt(-.3);scene.add(wall);
+  const paint=createPaintball({scene,camera,colliderRoots:[wall]});paint.setWeapon('automatic');paint.setAiming(true);
+  for(let i=0;i<20;i++)paint.update(.05);
+  assert.equal(paint.shoot(),true);paint.update(.1);assert.equal(paint.stats.marks,1);
+  paint.dispose();
+});

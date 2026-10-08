@@ -15,7 +15,7 @@ function paintProgress(value) {
 
 export const loading = {
   async status(msg, value = progress) {
-    $('loading-text').textContent = msg; $('waiting-text').textContent = msg;
+    $('loading-text').textContent = msg;
     paintProgress(value);
     await new Promise(resolve => { requestAnimationFrame(() => setTimeout(resolve, 0)); setTimeout(resolve, 50); });
   },
@@ -24,13 +24,14 @@ export const loading = {
     failed = true;
     console.error(err);
     const msg = `Erro ao carregar: ${err.message}. Recarregue a página para tentar novamente.`;
-    $('loading-text').textContent = msg; $('waiting-text').textContent = msg;
+    $('loading-text').textContent = msg;
     $('loading').classList.add('error');
   },
 };
 
 /** Bind the menu before any network or 3D construction begins. */
 export function createFrontMenu() {
+  failed = false; progress = 0;
   document.body.classList.add('intro-playing');
   const endIntro = () => { document.body.classList.remove('intro-playing'); $('intro-skip').hidden = true; };
   const introTimer = setTimeout(endIntro, 2200);
@@ -38,7 +39,9 @@ export function createFrontMenu() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { clearTimeout(introTimer); endIntro(); }
   const settings = loadSettings();
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
-  let game = null, pendingMode = null, pendingTouch = false;
+  let game = null;
+  const modeButtons = [$('play'), $('tour')];
+  for (const button of modeButtons) { button.disabled = true; button.setAttribute('aria-describedby', 'loading-text'); }
   const settingsPanel = $('settings-panel'), options = document.querySelector('.menu-options');
   const showSettings = on => {
     endIntro();
@@ -47,19 +50,23 @@ export function createFrontMenu() {
   };
   $('settings-open').addEventListener('click', () => showSettings(true));
   $('settings-back').addEventListener('click', () => showSettings(false));
+  const restartDialog = $('settings-restart');
+  const changed = () => $('graphics').value !== settings.quality || $('surroundings').value !== settings.surroundings;
   $('settings-apply').addEventListener('click', () => {
-    const next = saveSettings({ quality: $('graphics').value, surroundings: $('surroundings').value });
-    if (next.quality !== settings.quality || next.surroundings !== settings.surroundings) location.reload();
-    else showSettings(false);
+    if (!changed()) { showSettings(false); return; }
+    $('restart-description').textContent = game
+      ? 'A cidade precisa ser recarregada para aplicar gráficos ou entorno. Você voltará ao menu.'
+      : 'A cidade está carregando. Aplicar gráficos ou entorno interrompe o carregamento atual e começa novamente.';
+    restartDialog.showModal(); $('settings-cancel-restart').focus();
   });
-  $('loading-back').addEventListener('click', () => {
-    pendingMode = null; $('loading-wait').classList.add('hidden'); $('overlay').classList.remove('hidden');
+  $('settings-cancel-restart').addEventListener('click', () => restartDialog.close());
+  $('settings-confirm-restart').addEventListener('click', () => {
+    saveSettings({ quality: $('graphics').value, surroundings: $('surroundings').value });
+    restartDialog.close(); location.reload();
   });
   const selectMode = (mode, touch) => {
-    if (failed) return;
-    if (game) { game.ui.startMode(mode, touch); return; }
-    pendingMode = mode; pendingTouch = touch;
-    $('overlay').classList.add('hidden'); $('loading-wait').classList.remove('hidden');
+    if (failed || !game) return;
+    game.ui.startMode(mode, touch);
   };
   for (const [id, mode] of [['play', 'campaign'], ['tour', 'tour']]) {
     let pointerType = '';
@@ -75,8 +82,8 @@ export function createFrontMenu() {
   return {
     settings,
     ready(context) {
-      game = context; loading.complete(); $('loading-wait').classList.add('hidden');
-      if (pendingMode) { const mode = pendingMode; pendingMode = null; game.ui.startMode(mode, pendingTouch); }
+      game = context; loading.complete();
+      for (const button of modeButtons) { button.disabled = false; button.removeAttribute('aria-describedby'); }
     },
   };
 }

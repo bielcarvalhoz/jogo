@@ -5,8 +5,7 @@ import { createTouchControls } from './touch-controls.js';
 // Primeira pessoa.
 //  Teclado/mouse: WASD + mouse, Shift corre, Espaço pula, F alterna voo livre.
 //  Toque (celular, qualquer orientação): analógico esquerdo = andar, direita = olhar;
-//  toque duplo à direita = começa a voar para onde
-//  está olhando (olhar para baixo desce, para cima sobe); toque duplo de novo = para de voar.
+//  botão de tiro permite arrastar a mira enquanto dispara; voo pelo botão ↟.
 
 const EYE = 1.7;
 const RADIUS = 0.35;
@@ -21,8 +20,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   let vy = 0;
   let onGround = false;
   let fly = false; // voo livre do teclado (F)
-  let autoFly = false; // voo do toque duplo
+  let autoFly = false; // voo direcional pelo botão do celular
   let flySpeed = 0;
+  let focusedAim = false;
 
   // Estado "jogando": pointer lock, modo arrastar (pointer lock bloqueado) ou modo toque
   const events = new EventTarget();
@@ -31,7 +31,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   const setActive = (v) => {
     if (active === v) return;
     active = v;
-    if (!v) { keys.clear(); touchControls.reset(); }
+    if (!v) { keys.clear(); touchControls.reset(); focusedAim = false; controls.pointerSpeed = 1; }
     events.dispatchEvent(new CustomEvent(v ? 'lock' : 'unlock', { detail: { dragMode: mode === 'drag', touch: mode === 'touch' } }));
   };
   controls.addEventListener('lock', () => { mode = 'mouse'; setActive(true); });
@@ -64,14 +64,15 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   const euler = new THREE.Euler(0, 0, 0, 'YXZ');
   const look = (dx, dy, k) => {
     euler.setFromQuaternion(camera.quaternion);
-    euler.y -= dx * k;
-    euler.x = Math.max(-1.5, Math.min(1.5, euler.x - dy * k));
+    const scale = focusedAim ? .52 : 1;
+    euler.y -= dx * k * scale;
+    euler.x = Math.max(-1.5, Math.min(1.5, euler.x - dy * k * scale));
     camera.quaternion.setFromEuler(euler);
   };
   let dragging = false;
   let stickX = 0, stickY = 0;
   const touchControls = createTouchControls(dom, {
-    isActive: () => active && mode === 'touch', onLook: look, onDoubleTap: toggleAutoFly,
+    isActive: () => active && mode === 'touch', onLook: look,
     onStick(state) {
       stickX = state.x; stickY = state.y;
       events.dispatchEvent(new CustomEvent('joystick', { detail: state }));
@@ -95,17 +96,25 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     events.dispatchEvent(new CustomEvent('fly', { detail: { flying: autoFly } }));
   }
 
+  function jump() {
+    if (!active || fly || autoFly || !onGround) return false;
+    vy = 7; onGround = false; return true;
+  }
+
   // ---------------------------------------------------------------- teclado
   const onKey = (e, down) => {
     if (down) keys.add(e.code); else keys.delete(e.code);
-    if (down && e.code === 'Space' && !fly && !autoFly && onGround) { vy = 7; onGround = false; }
+    if (down && e.code === 'Space') jump();
     if (down && e.code === 'KeyF') { fly = !fly; autoFly = false; vy = 0; }
   };
   window.addEventListener('keydown', (e) => {
+    if (e.target?.closest?.('button, input, select, textarea, [contenteditable=true]')) return;
     if (mode === 'drag' && active && e.code === 'Escape') { setActive(false); return; }
     if (active) { onKey(e, true); if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => onKey(e, false));
+  window.addEventListener('blur', () => keys.clear());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) keys.clear(); });
 
   function groundAt(x, z, fromY) {
     let g = terrain.heightAt(x, z);
@@ -131,9 +140,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   function update(dt) {
     if (!active) return;
     dt = Math.min(dt, 0.05);
-    const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const run = !focusedAim && (keys.has('ShiftLeft') || keys.has('ShiftRight') || (mode === 'touch' && stickY > .9 && Math.hypot(stickX, stickY) > .97));
     const flying = fly || autoFly;
-    const speed = fly ? (run ? 90 : 28) : run ? 9.5 : 4.6;
+    const speed = fly ? (run ? 90 : 28) : focusedAim ? 3.1 : run ? 9.5 : 4.6;
 
     camera.getWorldDirection(fwd);
     move.set(0, 0, 0);
@@ -153,7 +162,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
       move.multiplyScalar(speed * dt);
       if (fly) {
         if (keys.has('KeyE') || keys.has('Space')) move.y += speed * dt;
-        if (keys.has('KeyQ') || keys.has('ControlLeft')) move.y -= speed * dt;
+        if (keys.has('ControlLeft') || keys.has('ControlRight')) move.y -= speed * dt;
       }
     }
 
@@ -201,6 +210,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     placeAt,
     feet,
     toggleAutoFly,
+    jump,
+    setFocusedAim(value) { focusedAim = active && !!value; controls.pointerSpeed = focusedAim ? .52 : 1; },
+    bindFireButton: touchControls.bindFireButton,
     get active() { return active; },
     get dragMode() { return mode === 'drag'; },
     get touchMode() { return mode === 'touch'; },

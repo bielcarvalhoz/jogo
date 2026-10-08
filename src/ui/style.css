@@ -125,11 +125,6 @@ button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-
 .load-fill { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #ce2636, #ffbd55); transform: scaleX(0); transform-origin: left center; }
 #loading small { display: block; margin-top: 9px; color: #a3a5a3; font-size: 10px; }
 #loading.error #loading-text { color: #ff8a80; }
-#loading-wait { position: fixed; z-index: 35; inset: 0; padding: 8vw; background: linear-gradient(90deg, #080d13f5, #080d13c7), url('/art/city-of-god-cover.webp') center / cover; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
-#loading-wait h2 { font: 400 clamp(32px, 5vw, 65px)/1.2 'Cover', sans-serif; margin: 12px 0 30px; }
-.waiting-progress { width: min(100%, 550px); }
-#waiting-text { color: #c3cbd0; }
-#loading-back { margin-top: 30px; }
 
 /* Settings are an optional pause screen, with their own scroll area. */
 .settings-open .gta-logo { opacity: .15; pointer-events: none; }
@@ -141,7 +136,7 @@ button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-
 .setting-note, .menu-help { font-size: 11px; color: #97a7ad; line-height: 1.6; }
 .menu-help summary { cursor: pointer; padding: 12px 0; }
 .settings-actions { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0; }
-.settings-actions button, #loading-back, .tour-actions button, .map-tools button, .desktop-menu { border: 1px solid #ffffff30; padding: 9px 14px; color: #fff; background: #17232ddd; border-radius: 3px; font-size: 12px; }
+.settings-actions button, .tour-actions button, .map-tools button, .desktop-menu { border: 1px solid #ffffff30; padding: 9px 14px; color: #fff; background: #17232ddd; border-radius: 3px; font-size: 12px; }
 #settings-apply { background: #ed303b; color: #fff; border: 0; }
 .stats { color: #83959b; font-size: 10px; }
 body.menu-open #hud, body.menu-open #tour-panel, body.menu-open #tour-markers { display: none; }
@@ -256,3 +251,44 @@ body.touch #toast { width: max-content; max-width: 85vw; white-space: normal; te
   .map-tools { bottom: 45px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Native page gestures never compete with movement/aim or our map's pinch. */
+html, body { touch-action: none; }
+body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button, canvas, .touch-buttons button, body.touch .touch-buttons button { touch-action: none; }
+#settings-panel, #map-places, #tour-places { touch-action: pan-y; }
+#tour-places { touch-action: pan-x; }
+.menu-options button:disabled, .menu-options #play:disabled { color: #a7abae; opacity: .45; cursor: wait; transform: none; filter: none; }
+.menu-options button:disabled::before, .menu-options #play:disabled::before { opacity: 0; }
+#settings-restart { width: min(440px, 90vw); background: #111c25; color: #eef2f6; border: 1px solid #52606a; border-top: 3px solid #ed303b; border-radius: 8px; padding: 24px; }
+#settings-restart::backdrop { background: #03090ddd; }
+#settings-restart h2 { margin: 0 0 14px; font: 400 28px 'Cover', sans-serif; }
+#settings-restart p { line-height: 1.6; font-size: 14px; color: #becbd2; }
+#settings-restart .settings-actions { margin-bottom: 0; flex-wrap: wrap; }
+#settings-confirm-restart { background: #a62534; }
+.weapon-hud { position: absolute; right: 15px; bottom: 125px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; color: #fff4dc; background: #13212bc9; border: 1px solid #fff6; border-left: 3px solid #ffcf77; padding: 9px 12px; text-align: left; border-radius: 4px; }
+.weapon-hud span { font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.weapon-hud small { font-size: 8px; color: #c3ced2; }
+body.tour-active .weapon-hud { display: none; }
+body.aiming #crosshair { width: 14px; height: 14px; margin: -7px; border: 1px solid #fff; background: transparent; }
+body.aiming #crosshair::after { content: ''; position: absolute; left: 5px; top: 5px; width: 2px; height: 2px; background: #fff; }
+body.touch #hud .touch-buttons.only-touch { display: block !important; position: absolute; inset: 0; pointer-events: none; }
+body.touch #hud .touch-buttons button { position: absolute; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid #fff8; }
+.touch-buttons button small { font: 700 8px system-ui, sans-serif; letter-spacing: .07em; }
+body.touch #hud #btn-fire { width: 76px; height: 76px; right: max(16px, env(safe-area-inset-right)); bottom: clamp(90px, 18vh, 170px); border: 2px solid #ffe1ab; background: #71283699; font-size: 34px; }
+body.touch #hud #btn-fire.firing { background: #c72e45bb; box-shadow: 0 0 20px #efba6650; }
+body.touch #hud #btn-aim { width: 56px; height: 56px; right: max(108px, calc(env(safe-area-inset-right) + 96px)); bottom: calc(clamp(90px, 18vh, 170px) + 10px); }
+body.touch #hud #btn-aim[aria-pressed="true"] { border-color: #ffd57d; color: #ffd57d; background: #634c2bcc; }
+body.touch #hud #btn-jump { width: 54px; height: 54px; right: max(24px, env(safe-area-inset-right)); bottom: max(32px, calc(env(safe-area-inset-bottom) + 24px)); }
+body.touch #hud #btn-fly { right: max(32px, env(safe-area-inset-right)); bottom: calc(clamp(90px, 18vh, 170px) + 92px); }
+body.touch #hud #btn-menu { top: 140px; right: max(12px, env(safe-area-inset-right)); }
+body.touch #hud #btn-map { top: 140px; right: max(64px, calc(env(safe-area-inset-right) + 52px)); }
+body.touch #hud #btn-orientation { top: 140px; right: max(116px, calc(env(safe-area-inset-right) + 104px)); }
+body.touch .weapon-hud { right: max(90px, calc(env(safe-area-inset-right) + 78px)); bottom: max(40px, calc(env(safe-area-inset-bottom) + 32px)); padding: 8px 10px; max-width: 180px; }
+body.touch .weapon-hud span { font-size: 11px; }
+body.touch .weapon-hud small { font-size: 7px; }
+body.touch .paint-hud { left: max(12px, env(safe-area-inset-left)); right: auto; bottom: max(40px, calc(env(safe-area-inset-bottom) + 32px)); }
+body.touch #touch-help { font-size: 9px; bottom: max(18px, env(safe-area-inset-bottom)); }
+@media (orientation: landscape) and (max-height: 540px) {
+  body.touch #hud #btn-menu, body.touch #hud #btn-map, body.touch #hud #btn-orientation { top: 120px; }
+}
