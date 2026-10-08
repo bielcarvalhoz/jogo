@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="./fonts/BowlbyOne-Regular.woff" as="font" type="font/woff" crossorigin />
     <title>Grand Treta Auto: City of God · Osasco</title>
   </head>
   <body>
@@ -20,7 +21,7 @@
       </div>
       <main class="menu-card">
         <div class="gta-logo" role="img" aria-label="grand treta auto: City of God">
-          <span class="logo-word">grand</span><span class="logo-word">treta</span><span class="logo-word">auto</span><span class="logo-sub">City of God</span>
+          <span class="logo-word"><span class="logo-letter" style="--letter:0">g</span><span class="logo-letter" style="--letter:1">r</span><span class="logo-letter" style="--letter:2">a</span><span class="logo-letter" style="--letter:3">n</span><span class="logo-letter" style="--letter:4">d</span></span><span class="logo-word"><span class="logo-letter" style="--letter:5">t</span><span class="logo-letter" style="--letter:6">r</span><span class="logo-letter" style="--letter:7">e</span><span class="logo-letter" style="--letter:8">t</span><span class="logo-letter" style="--letter:9">a</span></span><span class="logo-word"><span class="logo-letter" style="--letter:10">a</span><span class="logo-letter" style="--letter:11">u</span><span class="logo-letter" style="--letter:12">t</span><span class="logo-letter" style="--letter:13">o</span></span><span class="logo-sub"><span class="logo-letter" style="--letter:14">C</span><span class="logo-letter" style="--letter:15">i</span><span class="logo-letter" style="--letter:16">t</span><span class="logo-letter" style="--letter:17">y</span><span class="logo-letter" style="--letter:18">&nbsp;</span><span class="logo-letter" style="--letter:19">o</span><span class="logo-letter" style="--letter:20">f</span><span class="logo-letter" style="--letter:21">&nbsp;</span><span class="logo-letter" style="--letter:22">G</span><span class="logo-letter" style="--letter:23">o</span><span class="logo-letter" style="--letter:24">d</span></span>
         </div>
         <nav class="menu-options" aria-label="Menu principal">
           <span class="menu-location">OSASCO / SÃO PAULO</span>
@@ -32,8 +33,10 @@
           <h2>Configurações</h2>
           <label>Gráficos <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
           <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Com neblina</option><option value="on">Ativado</option></select></label>
+          <label for="music">Música dos menus <input id="music" type="checkbox" checked /></label>
+          <label for="effects">Efeitos sonoros <input id="effects" type="checkbox" checked /></label>
           <label class="paint-choice" for="paint-color">Cor da tinta <select id="paint-color" aria-label="Cor da tinta" disabled><option value="vermelho">Vermelho</option></select></label>
-          <p class="setting-note">Gráficos e entorno exigem recarregar a cidade. Você será avisado antes de aplicar. Preferências salvas neste aparelho.</p>
+          <p class="setting-note">Áudio muda na hora. Gráficos e entorno exigem recarregar a cidade. Você será avisado antes de aplicar. Preferências salvas neste aparelho.</p>
           <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar</button></div>
           <details class="menu-help"><summary>Controles</summary>
             <p>WASD: andar · Mouse: olhar · Clique/segurar: tiro · Botão direito: mira focada · Q: trocar arma · C: cor · Shift: correr · Espaço: pular · F: voar · E/Control: subir/descer · M: mapa · Esc: menu</p>
@@ -64,26 +67,24 @@
     </div>
 
     <div id="hud" class="hidden">
-      <div class="panel">
+      <div class="hud-left"><div class="panel">
         <div class="title">CIDADE DE DEUS · OSASCO/SP <span id="hud-mode">A PÉ</span></div>
         <div id="hud-street" class="street">—</div>
         <div id="hud-zone" class="zone">—</div>
         <div class="row"><span>lat, lon</span><b id="hud-coords">—</b></div>
         <div class="row"><span>altitude</span><b id="hud-alt">—</b></div>
       </div>
-      <canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
+      <div class="utility-controls only-touch"><button id="btn-fly" aria-label="Alternar voo" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fly" /></svg></button><button id="btn-orientation" aria-label="Alternar orientação da tela"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#rotate" /></svg></button></div></div>
+      <div class="hud-top-right"><div class="utility-controls only-touch"><button id="btn-menu" aria-label="Menu"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#menu" /></svg></button><button id="btn-map" aria-label="Abrir mapa"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#map" /></svg></button></div>
+      <canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas></div><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
       <div id="hud-fps"></div>
-      <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><span id="paint-chip"></span>Tinta <b id="paint-label">Vermelho</b><small class="only-desktop">C troca</small></button>
-      <div class="touch-buttons only-touch">
-        <button id="btn-fire" aria-label="Segurar para atirar; arrastar para mirar">◎<small>TIRO</small></button>
-        <button id="btn-aim" aria-label="Alternar mira focada" aria-pressed="false">⊕<small>MIRA</small></button>
-        <button id="btn-jump" aria-label="Pular">↑<small>PULO</small></button>
-        <button id="btn-fly" aria-label="Alternar voo" aria-pressed="false">↟</button>
-        <button id="btn-orientation" aria-label="Alternar orientação da tela">⤢</button>
-        <button id="btn-map" aria-label="Mapa">🗺</button>
-        <button id="btn-menu" aria-label="Menu">☰</button>
+      <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#color" /></svg><span id="paint-chip"></span><span class="paint-caption">Tinta <b id="paint-label">Vermelho</b></span><small class="only-desktop">C troca</small></button>
+      <div class="combat-controls">
+        <button id="btn-fire" class="only-touch" aria-label="Segurar para atirar; arrastar para mirar"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fire" /></svg></button>
+        <button id="btn-aim" class="only-touch" aria-label="Alternar mira focada" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#aim" /></svg></button>
+        <button id="btn-jump" class="only-touch" aria-label="Pular"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#jump" /></svg></button>
+        <button id="btn-weapon" class="weapon-hud" aria-label="Trocar arma de paintball"><svg class="control-icon" aria-hidden="true"><use id="weapon-icon" href="./icons/controls.svg#pistol" /></svg><span id="weapon-label">PISTOLA</span><small id="weapon-mode">SEMIAUTO · Q TROCA</small></button>
       </div>
-      <button id="btn-weapon" class="weapon-hud" aria-label="Trocar arma de paintball"><span id="weapon-label">PISTOLA</span><small id="weapon-mode">SEMIAUTO · Q TROCA</small></button>
       <div id="help" class="help only-desktop">WASD andar · Segurar: tiro · Botão direito: mira · Q arma · C cor · F voar · M mapa · H esconder</div>
       <div id="joystick" hidden aria-hidden="true"><span class="joystick-thumb"></span></div>
       <div id="touch-help" class="help only-touch">Analógico: andar/correr · Segure e arraste TIRO</div>

@@ -29,6 +29,7 @@ export function createUI(game) {
   game.events.on('toast', toast);
 
   function startCampaign(touch = touchSession) {
+    game.audio?.setMenu(false);
     touchSession = touch; tour.stop(); game.mode = 'campaign';
     document.body.classList.remove('menu-open', 'tour-active');
     $('tour-panel').classList.add('hidden'); $('tour-markers').classList.add('hidden');
@@ -41,6 +42,7 @@ export function createUI(game) {
 
   function startMode(mode, touch = IS_TOUCH) {
     if (mode === 'campaign') { startCampaign(touch); return; }
+    game.audio?.setMenu(false);
     game.mode = 'tour'; player.stop(); tour.start(); touchSession = touch;
     document.body.classList.remove('menu-open'); document.body.classList.add('tour-active');
     overlay.classList.add('hidden'); mapPanel.classList.remove('open'); $('hud').classList.remove('hidden');
@@ -50,6 +52,7 @@ export function createUI(game) {
   }
 
   function showMenu() {
+    game.audio?.setMenu(true);
     game.mode = null; player.stop(); tour.stop();
     document.body.classList.add('menu-open'); document.body.classList.remove('tour-active', 'flying');
     mapPanel.classList.remove('open'); overlay.classList.remove('hidden'); $('hud').classList.add('hidden');
@@ -154,7 +157,7 @@ export function createUI(game) {
   player.events.addEventListener('fly', e => {
     document.body.classList.toggle('flying', e.detail.flying);
     $('btn-fly').setAttribute('aria-pressed', String(e.detail.flying));
-    toast(e.detail.flying ? 'Voando · Toque ↟ para pousar' : 'Pousando');
+    toast(e.detail.flying ? 'Voando · Toque no avião para pousar' : 'Pousando');
   });
   player.events.addEventListener('joystick', e => {
     const s = e.detail, el = $('joystick'); el.hidden = !s.active;
@@ -174,6 +177,7 @@ export function createUI(game) {
 
   function openMap() {
     if (!game.mode) return;
+    game.audio?.setMenu(true);
     mapPanel.classList.add('open'); overlay.classList.add('hidden'); player.stop();
     tour.controls.enabled = false;
     $('map-mode-label').textContent = game.mode === 'tour' ? 'MAPA DO TOUR' : 'MAPA DA CAMPANHA';
@@ -182,7 +186,7 @@ export function createUI(game) {
   }
   function closeMap(resume = true) {
     mapPanel.classList.remove('open');
-    if (game.mode === 'tour') tour.controls.enabled = true;
+    if (game.mode === 'tour') { tour.controls.enabled = true; game.audio?.setMenu(false); }
     else if (resume) startCampaign(touchSession);
     else showMenu();
   }

@@ -23,9 +23,11 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon animado enquanto a cidade carrega.
+Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon com recortes diagonais e revela o logo letra por letra enquanto a cidade carrega.
 
-No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico (avance até o limite para correr) e arraste do outro lado para mirar. Segure e arraste TIRO para mirar e disparar enquanto anda. MIRA aproxima a visão e reduz a sensibilidade; ARMA troca pistola/metralhadora de paintball. Há botões de pulo, voo, mapa, menu e orientação. Campanha/tour liberam depois do carregamento; configurações estão disponíveis desde o início e avisam antes de reiniciar a cidade.
+No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico (avance até o limite para correr) e arraste do outro lado para mirar. Segure e arraste o ícone de tiro para mirar e disparar enquanto anda. O ícone de mira aproxima a visão e reduz a sensibilidade; O ícone da arma troca pistola/metralhadora de paintball. Há botões de pulo, voo, mapa, menu e orientação. Campanha/tour liberam depois do carregamento; configurações estão disponíveis desde o início e avisam antes de reiniciar a cidade.
+
+A música original dos menus e os efeitos de navegação/paintball usam Web Audio e começam no primeiro toque ou tecla. Música e efeitos têm controles independentes nas configurações, salvos no aparelho e aplicados sem recarregar. O áudio pausa quando a aba fica em segundo plano. Os SVGs locais são do Lucide e Game Icons; veja [créditos e licenças](public/icons/README.md). A fonte do logo é Bowlby One (SIL OFL).
 
 | Tecla | Ação |
 |---|---|

@@ -1,4 +1,6 @@
-import { loadSettings, saveSettings } from '../core/index.js';
+import { loadSettings, saveSettings, createAudio } from '../core/index.js';
+
+import { startIntro } from './intro.js';
 
 const $ = id => document.getElementById(id);
 let progress = 0, failed = false;
@@ -32,13 +34,34 @@ export const loading = {
 /** Bind the menu before any network or 3D construction begins. */
 export function createFrontMenu() {
   failed = false; progress = 0;
-  document.body.classList.add('intro-playing');
-  const endIntro = () => { document.body.classList.remove('intro-playing'); $('intro-skip').hidden = true; };
-  const introTimer = setTimeout(endIntro, 2200);
-  $('intro-skip').addEventListener('click', () => { clearTimeout(introTimer); endIntro(); });
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { clearTimeout(introTimer); endIntro(); }
+  const endIntro = startIntro();
   const settings = loadSettings();
+  const audio = createAudio(settings);
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
+  for (const key of ['music','effects']) {
+    $(key).checked = settings[key];
+    $(key).addEventListener('change', () => {
+      settings[key] = $(key).checked;
+      audio.setPreferences(settings); saveSettings(settings);
+    });
+  }
+  // Browser autoplay rules: the first real interaction unlocks the one context.
+  document.addEventListener?.('pointerdown', () => { void audio.unlock(); }, {capture:true});
+  document.addEventListener?.('keydown', () => { void audio.unlock(); }, {capture:true});
+  document.addEventListener?.('visibilitychange', () => { void audio.setHidden(document.hidden); });
+  document.addEventListener?.('click', e => {
+    const button = e.target.closest?.('button, summary');
+    if (!button || button.disabled || button.id === 'btn-fire') return;
+    audio.ui(/back|close|cancel|menu/.test(button.id) ? 'back' : /play|tour$/.test(button.id) ? 'start' : 'select');
+  });
+  document.addEventListener?.('change', () => audio.ui('confirm'));
+  document.addEventListener?.('pointerover', e => {
+    const button = e.target.closest?.('#overlay button, #tour-panel button, #map-panel button');
+    if (e.pointerType === 'mouse' && button && !button.disabled && !button.contains(e.relatedTarget)) audio.ui();
+  });
+  document.addEventListener?.('focusin', e => {
+    if (e.target.matches?.('#overlay button, #tour-panel button, #map-panel button') && !e.target.disabled) audio.ui();
+  });
   let game = null;
   const modeButtons = [$('play'), $('tour')];
   for (const button of modeButtons) { button.disabled = true; button.setAttribute('aria-describedby', 'loading-text'); }
@@ -61,7 +84,7 @@ export function createFrontMenu() {
   });
   $('settings-cancel-restart').addEventListener('click', () => restartDialog.close());
   $('settings-confirm-restart').addEventListener('click', () => {
-    saveSettings({ quality: $('graphics').value, surroundings: $('surroundings').value });
+    saveSettings({ ...settings, quality: $('graphics').value, surroundings: $('surroundings').value });
     restartDialog.close(); location.reload();
   });
   const selectMode = (mode, touch) => {
@@ -80,7 +103,7 @@ export function createFrontMenu() {
     });
   }
   return {
-    settings,
+    settings, audio,
     ready(context) {
       game = context; loading.complete();
       for (const button of modeButtons) { button.disabled = false; button.removeAttribute('aria-describedby'); }
