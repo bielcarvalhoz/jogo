@@ -34,7 +34,7 @@ export const loading = {
 /** Bind the menu before any network or 3D construction begins. */
 export function createFrontMenu() {
   failed = false; progress = 0;
-  const endIntro = startIntro();
+  const intro = startIntro(), endIntro = intro.finish;
   const settings = loadSettings();
   const audio = createAudio(settings);
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
@@ -103,7 +103,7 @@ export function createFrontMenu() {
     });
   }
   return {
-    settings, audio,
+    settings, audio, introFinished: intro.finished,
     ready(context) {
       game = context; loading.complete();
       for (const button of modeButtons) { button.disabled = false; button.removeAttribute('aria-describedby'); }

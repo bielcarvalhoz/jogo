@@ -85,6 +85,9 @@ export function createEngine({ quality, container, isIdle = () => false }) {
       const dt = timer.getDelta();
       const t = timer.getElapsed();
       for (const s of systems) s.fn(dt, t);
+      // The cover is opaque. Keep lightweight systems/input state alive, but
+      // don't spend GPU time drawing a city that is completely hidden by it.
+      if (isIdle()) return;
       sky.position.copy(camera.position);
       // sombra acompanha o foco (com "snap" ao texel para não tremular)
       shadowCenter.set(Math.round(camera.position.x / texel) * texel, shadowFocus().y, Math.round(camera.position.z / texel) * texel);

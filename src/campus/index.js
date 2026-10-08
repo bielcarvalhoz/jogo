@@ -1,4 +1,5 @@
 import { ringCentroid } from '../shared/geo.js';
+import { loadJSON } from '../shared/load-json.js';
 import { buildCampusGrass } from '../map/index.js';
 import { prepareCampus, buildCampus, campusQA } from './campus.js';
 import { gradeCampusTerrain } from './grading.js';
@@ -9,8 +10,8 @@ import { gradeCampusTerrain } from './grading.js';
 export { campusQA } from './campus.js';
 
 /** baixa os detalhes do campus (opcional: o mapa funciona sem) */
-export async function loadCampusData(base) {
-  return fetch(`${base}data/campus-cidade-de-deus.geojson`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+export async function loadCampusData(base, { beforeParse } = {}) {
+  return loadJSON(`${base}data/campus-cidade-de-deus.geojson`, { beforeParse, optional: true });
 }
 
 export function createCampusPlugin(game, campusGeo) {

@@ -15,7 +15,7 @@ quebrar o trabalho de quem cuida de outro módulo.
 | `src/gameplay/<mecânica>/` | Jogabilidade | uma pasta por mecânica; hoje `paintball/` (pistola e metralhadora de tinta, gatilho e mira focada) | missões, carros, coletáveis, multiplayer |
 | `src/ui/` | Interface | tela de carregamento, menu, HUD, minimapa, mapa grande, avisos, gestos mobile, CSS | novas telas, configurações, acessibilidade |
 | `src/debug/` | Depuração | `window.__cdd`, vistas de inspeção `?inspect=` | ferramentas de QA |
-| `src/shared/` | Utilitários | funções puras: geometria 2D, aleatoriedade, geometria de vias, texturas procedurais | — |
+| `src/shared/` | Utilitários | funções puras: geometria 2D, aleatoriedade, geometria de vias, texturas procedurais, download de JSON com parsing adiado | — |
 | `scripts/` | Dados | baixar OSM/SRTM (`npm run data`), gerar o campus (`npm run campus`), verificar módulos | — |
 | `tests/<módulo>/` | Testes | testes de cada módulo (`node --test`) | — |
 
@@ -24,8 +24,10 @@ quebrar o trabalho de quem cuida de outro módulo.
 `src/main.js` só **monta** o jogo, nesta ordem:
 
 ```
-menu imediato → dados (map + campus) → core (game) → mapa (+ plugin campus) → lotes → personagem + tour → tinta/BVH → UI → visual → materiais → debug → menu pronto
+menu + intro + downloads → fim da intro apresentado → JSON (map + campus) → core (game) → mapa (+ plugin campus) → lotes → personagem + tour → tinta/BVH → UI → visual → materiais → debug → menu pronto
 ```
+
+`createFrontMenu()` expõe `introFinished`, que resolve após a abertura (ou pular/configurações/movimento reduzido) e dois `requestAnimationFrame`, garantindo que a capa final seja apresentada antes do trabalho pesado. `loadMapData(base, { beforeParse })` e `loadCampusData(base, { beforeParse })` baixam o corpo durante a intro e aguardam essa promessa antes de fazer JSON.parse. `main.js` também aguarda explicitamente antes de criar WebGL/PMREM e montar o mundo. Animações CSS não protegem o texto de tarefas longas na thread principal. Depois de carregar, o motor mantém sistemas leves a 15 Hz no menu opaco e pula o desenho da cidade oculta; a renderização normal volta ao iniciar campanha/tour.
 
 Tudo gira em torno de um objeto **`game`** (criado em `core/game.js`), o único compartilhado:
 
@@ -137,3 +139,13 @@ Preencha com o time e espelhe em `.github/CODEOWNERS` para o GitHub pedir revis�
 | player | (definir) |
 | gameplay | (definir) |
 | ui | (definir) |
+
+### Regressão da abertura no navegador
+
+`scripts/qa-intro.cjs` requer Playwright e Chromium. Após `npm run build` e `npm run preview`, execute:
+
+```bash
+CHROMIUM_PATH=/usr/bin/chromium QA_CPU_RATE=4 node scripts/qa-intro.cjs http://localhost:4173/
+```
+
+Se o Chromium instalado pelo Playwright for usado, omita `CHROMIUM_PATH`. `QA_VIEWPORT=844x390` testa horizontal; o padrão é `390x844`. `QA_ARTIFACT_DIR` define onde salvar o relatório por quadro e a captura (padrão: diretório temporário `jogo-intro-qa`). O teste deixa downloads e construção 3D acontecerem normalmente, reduz a velocidade da CPU e verifica intervalos entre quadros, revelação progressiva antes do final, fundo estável, palavras sem quebra e WebGL após a abertura. Também confirma que os dados baixam durante a intro, que o menu opaco não redesenha a cidade e que a campanha volta a renderizar ao iniciar. A CPU retorna à velocidade normal para essas verificações após medir a abertura.

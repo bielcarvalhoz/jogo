@@ -1,4 +1,5 @@
 import { renderWorldFor } from './surroundings.js';
+import { loadJSON } from '../shared/load-json.js';
 import { createProjection } from '../shared/geo.js';
 import { createTerrain } from './terrain.js';
 import { parseWorld } from './world.js';
@@ -30,10 +31,10 @@ export { createWaterMaterial, createSidewalkTrees, buildCampusGrass, createFolia
 export { ROAD_CLASSES } from './world.js';
 
 /** baixa o GeoJSON do OSM e a grade de relevo */
-export async function loadMapData(base) {
+export async function loadMapData(base, { beforeParse } = {}) {
   const [geojson, terrainData] = await Promise.all([
-    fetch(`${base}data/cidade-de-deus.geojson`).then((r) => r.json()),
-    fetch(`${base}data/terrain.json`).then((r) => r.json()),
+    loadJSON(`${base}data/cidade-de-deus.geojson`, { beforeParse }),
+    loadJSON(`${base}data/terrain.json`, { beforeParse }),
   ]);
   return { geojson, terrainData, proj: projectionFor(geojson) };
 }
