@@ -23,7 +23,7 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon com recortes diagonais e revela o logo letra por letra enquanto a cidade carrega.
+Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon com recortes diagonais e revela o logo letra por letra enquanto os dados da cidade são baixados. A montagem 3D começa depois da abertura (ou ao pulá-la), para não travar as imagens nem a escrita do título.
 
 No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico (avance até o limite para correr) e arraste do outro lado para mirar. Segure e arraste o ícone de tiro para mirar e disparar enquanto anda. O ícone de mira aproxima a visão e reduz a sensibilidade; O ícone da arma troca pistola/metralhadora de paintball. Há botões de pulo, voo, mapa, menu e orientação. Campanha/tour liberam depois do carregamento; configurações estão disponíveis desde o início e avisam antes de reiniciar a cidade.
 

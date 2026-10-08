@@ -22,7 +22,11 @@ const frontMenu = createFrontMenu();
 async function main() {
   await loading.status('Baixando dados do OpenStreetMap e relevo...', 3);
   const base = import.meta.env.BASE_URL;
-  const [mapData, campusGeo] = await Promise.all([loadMapData(base), loadCampusData(base)]);
+  const downloadOptions = { beforeParse: frontMenu.introFinished };
+  const [mapData, campusGeo] = await Promise.all([loadMapData(base, downloadOptions), loadCampusData(base, downloadOptions)]);
+  // Keep WebGL/PMREM, terrain generation and texture painting out of the intro.
+  // This also protects the opening if a future loader returns cached objects.
+  await frontMenu.introFinished;
 
   const game = createGame({ quality: detectQuality(frontMenu.settings), settings: frontMenu.settings, audio: frontMenu.audio, debug: debugOptions(), status: loading.status, container: document.getElementById('app') });
 

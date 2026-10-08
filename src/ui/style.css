@@ -94,16 +94,19 @@ button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-
 .art-5 { left: 28%; top: 45%; width: 45%; height: 55%; clip-path: polygon(0 10.91%,100% 0,82.22% 100%,20% 100%); --col: 1; --row: 1; --enter-x: 0%; --enter-y: 110%; --tilt: -8deg; }
 .art-6 { left: 65%; top: 38%; width: 35%; height: 62%; clip-path: polygon(22.86% 11.29%,100% 0,100% 100%,0 100%); --col: 2; --row: 1; --enter-x: 110%; --enter-y: 60%; --tilt: -7deg; }
 .menu-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #030609f2, #030609a6 29%, transparent 60%), linear-gradient(0deg, #030609e8, transparent 38%); }
-.intro-playing .art-panel { animation: panel-arrive 1.6s cubic-bezier(.2,.75,.2,1) both; }
+.intro-playing .art-panel { animation: panel-arrive 1.6s cubic-bezier(.2,.75,.2,1) both; will-change: transform, opacity; }
 .intro-playing .art-2 { animation-delay: .3s; }.intro-playing .art-3 { animation-delay: .6s; }.intro-playing .art-4 { animation-delay: .9s; }.intro-playing .art-5 { animation-delay: 1.2s; }.intro-playing .art-6 { animation-delay: 1.5s; }
 @keyframes panel-arrive { from { opacity: 0; transform: translate(var(--enter-x), var(--enter-y)) rotate(var(--tilt)) scale(1.15); } to { opacity: 1; transform: none; } }
 .menu-card { position: relative; width: 100%; height: 100%; padding: 0; max-width: none; max-height: none; overflow: hidden; }
 .gta-logo { position: absolute; left: 65%; top: 42%; transform: translate(-50%, -50%) rotate(-3deg); display: flex; align-items: center; flex-direction: column; font-family: 'Logo', Impact, sans-serif; color: #fff9ed; }
-.logo-word { display: block; font-size: clamp(55px, min(8.5vw, 12vh), 120px); line-height: .92; letter-spacing: -.065em; -webkit-text-stroke: 9px #090b0c; paint-order: stroke fill; text-shadow: 4px 5px 0 #090b0c; }
+.logo-word { display: block; white-space: nowrap; font-size: clamp(55px, min(8.5vw, 12vh), 120px); line-height: .92; letter-spacing: -.065em; -webkit-text-stroke: 9px #090b0c; paint-order: stroke fill; text-shadow: 4px 5px 0 #090b0c; }
 .logo-sub { display: block; font-family: 'Cover', Impact, sans-serif; font-size: clamp(30px, min(4.4vw, 6vh), 62px); line-height: 1.2; margin-top: 8px; white-space: nowrap; color: #ed303b; -webkit-text-stroke: 7px #090b0c; paint-order: stroke fill; text-shadow: 3px 4px 0 #090b0c; letter-spacing: -.025em; }
-.intro-pending .art-panel, .intro-pending .logo-letter { opacity: 0; }
-.intro-playing .menu-art::after { background: linear-gradient(0deg, #030609f2, #030609a0 28%, transparent 60%); }
-.intro-playing .logo-letter { animation: ink-letter .01s steps(1,end) both; animation-delay: calc(1.8s + var(--letter) * .095s); }
+.intro-pending .art-panel { opacity: .001; will-change: transform, opacity; }
+.intro-pending .logo-letter { opacity: 0; }
+.logo-letter { display: inline-block; }
+/* A tiny linear reveal avoids steps(end) rounding a finished effect to just
+ * below 1, which kept all letters after "gra" invisible on Chromium. */
+.intro-playing .logo-letter { animation: ink-letter .06s linear both; animation-delay: calc(1.8s + var(--letter) * .095s); }
 @keyframes ink-letter { from { opacity: 0; } to { opacity: 1; } }
 .menu-options { position: absolute; left: max(5vw, env(safe-area-inset-left)); bottom: max(22vh, 115px); display: flex; flex-direction: column; gap: 3px; width: min(40vw, 370px); }
 .menu-location { font-size: 9px; letter-spacing: .22em; color: #f2c377; font-weight: 800; margin: 0 0 14px 22px; }
