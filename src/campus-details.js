@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { facadeProfile, exteriorEdges, referenceEntrance } from './campus-reference.js';
+import { facadeProfile, exteriorEdges, referenceEntrance, pairedEntrances } from './campus-reference.js';
 import { createWaterMaterial } from './nature.js';
+import { buildBlueForecourt, buildRedRubyBridge } from './campus-access.js';
+import { distToSegment } from './geo.js';
+import { chooseEntranceStairs } from './campus-stairs.js';
 
 function texture(renderer, width, height, paint, repeat = false) {
   const canvas = document.createElement('canvas');
@@ -89,7 +92,8 @@ export function gateSignTexture(renderer, name) {
 /** Street-level entrances, signage and architectural details from the reference photos. */
 export function buildCampusDetails(C, specs, { renderer, terrain, world, quality = 'high' }) {
   const root = new THREE.Group(); root.name = 'detalhes-referencias-campus';
-  const parts = new Map(), surfaces = [], entrances = [], signs = [];
+  const parts = new Map(), surfaces = [], entrances = [], signs = [], signLocations = [], access = [], exclusions = [];
+  const pair = pairedEntrances(specs.find(s=>s.b.planId==='b3')?.b, specs.find(s=>s.b.planId==='b5')?.b, world.roads);
   const H = (x, z) => terrain.heightAt(x, z);
   const add = (color, geo) => { if (!parts.has(color)) parts.set(color, []); parts.get(color).push(geo); };
   const box = (color, x, y, z, w, h, d, yaw = 0) => {
@@ -126,29 +130,52 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
     signs.push(text);
   };
 
+  const streetSign = (b,p,e,width,depth=4.8) => {
+    const at=(u,v)=>[e.x+e.dx*u+e.nx*v,e.z+e.dz*u+e.nz*v];
+    for(const v of [Math.min(e.clearance-1.1,depth),Math.min(e.clearance-1.1,depth+2),e.clearance-1.1]) {
+      if(v<1)continue;
+      for(const u of [width/2+1.5,-width/2-1.5,Math.min(e.L/2-1.1,width/2+3)]) {
+        const [x,z]=at(u,v);
+        if(C.RI.clearance(x,z).d<.65||!C.inRegion(x,z,.6)||C.insideSolid(x,z,.6))continue;
+        plaque(b.name.split(' — ')[0],p.sign,x,H(x,z),z,Math.atan2(e.nx,e.nz),b.num);
+        signLocations.push({building:b.name,x,z,roadX:e.roadX,roadZ:e.roadZ,clearance:C.RI.clearance(x,z).d});
+        // Protect the actual street-to-totem sightline from trunks and low crowns.
+        C.trees=(C.trees||[]).filter(t=>Math.hypot(t.x-x,t.z-z)>3.7*(t.s||1) && (!Number.isFinite(e.roadX)||distToSegment(t.x,t.z,x,z,e.roadX,e.roadZ).d>2.6));
+        C.palms=(C.palms||[]).filter(t=>Math.hypot(t.x-x,t.z-z)>2.7);
+        exclusions.push({x,z,radius:1});
+        return;
+      }
+    }
+  };
+
   for (const { b, info } of specs) {
     if (!b.name || b.gateBuilding || b.style === 'garage') continue;
-    const p = facadeProfile(b), e = referenceEntrance(b, world.roads, (x, z) => C.inRegion(x, z, .3) && !C.insideSolid(x, z, .2));
+    const p = facadeProfile(b);
+    let e = b.planId==='b3' && pair ? pair.red : b.planId==='b5' && pair ? pair.ruby : referenceEntrance(b, world.roads, (x, z) => C.inRegion(x, z, .3) && !C.insideSolid(x, z, .2));
     if (!e) continue;
-    const yaw = Math.atan2(-e.dz, e.dx), at = (u, v) => [e.x + e.dx * u + e.nx * v, e.z + e.dz * u + e.nz * v];
+    let yaw = Math.atan2(-e.dz, e.dx);
+    const at = (u, v) => [e.x + e.dx * u + e.nx * v, e.z + e.dz * u + e.nz * v];
+    if(b.planId==='b17' && e.clearance>13) {
+      const plaza=buildBlueForecourt(b,info,e,{terrain,quality});
+      root.add(plaza.root); access.push(plaza); exclusions.push(...plaza.exclusions);
+      const [x,z]=at(0,plaza.layout.depth+.25);
+      entrances.push({name:b.name,x,z,yaw:Math.atan2(-e.nx,-e.nz),frontage:e});
+      streetSign(b,p,e,plaza.layout.width-5,plaza.layout.depth+.45);
+      continue;
+    }
+    const choice = chooseEntranceStairs(C, b, info, e, terrain, world.roads);
     let width = b.style === 'pavilion' ? 5.4 : b.planId === 'b17' ? 8 : 4.4;
-    const rise = b.style === 'pavilion' ? .36 : b.planId === 'b17' ? .32 : b.planId === 'b6' ? 1.35 : .9;
-    const landing = 1.45, run = b.style === 'pavilion' ? 1.2 : 2.15;
-    const stepClear = (w) => [-w / 2, w / 2].every(u => [.08, landing + run].every(v => {
-      const [x, z] = at(u, v);
-      return C.RI.clearance(x, z).d > .45 && C.inRegion(x, z, .1) && !C.insideSolid(x, z, .025);
-    }));
-    while (width > 2.4 && !stepClear(width)) width -= .4;
-    if (!stepClear(width)) continue;
-    const entryY = Math.max(info.gMin + rise, H(...at(0, landing + run)) + .4);
+    let entryY = info.gMin + (b.style === 'pavilion' ? .36 : .9);
+    if (choice) {
+    e = choice.frontage; yaw = Math.atan2(-e.dz, e.dx);
+    const stairPlan = choice.stairs;
+    const { width: chosenWidth, entryY: chosenEntryY, landing, run, steps, tread, dh, bottomY } = stairPlan;
+    width = chosenWidth; entryY = chosenEntryY;
     const [lx, lz] = at(0, landing / 2 + .08);
     const landingBase = Math.min(H(...at(0, landing)), entryY - .15) - .08;
     box('#a19e97', lx, (entryY + landingBase) / 2, lz, width, entryY - landingBase, landing, yaw);
     const floor = (v0, v1, top) => surfaces.push({ ...e, floor: true, width, v0, v1, top });
     floor(.08, landing + .08, entryY);
-    const steps = b.style === 'pavilion' || b.planId === 'b17' ? 2 : b.planId === 'b21' ? 7 : 6;
-    const bottomY = H(...at(0, landing + run)) + .05;
-    const dh = (entryY - bottomY) / steps, tread = run / steps;
     for (let k = 0; k < steps; k++) {
       const v = landing + (k + .5) * tread, [x, z] = at(0, v), top = entryY - k * dh;
       const base = Math.min(H(x, z) - .12, top - .15);
@@ -196,13 +223,25 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
         for (let k = 0; k <= 5; k++) { const t = k / 5, [x, z] = at(u0 + rampLen * t, v + s * rw / 2), y = entryY + (bottomY - entryY) * t; rail([x, y, z], [x, y + .95, z]); }
       }
       surfaces.push({ ...e, ramp: true, u0, u1, v, width: rw, entryY, bottomY });
+      exclusions.push({rings:[[at(u0-1.5,v-rw/2-1.5),at(u1+1.5,v-rw/2-1.5),at(u1+1.5,v+rw/2+1.5),at(u0-1.5,v+rw/2+1.5)]]});
     }
-    const [sx, sz] = at(width / 2 + 1.25, Math.min(e.clearance - 1.3, 4.8));
-    if (C.RI.clearance(sx, sz).d > .65 && !C.insideSolid(sx, sz, .6)) plaque(b.name.split(' — ')[0], p.sign, sx, H(sx, sz), sz, Math.atan2(e.nx, e.nz), b.num);
+    // Preserve the photographed access and its canopy from trunks, low crowns,
+    // parked cars and grass, without clearing the rest of the street's tree row.
+    const pairedCanopy = b.planId === 'b3' || b.planId === 'b5' && pair;
+    const canopyWidth = pairedCanopy ? 10.5 : width + .75;
+    const accessDepth = Math.max(landing + run, pairedCanopy ? 4.4 : landing + 1.3);
+    const clearance = 2.5, half = Math.max(width,canopyWidth)/2 + clearance;
+    exclusions.push({rings:[[at(-half,-.15),at(half,-.15),at(half,accessDepth+clearance),at(-half,accessDepth+clearance)]]});
+    streetSign(b,p,e,b.planId==='b3'||b.planId==='b5'?10.5:width,b.planId==='b3'||b.planId==='b5'?5.5:4.8);
     const [px, pz] = at(0, Math.min(e.clearance - .5, landing + run + 2));
-    entrances.push({ name: b.name, x: px, z: pz, yaw: Math.atan2(-e.x + px, -e.z + pz), frontage: e });
+    entrances.push({ name: b.name, x: px, z: pz, yaw: Math.atan2(-e.x + px, -e.z + pz), frontage: e, stairs: stairPlan });
+    } else {
+      // A future map edit must not remove a building's identification or facade
+      // detail just because its preferred access cannot fit safe stair treads.
+      streetSign(b,p,e,width);
+    }
 
-    if (b.planId === 'b3') {
+    if (b.planId === 'b3' || b.planId === 'b5' && pair) {
       const canopyWidth = 10.5, canopyDepth = 4.4, h = entryY + 3.15;
       const ends = [-canopyWidth / 2, canopyWidth / 2];
       for (const u of ends) {
@@ -220,14 +259,14 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
       }
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(contour, 3)); geo.computeVertexNormals();
       const glazing = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#bfd1d5', side: THREE.DoubleSide, transparent: true, opacity: .35, roughness: .2, depthWrite: false }));
-      glazing.userData.keepStandard = true; glazing.name = 'marquise-triangular-vermelho'; root.add(glazing);
+      glazing.userData.keepStandard = true; glazing.name = `marquise-triangular-${b.planId==='b3'?'vermelho':'rubi'}`; root.add(glazing);
       const map = texture(renderer, 2048, 100, (g, w, hh) => {
         g.fillStyle = '#444b52'; g.fillRect(0, 0, w, hh);
         g.fillStyle = '#f0f0ed'; g.font = '500 55px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText('SÓ O TRABALHO PODE PRODUZIR RIQUEZA', w / 2, hh / 2, w - 80);
       });
       const text = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(e.L - 1, 38), .92), new THREE.MeshBasicMaterial({ map }));
-      text.name = 'frase-fachada-vermelho'; text.position.set(e.x + e.nx * .20, info.gMin + 5.2, e.z + e.nz * .20); text.rotation.y = Math.atan2(e.nx, e.nz); root.add(text);
+      text.name = `frase-fachada-${b.planId==='b3'?'vermelho':'rubi'}`; text.position.set(e.x + e.nx * .20, info.gMin + 5.2, e.z + e.nz * .20); text.rotation.y = Math.atan2(e.nx, e.nz); root.add(text);
     }
     if (b.planId === 'b0') {
       const map = texture(renderer, 768, 192, (g, w, h) => {
@@ -248,7 +287,13 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
       const levels = volume ? Math.round(volume.height / 3.3) : b.levels;
       // The upper tower is inset; only ground volume receives geometry here.
       for (let level = 1; level <= b.levels; level++) for (const edge of exteriorEdges(b.rings[0])) {
-        box(b.planId === 'b17' ? '#d4c9bb' : p.frame, (edge.ax + edge.bx) / 2 + edge.nx * .08, info.gMin + level * b.height / b.levels - .20, (edge.az + edge.bz) / 2 + edge.nz * .08, edge.L, .32, .23, Math.atan2(-edge.dz, edge.dx));
+        const red=['b3','b5'].includes(b.planId);
+        box(b.planId === 'b17' ? '#d4c9bb' : red?p.sign:p.frame, (edge.ax + edge.bx) / 2 + edge.nx * .13, info.gMin + level * b.height / b.levels - .30, (edge.az + edge.bz) / 2 + edge.nz * .13, edge.L, red?1.05:.32, .28, Math.atan2(-edge.dz, edge.dx));
+      }
+      if(['b3','b5'].includes(b.planId)) for(const edge of exteriorEdges(b.rings[0])) {
+        for(let u=.3;u<edge.L;u+=3.9){
+          box('#dbe0df',edge.ax+edge.dx*u+edge.nx*.27,info.gMin+b.height/2,edge.az+edge.dz*u+edge.nz*.27,.32,b.height,.44,Math.atan2(-edge.dz,edge.dx));
+        }
       }
       if (volume) {
         root.userData.blueTower = { height: top, levels }; // texture brises continue on the inset volume
@@ -260,7 +305,7 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
         box('#665b4e', (edge.ax + edge.bx) / 2, info.top - .2, (edge.az + edge.bz) / 2, edge.L, .20, .42, Math.atan2(-edge.dz, edge.dx));
       }
     }
-    if (b.planId === 'b17') {
+    if (b.planId === 'b17' && !access.some(a=>a.layout?.fountain)) {
       // Low round fountain and planted island visible in the Blue entrance photo.
       let fountain = null;
       for (const radius of [2.5, 1.5]) for (const u of [-width / 2 - radius - 1, width / 2 + radius + 1, -width / 2 - radius - 4, width / 2 + radius + 4]) for (const v of [radius + .55, 4.8, 6.5]) {
@@ -279,6 +324,9 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
       }
     }
   }
+
+  const bridge=buildRedRubyBridge(specs,{terrain,world});
+  if(bridge){root.add(bridge.root);access.push(bridge);}
 
   if (C.track) {
     const T = C.track, pitch = world.areas.find(a => a.kind === 'pitch' && a.rings[0].some(([x, z]) => Math.hypot(x - T.cx, z - T.cz) < 100));
@@ -323,9 +371,12 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
   }
   root.userData.signs = signs;
   root.userData.entrances = entrances;
+  root.userData.signLocations = signLocations;
+  root.userData.bluePlaza = access.find(a=>a.layout?.fountain)?.layout;
+  root.userData.bridge = bridge?.layout;
 
   function surfaceHeightAt(x, z, maxY = Infinity) {
-    let best = -Infinity;
+    let best = Math.max(-Infinity,...access.map(a=>a.surfaceHeightAt(x,z,maxY)));
     for (const s of surfaces) {
       const u = (x - s.x) * s.dx + (z - s.z) * s.dz, v = (x - s.x) * s.nx + (z - s.z) * s.nz;
       let y;
@@ -340,5 +391,5 @@ export function buildCampusDetails(C, specs, { renderer, terrain, world, quality
     }
     return best;
   }
-  return { root, surfaceHeightAt, entrances, signCount: signs.length, surfaces };
+  return { root, surfaceHeightAt, entrances, signCount: signs.length, surfaces, exclusions, signLocations };
 }

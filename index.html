@@ -24,10 +24,12 @@
         <p class="sub">Núcleo Cidade de Deus (matriz do Bradesco) reconstruído a partir da planta oficial, imagens de satélite e dados do OpenStreetMap.</p>
         <p id="stat-line" class="stats"></p>
         <button id="play"><span class="only-desktop">▶ Clique para jogar</span><span class="only-touch">▶ Tocar para jogar</span></button>
+        <label class="paint-choice" for="paint-color">Tinta da pistolinha <select id="paint-color" aria-label="Cor da tinta"></select></label>
         <div class="cols">
           <ul class="controls only-desktop">
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</li>
             <li><kbd>Mouse</kbd> olhar</li>
+            <li><kbd>Clique</kbd> atirar tinta · <kbd>C</kbd> trocar cor</li>
             <li><kbd>Shift</kbd> correr</li>
             <li><kbd>Espaço</kbd> pular</li>
             <li><kbd>F</kbd> voo livre (<kbd>E</kbd>/<kbd>Q</kbd> sobe/desce)</li>
@@ -43,6 +45,7 @@
             <li>⬇️ Olhe para baixo para descer, para cima para subir</li>
             <li>✌️ <b>Toque duas vezes</b> de novo para parar de voar</li>
             <li>🗺 Mapa: toque num ponto para ir até lá</li>
+            <li>🎨 Toque em <b>Atirar</b> para lançar tinta; a cor aparece no canto.</li>
           </ul>
           <div>
             <div class="places-title">Teletransporte</div>
@@ -68,11 +71,13 @@
       </div>
       <canvas id="minimap" width="220" height="220"></canvas>
       <div id="hud-fps"></div>
+      <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><span id="paint-chip"></span>Tinta <b id="paint-label">Vermelho</b><small class="only-desktop">C troca</small></button>
       <div class="touch-buttons only-touch">
+        <button id="btn-fire" aria-label="Atirar tinta">●</button>
         <button id="btn-map" aria-label="Mapa">🗺</button>
         <button id="btn-menu" aria-label="Menu">☰</button>
       </div>
-      <div id="help" class="help only-desktop">WASD andar · Shift correr · Espaço pular · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
+      <div id="help" class="help only-desktop">WASD andar · Clique tinta · C cor · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
       <div id="touch-help" class="help only-touch">Toque 2× para voar · arraste para olhar</div>
       <div id="crosshair"></div>
       <div id="toast"></div>
