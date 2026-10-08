@@ -1,0 +1,19 @@
+# Quem revisa cada módulo (o GitHub pede revisão automaticamente nos PRs que mexem na pasta).
+# Troque/adicione os @usuários do time. A última regra que casar com o arquivo vale.
+# Detalhes dos módulos: docs/ARQUITETURA.md
+
+*                       @bielcarvalhoz
+
+# /src/core/            @usuario-motor
+# /src/map/             @usuario-mapa
+# /src/campus/          @usuario-campus
+# /src/player/          @usuario-personagem
+# /src/gameplay/        @usuario-jogabilidade
+# /src/ui/              @usuario-interface
+# /scripts/             @usuario-dados
+
+# arquivos de contato entre módulos: revisão do responsável geral
+/src/main.js            @bielcarvalhoz
+/index.html             @bielcarvalhoz
+/scripts/check-modules.mjs @bielcarvalhoz
+/docs/ARQUITETURA.md    @bielcarvalhoz

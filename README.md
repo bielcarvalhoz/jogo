@@ -45,42 +45,47 @@ Abra http://localhost:5173 e clique em **Jogar**.
    **`public/data/cidade-de-deus.geojson`** (RFC 7946, lon/lat WGS84), e gera
    **`public/data/terrain.json`** (grade de elevação ~6 m, suavizada). Os arquivos já estão
    no projeto; rode de novo com `npm run data -- --fresh` para atualizar com o OSM mais recente.
-2. `src/geo.js` projeta lon/lat → metros num plano tangente local centrado no bairro
+2. `src/shared/geo.js` projeta lon/lat → metros num plano tangente local centrado no bairro
    (erro < 1 cm nessa escala). Eixos: `x` = leste, `y` = altitude, `z` = sul.
-3. `src/terrain.js` monta a malha do relevo; `heightAt()` usa exatamente a mesma triangulação,
+3. `src/map/terrain.js` monta a malha do relevo; `heightAt()` usa exatamente a mesma triangulação,
    então ruas, prédios e o jogador ficam rentes ao chão. Lagos são escavados no nível da margem.
-4. `src/roads.js` gera as vias como fitas 3D drapeadas no relevo (faixas pintadas conforme o tipo);
+4. `src/map/roads.js` gera as vias como fitas 3D drapeadas no relevo (faixas pintadas conforme o tipo);
    pontes ficam retas entre as cabeceiras reais, com guarda-corpo e pilares.
-5. `src/buildings.js` extruda as plantas do OSM (altura → `height`, `building:levels` ou padrão por tipo),
+5. `src/map/buildings.js` extruda as plantas do OSM (altura → `height`, `building:levels` ou padrão por tipo),
    com janelas por andar, laje com caixa d'água ou telhado cerâmico.
-6. `src/procedural.js` — **o OSM só tem ~270 prédios mapeados nessa área.** Para a cidade não ficar
+6. `src/map/procedural.js` — **o OSM só tem ~270 prédios mapeados nessa área.** Para a cidade não ficar
    vazia, lotes são gerados ao longo das ruas reais, sem invadir ruas, calçadas, prédios reais,
    praças, água ou o campo de golfe. Eles são **inventados** (posição plausível, não real):
    aperte `P` para ver só os dados reais. Dentro do núcleo Cidade de Deus não há nada procedural.
-7. `src/campus.js` + `scripts/build-campus.mjs` (`npm run campus`) — o campus do Bradesco quase
+7. `src/campus/` + `scripts/build-campus.mjs` (`npm run campus`) — o campus do Bradesco quase
    não existe no OSM, então foi reconstruído em **`public/data/campus-cidade-de-deus.geojson`**
    usando o Google Earth/Maps (imagens de 05/2024) **só como referência visual**: posição, tamanho,
    orientação, altura aproximada e cores dos prédios, e os pinos públicos dos lugares (Prédio Prata,
    Rubi, Azul, Verde, Cinza, Prime, portarias...). Nenhuma imagem do Google é usada no jogo — tudo é
    geometria e textura próprias. Erro típico de posição: 5–15 m. Nomes de prédios sem identificação
    pública ficaram sem nome. Correção sobre o OSM: o "lago" ao lado da pista hoje é gramado.
-8. `src/style.js` converte os materiais para sombreamento cartoon (toon) e faz o modo pixel.
+8. `src/core/style.js` converte os materiais para sombreamento cartoon (toon) e faz o modo pixel.
 
-## Estrutura
+## Estrutura (módulos)
+
+O código é dividido em módulos para o time trabalhar em paralelo. Cada pasta tem uma API pública
+no `index.js`; regras, contratos e receitas estão em **[docs/ARQUITETURA.md](docs/ARQUITETURA.md)**.
 
 ```
-scripts/fetch-data.mjs   pipeline de dados (OSM + SRTM)
-public/data/             GeoJSON e relevo gerados
-src/main.js              cena, luz, céu, loop
-src/world.js             leitura/classificação do GeoJSON
-src/ground.js            textura do chão + máscaras de ocupação
-src/roads.js  buildings.js  procedural.js  vegetation.js  props.js
-src/player.js            primeira pessoa, colisão, pontes, voo
-src/hud.js               minimapa, mapa grande, rua atual, lat/lon
-src/campus.js            núcleo Cidade de Deus (matriz do Bradesco)
-src/style.js             visual cartoon / pixel
-scripts/build-campus.mjs dados do campus (referência visual)
+src/main.js              monta o jogo (ordem dos módulos)
+src/core/                motor: render, laço, eventos, teclas, física compartilhada, visual
+src/map/                 mundo real: relevo, vias, prédios do OSM, vegetação, água (pipeline com plugins)
+src/campus/              núcleo Cidade de Deus (matriz do Bradesco) — plugin do mapa
+src/player/              personagem em primeira pessoa (teclado, mouse, toque)
+src/gameplay/paintball/  pistolinha de tinta
+src/ui/                  carregamento, menu, HUD, minimapa, mapa grande, celular
+src/debug/               window.__cdd e vistas ?inspect=
+src/shared/              utilitários puros (geometria, aleatoriedade, texturas)
+scripts/                 dados (OSM, SRTM, campus) e verificação de módulos
+tests/<módulo>/          testes de cada módulo
 ```
+
+`npm test` verifica as fronteiras entre módulos e roda os testes.
 
 ## Créditos
 

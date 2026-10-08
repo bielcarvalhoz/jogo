@@ -1,0 +1,159 @@
+import { createProjection } from '../shared/geo.js';
+import { createTerrain } from './terrain.js';
+import { parseWorld } from './world.js';
+import { paintGround, buildMasks } from './ground.js';
+import { buildRoads } from './roads.js';
+import { createBuildingBuilder, specFromOsm } from './buildings.js';
+import { generateProcedural } from './procedural.js';
+import { buildVegetation } from './vegetation.js';
+import { buildWater, buildBarriers, buildTrafficSignals, buildLabels, buildQuarterBoundary } from './props.js';
+import { updateNature } from './nature.js';
+import { addMapPlaces } from './places.js';
+
+// API pública do MAPA (mundo real: OSM + relevo SRTM). Outros módulos importam SÓ daqui.
+//
+// O mapa é montado por um pipeline em etapas. Módulos que mudam o mundo (ex.: o campus)
+// entram como PLUGINS, implementando os ganchos que quiserem — na ordem em que rodam:
+//   prepareWorld(map)       depois de ler o GeoJSON (pode mexer em map.world, chamar map.reserve)
+//   shapeTerrain(map)       depois de escavar a água, antes de gerar a malha do relevo
+//   detailGroundRect(map)   -> { x0, z0, width, depth } para pintar o chão em alta resolução
+//   build(map)              depois das vias e dos prédios do OSM
+//   decorate(map)           depois da vegetação
+//   finalize(map)           tudo pronto: registrar física, destinos, placas, sistemas
+// Áreas reservadas (map.reserve) ficam sem prédios procedurais nem vegetação automática.
+
+// ferramentas reutilizáveis por outros módulos
+export { createBuildingBuilder, specFromOsm, PALETTE } from './buildings.js';
+export { makeTreeMeshes, makePalmMeshes } from './vegetation.js';
+export { createWaterMaterial, createSidewalkTrees, buildCampusGrass, createFoliageCloud, createFoliageMaterial } from './nature.js';
+export { ROAD_CLASSES } from './world.js';
+
+/** baixa o GeoJSON do OSM e a grade de relevo */
+export async function loadMapData(base) {
+  const [geojson, terrainData] = await Promise.all([
+    fetch(`${base}data/cidade-de-deus.geojson`).then((r) => r.json()),
+    fetch(`${base}data/terrain.json`).then((r) => r.json()),
+  ]);
+  return { geojson, terrainData, proj: projectionFor(geojson) };
+}
+
+/** origem do sistema local = centro do polígono da Cidade de Deus */
+export function projectionFor(geojson) {
+  const qf = geojson.features.find((f) => f.properties.place === 'quarter');
+  let lon0, lat0;
+  if (qf) {
+    const ring = qf.geometry.coordinates[0];
+    const lons = ring.map((c) => c[0]), lats = ring.map((c) => c[1]);
+    lon0 = (Math.min(...lons) + Math.max(...lons)) / 2;
+    lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
+  } else {
+    lon0 = (geojson.bbox[0] + geojson.bbox[2]) / 2;
+    lat0 = (geojson.bbox[1] + geojson.bbox[3]) / 2;
+  }
+  return createProjection(lon0, lat0);
+}
+
+export async function buildMap(game, { data, plugins = [] }) {
+  const { engine, quality, physics, status } = game;
+  const { scene, renderer, camera } = engine;
+  const hook = async (name) => { for (const p of plugins) if (p[name]) await p[name](map); };
+
+  await status('Gerando relevo real (SRTM)...');
+  const terrain = createTerrain(data.terrainData, data.proj);
+  const world = parseWorld(data.geojson, data.proj);
+  world.bounds = terrain.bounds;
+  const map = {
+    proj: data.proj,
+    terrainData: data.terrainData,
+    terrain,
+    world,
+    reserved: [],
+    reserve(rings) { map.reserved.push(rings); },
+    footprints: [],
+    procOn: true,
+  };
+
+  await hook('prepareWorld');
+  for (const a of world.areas) if (a.kind === 'water') a.waterLevel = terrain.carveWater(a.rings);
+  await hook('shapeTerrain');
+
+  await status('Pintando uso do solo, calçadas e rios...');
+  map.ground = paintGround(world, terrain.bounds, renderer, quality.groundPx);
+  const { mesh: terrainMesh, skirt } = terrain.buildMesh(map.ground.texture);
+  scene.add(terrainMesh, skirt);
+  for (const p of plugins) {
+    const rect = p.detailGroundRect?.(map);
+    if (!rect) continue;
+    const detail = paintGround(world, rect, renderer, quality.detailPx);
+    scene.add(terrain.buildDetailMesh(rect, detail.texture));
+  }
+  map.masks = buildMasks(world, terrain.bounds);
+
+  await status(`Traçando ${world.roads.length} vias...`);
+  map.roads = buildRoads(world, terrain, renderer);
+  scene.add(map.roads.root);
+
+  await status(`Levantando ${world.buildings.length} prédios reais do OSM...`);
+  map.real = createBuildingBuilder(renderer, terrain);
+  for (const b of world.buildings) map.real.add(specFromOsm(b));
+  map.real.finish(scene);
+
+  await hook('build');
+
+  await status('Preenchendo quadras sem prédios mapeados (procedural)...');
+  map.proc = createBuildingBuilder(renderer, terrain);
+  for (const s of generateProcedural(world, map.masks, terrain, { skipQuarter: map.reserved.length > 0 })) map.proc.add(s);
+  map.procRoot = map.proc.finish(scene);
+  map.procRoot.name = 'predios-procedurais';
+
+  await status('Plantando árvores...');
+  map.veg = buildVegetation(world, map.masks, terrain, { quality: quality.name, sidewalkHeightAt: map.roads.sidewalkHeightAt, exclude: map.reserved });
+  map.veg.root.userData.noPaintball = true;
+  scene.add(map.veg.root);
+  await hook('decorate');
+
+  await status('Água, muros, semáforos e placas...');
+  scene.add(buildWater(world, terrain, { quality: quality.name }));
+  scene.add(buildBarriers(world, terrain, map.real));
+  map.signals = buildTrafficSignals(world, terrain);
+  scene.add(map.signals.root);
+  map.labels = buildLabels(world, terrain, { real: map.real });
+  scene.add(map.labels.root);
+  map.boundary = buildQuarterBoundary(world.quarter, terrain);
+  scene.add(map.boundary);
+
+  // física: o que o personagem não atravessa e onde ele pisa
+  const { roads, real, proc } = map;
+  physics.addCollider(real);
+  physics.addCollider(proc, () => map.procOn);
+  physics.addSurface((x, z, maxY) => roads.bridgeHeightAt(x, z, maxY));
+  physics.addSurface((x, z, maxY) => roads.surfaceHeightAt(x, z, maxY));
+  physics.addRoof((x, z, y) => real.roofAt(x, z, y));
+  physics.addRoof((x, z, y) => proc.roofAt(x, z, y), () => map.procOn);
+  map.footprints.push(...proc.footprints, ...real.footprints);
+
+  await hook('finalize');
+  addMapPlaces(world, game.places);
+
+  // sistemas do mapa
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+  engine.addSystem((dt, t) => updateNature(t, motionPreference.matches), 'early');
+  let frame = 0;
+  engine.addSystem((dt, t) => {
+    map.signals.update(t);
+    map.boundary.userData.update?.(t);
+    if (frame++ % 10 === 0) map.labels.update(camera.position);
+  }, 'world');
+
+  // atalhos do mapa
+  game.input.bind('KeyP', () => {
+    map.procOn = !map.procOn;
+    map.procRoot.visible = map.procOn;
+    game.toast(map.procOn ? 'Prédios procedurais: LIGADOS' : 'Prédios procedurais: DESLIGADOS (só dados reais do OSM)');
+  }, { label: 'prédios procedurais' });
+  game.input.bind('KeyB', () => { map.boundary.visible = !map.boundary.visible; game.toast(map.boundary.visible ? 'Limite do bairro: visível' : 'Limite do bairro: oculto'); }, { label: 'limite do bairro' });
+  game.input.bind('KeyL', () => { map.labels.root.visible = !map.labels.root.visible; game.toast(map.labels.root.visible ? 'Placas: visíveis' : 'Placas: ocultas'); }, { label: 'placas' });
+
+  map.stats = { osmBuildings: real.count(), procedural: proc.count(), roads: world.roads.length, minAlt: data.terrainData.min, maxAlt: data.terrainData.max };
+  return map;
+}
