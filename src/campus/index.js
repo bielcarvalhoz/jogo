@@ -48,8 +48,9 @@ export function createCampusPlugin(game, campusGeo) {
       plugin.built = buildCampus(plugin.data, { scene, renderer, terrain: map.terrain, world: map.world, roads: map.roads, masks: map.masks, quality: game.quality.name });
     },
 
-    decorate(map) {
+    async decorate(map) {
       if (!plugin.data) return;
+      await game.status('Cultivando os gramados...', 76);
       const C = plugin.data;
       const grass = buildCampusGrass(map.world, map.masks, map.terrain, {
         quality: game.quality.name, inside: (x, z) => !C.insideSolid(x, z) && !C.detailOccupied?.(x, z),

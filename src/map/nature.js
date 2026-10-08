@@ -72,7 +72,7 @@ export function createFoliageMaterial() {
   leafMaterials.add(material);
   material.onBeforeCompile = (shader) => {
     shader.uniforms.natureTime = time;
-    shader.vertexShader = 'uniform float natureTime; varying vec3 vLeafNormal; varying vec3 vLeafPosition;\n' + shader.vertexShader;
+    shader.vertexShader = 'uniform float natureTime; varying vec3 vLeafNormal; varying vec2 vLeafUv;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       mat3 leafBasis = mat3(modelMatrix);
       vec4 leafPosition = vec4(position, 1.);
@@ -81,21 +81,25 @@ export function createFoliageMaterial() {
         leafPosition = instanceMatrix * leafPosition;
       #endif
       vLeafNormal = normalize(leafBasis * normal);
-      vLeafPosition = (modelMatrix * leafPosition).xyz;
-      float phase = vLeafPosition.x * .49 + vLeafPosition.z * .32;
+      vec3 leafWorldPosition = (modelMatrix * leafPosition).xyz;
+      float phase = leafWorldPosition.x * .49 + leafWorldPosition.z * .32;
+      #ifdef USE_ALPHAMAP
+        float leafTurn = sin(natureTime * .7 + leafWorldPosition.x * .5 + leafWorldPosition.z * .34) * .10;
+        vLeafUv = mat2(cos(leafTurn), -sin(leafTurn), sin(leafTurn), cos(leafTurn)) * (vAlphaMapUv - .5) + .5;
+      #endif
       transformed.xz += vec2(sin(natureTime * .85 + phase), sin(natureTime * .73 + phase) * .4) * .025;`);
-    shader.fragmentShader = 'uniform float natureTime; varying vec3 vLeafNormal; varying vec3 vLeafPosition;\n' + shader.fragmentShader;
+    shader.fragmentShader = 'varying vec3 vLeafNormal; varying vec2 vLeafUv;\n' + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <alphamap_fragment>', `
-      float leafTurn = sin(natureTime * .7 + vLeafPosition.x * .5 + vLeafPosition.z * .34) * .10;
-      vec2 leafUv = mat2(cos(leafTurn), -sin(leafTurn), sin(leafTurn), cos(leafTurn)) * (vAlphaMapUv - .5) + .5;
-      diffuseColor.a *= texture2D(alphaMap, leafUv).g;`);
+      #ifdef USE_ALPHAMAP
+        diffuseColor.a *= texture2D(alphaMap, vLeafUv).g;
+      #endif`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       float leafLight = smoothstep(-.35, .95, dot(normalize(vLeafNormal), normalize(vec3(-.45, .8, -.3))));
       leafLight = mix(leafLight, floor(leafLight * 3.) / 3., .45);
       outgoingLight = mix(diffuseColor.rgb * vec3(.40, .46, .43), diffuseColor.rgb * vec3(1.18, 1.11, .88), leafLight);
       #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => 'cidade-folio-leaves-v1';
+  material.customProgramCacheKey = () => 'cidade-folio-leaves-v2';
   material.userData.natureTime = time;
   return material;
 }
@@ -199,10 +203,16 @@ export function buildCampusGrass(world, masks, terrain, { quality = 'high', insi
   while (gcd(stride, cells) !== 1) stride++;
   for (let sample = 0, cell = 0; sample < cells && count < limit; sample++, cell = (cell + stride) % cells) {
     const x = minX + (cell % columns + rnd()) * step, z = minZ + (Math.floor(cell / columns) + rnd()) * step;
-    if (!pointInPolygon(x, z, world.quarter) || masks.tree.get(x, z) || (inside && !inside(x, z))) continue;
-    const area = [...areaGrid.query(x, z)].find((candidate) => pointInPolygon(x, z, candidate.rings));
+    if (masks.tree.get(x, z)) continue;
+    let area;
+    for (const candidate of areaGrid.query(x, z)) if (pointInPolygon(x, z, candidate.rings)) { area = candidate; break; }
     if (!area) continue;
-    if ([...roads.query(x, z)].some((segment) => distToSegment(x, z, segment.ax, segment.az, segment.bx, segment.bz).d < segment.road.w / 2 + (segment.road.kind === 'foot' ? 0.35 : 2.65))) continue;
+    if (!pointInPolygon(x, z, world.quarter) || (inside && !inside(x, z))) continue;
+    let blocked = false;
+    for (const segment of roads.query(x, z)) {
+      if (distToSegment(x, z, segment.ax, segment.az, segment.bx, segment.bz).d < segment.road.w / 2 + (segment.road.kind === 'foot' ? 0.35 : 2.65)) { blocked = true; break; }
+    }
+    if (blocked) continue;
     const key = `${Math.floor(x / 64)},${Math.floor(z / 64)}`;
     let chunk = chunks.get(key);
     if (!chunk) chunks.set(key, (chunk = { positions: [], heights: [], widths: [], colors: [] }));

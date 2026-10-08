@@ -36,7 +36,7 @@ recarrega a página para reconstruir a cena, incluindo texturas e geometria.
 | High | 2 | 4096 | 4096 | 4096 |
 
 O perfil também controla os detalhes de árvores, fachadas, água e vegetação.
-O campus usa 40/48/64 cards por copa de árvore e até 35.000/60.000/100.000 lâminas
+O campus usa 20/24/32 cards por copa de árvore e até 35.000/60.000/100.000 lâminas
 de grama em Low/Med/High. O modo pixel restaura o pixel ratio do perfil selecionado ao ser desligado.
 Entorno desabilitado evita a geração de prédios/procedurais, árvores e props externos.
 O relevo e a imagem geral de chão permanecem para navegação e mapa 2D. O modo Fog
@@ -93,6 +93,22 @@ transformações do mapa, configurações, omissão do entorno e a geometria já
 `npm run build` gera a versão de produção. A verificação de navegador usa Chromium
 com renderização por software; medições desse ambiente não representam FPS em GPUs
 reais e não devem ser usadas como promessa de ganho em aparelhos dos jogadores.
+
+### Carregamento de árvores e gramados
+
+A etapa de 72% também gerava gramados. O gargalo era consultar mais de 3.700 áreas
+de exclusão linearmente para cada posição de grama. Agora a consulta usa um índice
+espacial e os gramados têm uma etapa própria em 76%. A população de árvores cai
+pela metade e os lotes já nascem nas células finais de 125 m.
+
+Comparação da versão de produção em Chromium, mesmo ambiente com GPU por software,
+perfil Med e entorno desabilitado, contra `d2f23d9`: árvores + gramados passaram de
+40.136 ms para 264 ms; chegada ao estado pronto passou de 54.798 ms para 13.489 ms.
+O campus tinha 2.850 árvores e agora tem 1.425, mantendo as 35.350 lâminas de grama
+e os 10 macacos sobre árvores. Tour e aproximação de estruturas renderizaram sem
+erros de JavaScript ou shaders. Esses tempos variam conforme dispositivo/cache e
+não medem FPS. Testes verificam equivalência das exclusões com polígonos/furos,
+seleção determinística, geração externa desligada, buffers e recursos compartilhados.
 
 ### Benchmark de colisão reproduzível
 

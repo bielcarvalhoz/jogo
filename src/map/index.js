@@ -113,7 +113,8 @@ export async function buildMap(game, { data, plugins = [] }) {
   map.procRoot.name = 'predios-procedurais';
 
   await status('Plantando árvores...', 72);
-  map.veg = buildVegetation(renderWorld, map.masks, terrain, { quality: quality.name, sidewalkHeightAt: map.roads.sidewalkHeightAt, exclude: map.reserved });
+  map.veg = buildVegetation(renderWorld, map.masks, terrain, { quality: quality.name, sidewalkHeightAt: map.roads.sidewalkHeightAt, exclude: map.reserved,
+    enabled: map.surroundingsEnabled || !map.reserved.length });
   map.veg.root.userData.noPaintball = true;
   scene.add(map.veg.root);
   await hook('decorate');
