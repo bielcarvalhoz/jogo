@@ -107,3 +107,16 @@ a atribuição precisa continuar visível no jogo. Relevo: SRTM / Mapzen Terrari
 **Atenção (uso comercial):** "Bradesco" e "Fundação Bradesco" são marcas de terceiros. O jogo usa os
 nomes reais dos lugares só para identificar o local, sem logotipo. Antes de vender, avalie com um
 advogado o uso dos nomes/cores da marca.
+
+## Menu, tour e configurações
+
+A tela inicial GTA: City of God oferece **Campanha** (exploração atual), **Modo tour**
+(visão aérea, aproximação de estruturas e órbita) e **Configurações**. A cidade
+carrega em segundo plano com barra de progresso por etapas. O padrão é gráfico
+**Med** com o entorno de Osasco **desabilitado**. Configurações são salvas por aparelho;
+aplicar mudanças reconstrói a cena e retorna ao menu.
+
+O mapa 2D (`M` ou botão/minimapa) permite zoom com roda, pinça ou botões e navegação
+por arraste. Pontos numerados teleportam na campanha e aproximam a câmera no tour.
+Veja [análise e decisões de desempenho](docs/MENU-TOUR-PERFORMANCE.md), incluindo
+aceleração dos tiros por BVH, memória, instâncias e avaliação de WebGPU.

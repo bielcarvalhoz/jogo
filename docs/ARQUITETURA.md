@@ -8,7 +8,7 @@ quebrar o trabalho de quem cuida de outro módulo.
 
 | Pasta | Módulo | Responsabilidade | Exemplos de tarefa |
 |---|---|---|---|
-| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, visual cartoon/pixel, perfil gráfico | pós-processamento, ciclo dia/noite, otimização de desempenho |
+| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, visual cartoon/pixel, perfil gráfico, câmera de tour, configurações persistentes, lotes de instâncias | pós-processamento, ciclo dia/noite, otimização de desempenho |
 | `src/map/` | Mapa (mundo real) | relevo SRTM, vias, prédios do OSM, prédios procedurais, vegetação, água, muros, semáforos, placas, destinos do entorno | melhorar ruas, novos tipos de prédio, mais vegetação |
 | `src/campus/` | Campus Cidade de Deus | núcleo do Bradesco: prédios da planta oficial, muros, portarias, estacionamentos, terraplenagem, detalhes | novo prédio, fachada, mobiliário do campus |
 | `src/player/` | Personagem | controle em primeira pessoa: teclado, mouse, toque, colisão, pulo, voo | modelo/avatar, animação, corrida, agachar |
@@ -24,7 +24,7 @@ quebrar o trabalho de quem cuida de outro módulo.
 `src/main.js` só **monta** o jogo, nesta ordem:
 
 ```
-dados (map + campus) → core (game) → mapa (+ plugin campus) → personagem → tinta → UI → visual → debug
+menu imediato → dados (map + campus) → core (game) → mapa (+ plugin campus) → lotes → personagem + tour → tinta/BVH → UI → visual → materiais → debug → menu pronto
 ```
 
 Tudo gira em torno de um objeto **`game`** (criado em `core/game.js`), o único compartilhado:
@@ -33,11 +33,12 @@ Tudo gira em torno de um objeto **`game`** (criado em `core/game.js`), o único 
 |---|---|---|
 | `game.engine` | `scene`, `camera`, `renderer`, `sun`, `addSystem(fn, fase)`, `setShadowFocus(fn)` | core; todos usam |
 | `game.physics` | obstáculos, pisos e telhados (`addCollider`, `addSurface`, `addRoof`) e consultas (`collide`, `surfaceHeightAt`, `roofAt`) | mapa e campus **registram**; personagem **consulta** |
+| `game.mode`, `game.tour`, `game.mapPoints`, `game.settings` | modo ativo, câmera independente, destinos numerados e escolhas persistentes | main, core, campus, UI |
 | `game.places` | destinos de teletransporte `{ name, x, z, yaw }` | campus e mapa adicionam; UI e personagem leem |
 | `game.input` | `bind('KeyP', fn, { when: 'playing' \| 'always', label })` | cada módulo registra as próprias teclas |
 | `game.events` | `on(nome, fn)` / `emit(nome, dados)` | comunicação sem import |
 | `game.toast(msg)` | aviso rápido na tela (evento `'toast'`) | qualquer módulo; a UI mostra |
-| `game.status(msg)` | mensagem da tela de carregamento | etapas de construção |
+| `game.status(msg, progresso)` | mensagem e percentual ponderado da etapa de carregamento | etapas de construção |
 | `game.map`, `game.campus`, `game.player`, `game.paintball`, `game.ui`, `game.styler` | as APIs de cada módulo | preenchidos pelo `main.js` |
 
 ### Laço do jogo (fases)

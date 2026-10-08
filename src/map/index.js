@@ -1,3 +1,4 @@
+import { renderWorldFor } from './surroundings.js';
 import { createProjection } from '../shared/geo.js';
 import { createTerrain } from './terrain.js';
 import { parseWorld } from './world.js';
@@ -58,7 +59,7 @@ export async function buildMap(game, { data, plugins = [] }) {
   const { scene, renderer, camera } = engine;
   const hook = async (name) => { for (const p of plugins) if (p[name]) await p[name](map); };
 
-  await status('Gerando relevo real (SRTM)...');
+  await status('Gerando relevo real (SRTM)...', 16);
   const terrain = createTerrain(data.terrainData, data.proj);
   const world = parseWorld(data.geojson, data.proj);
   world.bounds = terrain.bounds;
@@ -76,8 +77,13 @@ export async function buildMap(game, { data, plugins = [] }) {
   await hook('prepareWorld');
   for (const a of world.areas) if (a.kind === 'water') a.waterLevel = terrain.carveWater(a.rings);
   await hook('shapeTerrain');
+  const renderWorld = renderWorldFor(world, game.settings?.surroundings);
+  map.surroundingsEnabled = renderWorld === world;
+  if (game.settings?.surroundings === 'fog') {
+    scene.fog.near = 350; scene.fog.far = 1400;
+  }
 
-  await status('Pintando uso do solo, calçadas e rios...');
+  await status('Pintando uso do solo, calçadas e rios...', 28);
   map.ground = paintGround(world, terrain.bounds, renderer, quality.groundPx);
   const { mesh: terrainMesh, skirt } = terrain.buildMesh(map.ground.texture);
   scene.add(terrainMesh, skirt);
@@ -89,35 +95,35 @@ export async function buildMap(game, { data, plugins = [] }) {
   }
   map.masks = buildMasks(world, terrain.bounds);
 
-  await status(`Traçando ${world.roads.length} vias...`);
-  map.roads = buildRoads(world, terrain, renderer);
+  await status(`Traçando ${renderWorld.roads.length} vias...`, 40);
+  map.roads = buildRoads(renderWorld, terrain, renderer);
   scene.add(map.roads.root);
 
-  await status(`Levantando ${world.buildings.length} prédios reais do OSM...`);
+  await status(`Levantando ${renderWorld.buildings.length} prédios reais do OSM...`, 48);
   map.real = createBuildingBuilder(renderer, terrain);
-  for (const b of world.buildings) map.real.add(specFromOsm(b));
+  for (const b of renderWorld.buildings) map.real.add(specFromOsm(b));
   map.real.finish(scene);
 
   await hook('build');
 
-  await status('Preenchendo quadras sem prédios mapeados (procedural)...');
+  await status('Preparando quadras e entorno...', 66);
   map.proc = createBuildingBuilder(renderer, terrain);
-  for (const s of generateProcedural(world, map.masks, terrain, { skipQuarter: map.reserved.length > 0 })) map.proc.add(s);
+  if (map.surroundingsEnabled) for (const s of generateProcedural(world, map.masks, terrain, { skipQuarter: map.reserved.length > 0 })) map.proc.add(s);
   map.procRoot = map.proc.finish(scene);
   map.procRoot.name = 'predios-procedurais';
 
-  await status('Plantando árvores...');
-  map.veg = buildVegetation(world, map.masks, terrain, { quality: quality.name, sidewalkHeightAt: map.roads.sidewalkHeightAt, exclude: map.reserved });
+  await status('Plantando árvores...', 72);
+  map.veg = buildVegetation(renderWorld, map.masks, terrain, { quality: quality.name, sidewalkHeightAt: map.roads.sidewalkHeightAt, exclude: map.reserved });
   map.veg.root.userData.noPaintball = true;
   scene.add(map.veg.root);
   await hook('decorate');
 
-  await status('Água, muros, semáforos e placas...');
-  scene.add(buildWater(world, terrain, { quality: quality.name }));
-  scene.add(buildBarriers(world, terrain, map.real));
-  map.signals = buildTrafficSignals(world, terrain);
+  await status('Água, muros, semáforos e placas...', 80);
+  scene.add(buildWater(renderWorld, terrain, { quality: quality.name }));
+  scene.add(buildBarriers(renderWorld, terrain, map.real));
+  map.signals = buildTrafficSignals(renderWorld, terrain);
   scene.add(map.signals.root);
-  map.labels = buildLabels(world, terrain, { real: map.real });
+  map.labels = buildLabels(renderWorld, terrain, { real: map.real });
   scene.add(map.labels.root);
   map.boundary = buildQuarterBoundary(world.quarter, terrain);
   scene.add(map.boundary);
@@ -133,7 +139,14 @@ export async function buildMap(game, { data, plugins = [] }) {
   map.footprints.push(...proc.footprints, ...real.footprints);
 
   await hook('finalize');
-  addMapPlaces(world, game.places);
+  addMapPlaces(renderWorld, game.places);
+  if (!game.mapPoints.length) game.mapPoints.push(...game.places.map((p, i) => ({ ...p, number: i + 1 })));
+  else game.places.filter(p => !p.fixed).forEach((p, i) => game.mapPoints.push({
+    ...p, number: `E${i + 1}`, x: p.target?.[0] ?? p.x, z: p.target?.[1] ?? p.z,
+    teleportX: p.x, teleportZ: p.z, radius: 60, height: 20,
+  }));
+  // The 2D map still depicts OSM footprints when surrounding 3D geometry is omitted.
+  if (!map.surroundingsEnabled) map.footprints.push(...world.buildings.filter(b => !renderWorld.buildings.includes(b)).map(b => ({ rings: b.rings, color: 'house' })));
 
   // sistemas do mapa
   const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
@@ -147,6 +160,7 @@ export async function buildMap(game, { data, plugins = [] }) {
 
   // atalhos do mapa
   game.input.bind('KeyP', () => {
+    if (!map.surroundingsEnabled) { game.toast('Ative o entorno nas configurações para exibir prédios procedurais'); return; }
     map.procOn = !map.procOn;
     map.procRoot.visible = map.procOn;
     game.toast(map.procOn ? 'Prédios procedurais: LIGADOS' : 'Prédios procedurais: DESLIGADOS (só dados reais do OSM)');
@@ -154,6 +168,6 @@ export async function buildMap(game, { data, plugins = [] }) {
   game.input.bind('KeyB', () => { map.boundary.visible = !map.boundary.visible; game.toast(map.boundary.visible ? 'Limite do bairro: visível' : 'Limite do bairro: oculto'); }, { label: 'limite do bairro' });
   game.input.bind('KeyL', () => { map.labels.root.visible = !map.labels.root.visible; game.toast(map.labels.root.visible ? 'Placas: visíveis' : 'Placas: ocultas'); }, { label: 'placas' });
 
-  map.stats = { osmBuildings: real.count(), procedural: proc.count(), roads: world.roads.length, minAlt: data.terrainData.min, maxAlt: data.terrainData.max };
+  map.stats = { osmBuildings: real.count(), procedural: proc.count(), roads: renderWorld.roads.length, minAlt: data.terrainData.min, maxAlt: data.terrainData.max };
   return map;
 }

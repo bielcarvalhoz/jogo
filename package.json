@@ -13,7 +13,8 @@
     "check:modules": "node scripts/check-modules.mjs"
   },
   "dependencies": {
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "three-mesh-bvh": "^0.9.16"
   },
   "devDependencies": {
     "osmtogeojson": "^3.0.0-beta.5",

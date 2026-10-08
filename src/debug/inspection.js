@@ -40,6 +40,9 @@ export function inspectScene(app, view) {
     camera.position.set(x + 54, terrain.heightAt(x + 54, z) + 12, z + 20);
     camera.lookAt(x, lake.waterLevel, z);
   }
+  app.game.mode = 'inspection';
+  document.body.classList.remove('menu-open');
+  document.getElementById('hud').classList.remove('hidden');
   document.getElementById('overlay').classList.add('hidden');
   for (const child of document.getElementById('hud').children) {
     if (!child.classList.contains('attrib')) child.style.display = 'none';

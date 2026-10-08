@@ -188,7 +188,8 @@ export function buildCampusGrass(world, masks, terrain, { quality = 'high', insi
   }
   const ring = world.quarter[0], xs = ring.map((p) => p[0]), zs = ring.map((p) => p[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
-  const step = quality === 'low' ? 1.3 : 0.8, limit = quality === 'low' ? 35000 : 100000;
+  const step = quality === 'low' ? 1.3 : quality === 'med' ? 1 : .8;
+  const limit = quality === 'low' ? 35000 : quality === 'med' ? 60000 : 100000;
   const rnd = mulberry32(6109), chunks = new Map(), color = new THREE.Color();
   let count = 0;
   // Shuffle the cells' visit order so a quality budget covers the entire campus.

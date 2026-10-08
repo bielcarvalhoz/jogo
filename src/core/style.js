@@ -21,6 +21,7 @@ export function createStyler(scene, renderer, hemi) {
   const meshes = []; // [mesh, standard, toon]
   let cartoon = false;
   let pixel = false;
+  const standardPixelRatio = renderer.getPixelRatio();
 
   function toToon(std) {
     if (toonOf.has(std)) return toonOf.get(std);
@@ -52,7 +53,7 @@ export function createStyler(scene, renderer, hemi) {
 
   function setPixel(on) {
     pixel = on;
-    renderer.setPixelRatio(on ? 0.3 : Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(on ? 0.3 : standardPixelRatio);
     renderer.setSize(innerWidth, innerHeight);
     renderer.domElement.style.imageRendering = on ? 'pixelated' : '';
   }

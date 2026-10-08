@@ -7,52 +7,58 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Cidade de Deus 3D · Osasco</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>GTA: City of God · Osasco</title>
   </head>
   <body>
     <div id="app"></div>
 
-    <div id="loading">
-      <div class="brand">CIDADE DE DEUS <span>OSASCO · SP</span></div>
-      <div class="spinner"></div>
-      <div id="loading-text">Iniciando...</div>
+    <div id="overlay">
+      <div class="menu-art" aria-hidden="true"><div class="art-grid"></div><span class="art-caption">23°33′ S / 46°46′ W</span></div>
+      <main class="card menu-card">
+        <p class="eyebrow">OSASCO, SÃO PAULO · EXPLORE A CIDADE</p>
+        <div class="gta-logo" role="img" aria-label="GTA: City of God"><strong>GTA<span>:</span></strong><span class="logo-sub">City of God</span></div>
+        <p class="sub">Cada rua, uma perspectiva.</p>
+        <nav class="menu-options" aria-label="Menu principal">
+          <button id="play"><span class="menu-num">01</span><span><b>Campanha</b><small>Entre nas ruas. Explore em primeira pessoa.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
+          <button id="tour"><span class="menu-num">02</span><span><b>Modo tour</b><small>A cidade vista de cima. Descubra cada estrutura.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
+          <button id="settings-open"><span class="menu-num">03</span><span><b>Configurações</b><small>Encontre o equilíbrio entre detalhes e desempenho.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
+        </nav>
+        <section id="settings-panel" class="hidden" aria-label="Configurações">
+          <h2>Sua cidade, seu ritmo.</h2>
+          <label>Qualidade gráfica <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
+          <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Renderizar com neblina (fog)</option><option value="on">Renderizar sem neblina extra</option></select></label>
+          <p class="setting-note">As alterações são salvas neste aparelho. Aplicar reconstrói a cena e retorna ao menu.</p>
+          <label class="paint-choice" for="paint-color">Tinta da pistolinha <select id="paint-color" aria-label="Cor da tinta"></select></label>
+          <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar configurações</button></div>
+        </section>
+        <details class="menu-help"><summary>Controles da campanha</summary>
+          <p>WASD: andar · Mouse: olhar · Clique: tinta · C: cor · Shift: correr · Espaço: pular · F: voar · E/Q: subir/descer · M: mapa · Esc: menu</p>
+          <p>No celular: arraste para olhar e toque duas vezes para voar. Use os botões para mapa, tinta e menu.</p>
+          <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
+        </details>
+        <p id="stat-line" class="stats"></p>
+        <div id="loading" role="status" aria-live="polite">
+          <div class="progress-label"><span id="loading-text">Preparando a cidade em segundo plano…</span><b data-progress-label>0%</b></div>
+          <progress data-load-progress max="100" value="0" aria-label="Progresso do carregamento da cena"></progress>
+          <small>Você pode escolher um modo enquanto a cidade carrega.</small>
+        </div>
+        <p class="menu-footer">CIDADE DE DEUS <span>UM NOVO PONTO DE VISTA</span></p>
+      </main>
     </div>
 
-    <div id="overlay" class="hidden">
-      <div class="card">
-        <div class="brand">CIDADE DE DEUS <span>OSASCO · SP</span></div>
-        <p class="sub">Núcleo Cidade de Deus (matriz do Bradesco) reconstruído a partir da planta oficial, imagens de satélite e dados do OpenStreetMap.</p>
-        <p id="stat-line" class="stats"></p>
-        <button id="play"><span class="only-desktop">▶ Clique para jogar</span><span class="only-touch">▶ Tocar para jogar</span></button>
-        <label class="paint-choice" for="paint-color">Tinta da pistolinha <select id="paint-color" aria-label="Cor da tinta"></select></label>
-        <div class="cols">
-          <ul class="controls only-desktop">
-            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</li>
-            <li><kbd>Mouse</kbd> olhar</li>
-            <li><kbd>Clique</kbd> atirar tinta · <kbd>C</kbd> trocar cor</li>
-            <li><kbd>Shift</kbd> correr</li>
-            <li><kbd>Espaço</kbd> pular</li>
-            <li><kbd>F</kbd> voo livre (<kbd>E</kbd>/<kbd>Q</kbd> sobe/desce)</li>
-            <li><kbd>M</kbd> mapa (clique para se teletransportar)</li>
-            <li><kbd>P</kbd> liga/desliga prédios procedurais</li>
-            <li><kbd>B</kbd> limite do bairro · <kbd>L</kbd> placas</li>
-            <li><kbd>T</kbd> cartoon / realista · <kbd>V</kbd> modo pixel</li>
-            <li><kbd>H</kbd> ajuda · <kbd>Esc</kbd> pausa</li>
-          </ul>
-          <ul class="controls only-touch">
-            <li>👆 <b>Arraste</b> o dedo para olhar</li>
-            <li>✌️ <b>Toque duas vezes</b> para começar a voar para onde está olhando</li>
-            <li>⬇️ Olhe para baixo para descer, para cima para subir</li>
-            <li>✌️ <b>Toque duas vezes</b> de novo para parar de voar</li>
-            <li>🗺 Mapa: toque num ponto para ir até lá</li>
-            <li>🎨 Toque em <b>Atirar</b> para lançar tinta; a cor aparece no canto.</li>
-          </ul>
-          <div>
-            <div class="places-title">Teletransporte</div>
-            <ul id="places-list" class="controls places"></ul>
-          </div>
-        </div>
-      </div>
+    <div id="loading-wait" class="hidden" role="status" aria-live="polite">
+      <p class="eyebrow">GTA: CITY OF GOD</p><h2>Preparando sua chegada.</h2>
+      <p id="waiting-text">Construindo a cidade…</p>
+      <progress data-load-progress max="100" value="0" aria-label="Progresso do carregamento da cena"></progress>
+      <b data-progress-label>0%</b><button id="loading-back">Voltar ao menu</button>
+    </div>
+
+    <div id="tour-markers" class="hidden" aria-label="Pontos da cidade"></div>
+    <div id="tour-panel" class="hidden">
+      <div><span class="eyebrow">MODO TOUR</span><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Selecione um ponto para se aproximar. Arraste para navegar, use a roda ou dois dedos para dar zoom.</p></div>
+      <div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita automática</button><button id="tour-map">Mapa 2D</button><button id="tour-menu">Menu</button></div>
+      <div id="tour-places" aria-label="Estruturas da cidade"></div>
     </div>
 
     <div id="rotate">
@@ -61,7 +67,7 @@
       <div class="rotate-sub">O jogo funciona só com a tela deitada.</div>
     </div>
 
-    <div id="hud">
+    <div id="hud" class="hidden">
       <div class="panel">
         <div class="title">CIDADE DE DEUS · OSASCO/SP <span id="hud-mode">A PÉ</span></div>
         <div id="hud-street" class="street">—</div>
@@ -69,7 +75,7 @@
         <div class="row"><span>lat, lon</span><b id="hud-coords">—</b></div>
         <div class="row"><span>altitude</span><b id="hud-alt">—</b></div>
       </div>
-      <canvas id="minimap" width="220" height="220"></canvas>
+      <canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
       <div id="hud-fps"></div>
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><span id="paint-chip"></span>Tinta <b id="paint-label">Vermelho</b><small class="only-desktop">C troca</small></button>
       <div class="touch-buttons only-touch">
@@ -86,7 +92,10 @@
 
     <div id="map-panel">
       <canvas id="bigmap"></canvas>
-      <div class="map-help"><span class="only-desktop">Clique no mapa para se teletransportar · <kbd>M</kbd> volta ao jogo · <kbd>Esc</kbd> pausa</span><span class="only-touch">Toque no mapa para ir até lá</span></div>
+      <div class="map-heading"><b>CIDADE DE DEUS</b><span id="map-mode-label">MAPA DA CAMPANHA</span></div>
+      <div id="map-places" aria-label="Pontos do mapa"></div>
+      <div class="map-tools"><button id="map-zoom-in" aria-label="Aumentar zoom">+</button><button id="map-zoom-out" aria-label="Diminuir zoom">−</button><button id="map-reset">Visão ampla</button></div>
+      <div class="map-help" id="map-help">Arraste para navegar · Roda ou dois dedos para zoom · Selecione um ponto</div>
       <button id="map-close">✕</button>
     </div>
 

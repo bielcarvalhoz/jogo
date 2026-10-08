@@ -3,7 +3,7 @@
 export function createInput(game) {
   const bindings = new Map();
   window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
+    if (e.repeat || e.target?.closest?.('input, select, textarea, [contenteditable=true]')) return;
     for (const b of bindings.get(e.code) || []) {
       if (b.when === 'playing' && !game.isPlaying()) continue;
       b.handler(e);
