@@ -8,63 +8,63 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <title>GTA: City of God · Osasco</title>
+    <title>Grand Treta Auto: City of God · Osasco</title>
   </head>
   <body>
     <div id="app"></div>
 
     <div id="overlay">
-      <div class="menu-art" aria-hidden="true"><div class="art-grid"></div><span class="art-caption">23°33′ S / 46°46′ W</span></div>
-      <main class="card menu-card">
-        <p class="eyebrow">OSASCO, SÃO PAULO · EXPLORE A CIDADE</p>
-        <div class="gta-logo" role="img" aria-label="GTA: City of God"><strong>GTA<span>:</span></strong><span class="logo-sub">City of God</span></div>
-        <p class="sub">Cada rua, uma perspectiva.</p>
+      <div class="menu-art" aria-hidden="true">
+        <div class="art-panel art-1"></div><div class="art-panel art-2"></div><div class="art-panel art-3"></div>
+        <div class="art-panel art-4"></div><div class="art-panel art-5"></div><div class="art-panel art-6"></div>
+      </div>
+      <main class="menu-card">
+        <div class="gta-logo" role="img" aria-label="grand treta auto: City of God">
+          <span class="logo-word">grand</span><span class="logo-word">treta</span><span class="logo-word">auto</span><span class="logo-sub">City of God</span>
+        </div>
         <nav class="menu-options" aria-label="Menu principal">
-          <button id="play"><span class="menu-num">01</span><span><b>Campanha</b><small>Entre nas ruas. Explore em primeira pessoa.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
-          <button id="tour"><span class="menu-num">02</span><span><b>Modo tour</b><small>A cidade vista de cima. Descubra cada estrutura.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
-          <button id="settings-open"><span class="menu-num">03</span><span><b>Configurações</b><small>Encontre o equilíbrio entre detalhes e desempenho.</small></span><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5h14v14" stroke="currentColor" stroke-width="2"/></svg></span></button>
+          <span class="menu-location">OSASCO / SÃO PAULO</span>
+          <button id="play"><b>Campanha</b></button>
+          <button id="tour"><b>Modo tour</b></button>
+          <button id="settings-open"><b>Configurações</b></button>
         </nav>
         <section id="settings-panel" class="hidden" aria-label="Configurações">
-          <h2>Sua cidade, seu ritmo.</h2>
-          <label>Qualidade gráfica <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
-          <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Renderizar com neblina (fog)</option><option value="on">Renderizar sem neblina extra</option></select></label>
-          <p class="setting-note">As alterações são salvas neste aparelho. Aplicar reconstrói a cena e retorna ao menu.</p>
-          <label class="paint-choice" for="paint-color">Tinta da pistolinha <select id="paint-color" aria-label="Cor da tinta"></select></label>
-          <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar configurações</button></div>
+          <h2>Configurações</h2>
+          <label>Gráficos <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
+          <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Com neblina</option><option value="on">Ativado</option></select></label>
+          <label class="paint-choice" for="paint-color">Cor da tinta <select id="paint-color" aria-label="Cor da tinta" disabled><option value="vermelho">Vermelho</option></select></label>
+          <p class="setting-note">Preferências salvas neste aparelho.</p>
+          <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar</button></div>
+          <details class="menu-help"><summary>Controles</summary>
+            <p>WASD: andar · Mouse: olhar · Clique: tinta · C: cor · Shift: correr · Espaço: pular · F: voar · E/Q: subir/descer · M: mapa · Esc: menu</p>
+            <p>No celular: toque à esquerda para andar; arraste do outro lado para mirar. Botões para atirar, voar e mapa. Jogue em pé ou deitado.</p>
+            <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
+          </details>
+          <p id="stat-line" class="stats"></p>
         </section>
-        <details class="menu-help"><summary>Controles da campanha</summary>
-          <p>WASD: andar · Mouse: olhar · Clique: tinta · C: cor · Shift: correr · Espaço: pular · F: voar · E/Q: subir/descer · M: mapa · Esc: menu</p>
-          <p>No celular: arraste para olhar e toque duas vezes para voar. Use os botões para mapa, tinta e menu.</p>
-          <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
-        </details>
-        <p id="stat-line" class="stats"></p>
         <div id="loading" role="status" aria-live="polite">
-          <div class="progress-label"><span id="loading-text">Preparando a cidade em segundo plano…</span><b data-progress-label>0%</b></div>
-          <progress data-load-progress max="100" value="0" aria-label="Progresso do carregamento da cena"></progress>
-          <small>Você pode escolher um modo enquanto a cidade carrega.</small>
+          <div class="progress-label"><span id="loading-text">Preparando a cidade…</span><b data-progress-label>0%</b></div>
+          <div class="load-track" data-load-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Carregamento da cidade"><span class="load-fill"></span></div>
+          <small>Escolha seu modo para começar.</small>
         </div>
-        <p class="menu-footer">CIDADE DE DEUS <span>UM NOVO PONTO DE VISTA</span></p>
       </main>
+      <button id="intro-skip">Pular abertura ›</button>
     </div>
 
     <div id="loading-wait" class="hidden" role="status" aria-live="polite">
-      <p class="eyebrow">GTA: CITY OF GOD</p><h2>Preparando sua chegada.</h2>
-      <p id="waiting-text">Construindo a cidade…</p>
-      <progress data-load-progress max="100" value="0" aria-label="Progresso do carregamento da cena"></progress>
-      <b data-progress-label>0%</b><button id="loading-back">Voltar ao menu</button>
+      <p class="eyebrow">GRAND TRETA AUTO / CITY OF GOD</p><h2>Entrando na cidade</h2>
+      <div class="waiting-progress">
+        <div class="progress-label"><span id="waiting-text">Construindo a cidade…</span><b data-progress-label>0%</b></div>
+        <div class="load-track" data-load-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Carregamento da cidade"><span class="load-fill"></span></div>
+      </div>
+      <button id="loading-back">Voltar ao menu</button>
     </div>
 
     <div id="tour-markers" class="hidden" aria-label="Pontos da cidade"></div>
     <div id="tour-panel" class="hidden">
-      <div><span class="eyebrow">MODO TOUR</span><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Selecione um ponto para se aproximar. Arraste para navegar, use a roda ou dois dedos para dar zoom.</p></div>
-      <div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita automática</button><button id="tour-map">Mapa 2D</button><button id="tour-menu">Menu</button></div>
+      <div class="tour-topline"><span class="tour-label">TOUR</span><div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita</button><button id="tour-map">Mapa 2D</button><button id="tour-menu">Menu</button></div></div>
+      <div class="tour-detail"><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Arraste para olhar · Dois dedos para zoom</p></div>
       <div id="tour-places" aria-label="Estruturas da cidade"></div>
-    </div>
-
-    <div id="rotate">
-      <div class="phone">📱</div>
-      <div class="rotate-title">Gire o celular</div>
-      <div class="rotate-sub">O jogo funciona só com a tela deitada.</div>
     </div>
 
     <div id="hud" class="hidden">
@@ -80,11 +80,14 @@
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><span id="paint-chip"></span>Tinta <b id="paint-label">Vermelho</b><small class="only-desktop">C troca</small></button>
       <div class="touch-buttons only-touch">
         <button id="btn-fire" aria-label="Atirar tinta">●</button>
+        <button id="btn-fly" aria-label="Alternar voo" aria-pressed="false">↟</button>
+        <button id="btn-orientation" aria-label="Alternar orientação da tela">⤢</button>
         <button id="btn-map" aria-label="Mapa">🗺</button>
         <button id="btn-menu" aria-label="Menu">☰</button>
       </div>
       <div id="help" class="help only-desktop">WASD andar · Clique tinta · C cor · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
-      <div id="touch-help" class="help only-touch">Toque 2× para voar · arraste para olhar</div>
+      <div id="joystick" hidden aria-hidden="true"><span class="joystick-thumb"></span></div>
+      <div id="touch-help" class="help only-touch">Esquerda: andar · Direita: mirar</div>
       <div id="crosshair"></div>
       <div id="toast"></div>
       <div class="attrib">Dados © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · Relevo: SRTM / Mapzen Terrarium</div>

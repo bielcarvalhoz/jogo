@@ -114,3 +114,14 @@ Também foram validados Low + Fog após aplicar e recarregar: preferências pers
 o entorno contém 267 prédios reais e 8.909 procedurais, e a escolha antecipada do
 tour entra no modo quando a cena fica pronta. Ao sair do tour, a neblina configurada
 é restaurada. Os números descrevem os dados atuais do repositório.
+
+
+## Abertura e celular
+
+A capa usa seis painéis cartoon originais em um atlas WebP (~470 KB), animados individualmente por CSS, com logo em texto “grand treta auto” e subtítulo vermelho “City of God”. A fonte Anton é servida localmente em WOFF, com licença OFL em `public/fonts`. A animação pode ser pulada e respeita movimento reduzido. Não há tempo mínimo de espera para escolher um modo.
+
+A campanha aceita retrato e paisagem sem pausar no resize ou exigir tela cheia. O botão de orientação solicita fullscreen/lock apenas por escolha do jogador; em navegadores sem suporte, indica que basta girar fisicamente. `player/touch-controls.js` atribui um papel fixo a cada dedo: à esquerda (42% da largura) abre um analógico flutuante com zona morta e velocidade proporcional; o outro controla a mira. Soltar, cancelar, perder captura, redimensionar, desfocar ou esconder a página limpa o movimento. A UI recebe eventos `joystick`; não existem dependências novas entre módulos.
+
+As barras usam preenchimento CSS próprio e o mesmo inteiro da porcentagem/ARIA, sem transição que atrase a largura. O tour abre com enquadramento calculado pelas dimensões reais do campus e pelo espaço disponível, em vez de tratar o maior lado como um quadrado. Sua barra fica em uma linha e expande somente ao visitar um ponto. Números próximos recebem posições separadas e linhas até as âncoras originais, com hit testing atualizado no mapa 2D. O mapa 2D também inicia mais próximo.
+
+No tour, um fundo em gradiente e curvas de nível, uma única superfície distante e fog ajustada à altitude substituem a parte branca inferior do céu. Céu, fundo, cor e alcance da fog da campanha são restaurados ao sair. A superfície distante não participa de colisões da tinta e não gera prédios do entorno.

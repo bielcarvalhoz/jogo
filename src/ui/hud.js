@@ -1,5 +1,6 @@
 import { MapView } from './map-view.js';
 import { pointInPolygon } from '../shared/geo.js';
+import { placeMarker } from './marker-layout.js';
 
 // HUD: painel de localização, minimapa (norte para cima) e mapa grande clicável.
 
@@ -73,23 +74,32 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
       big.width = Math.round(W * dpr); big.height = Math.round(H * dpr);
       view.resize(W, H); dirty = true;
     }
-    if (!initialized) { view.fit(campusRegion); initialized = true; }
+    if (!initialized) { view.fit(campusRegion); view.zoomAt(1.15); initialized = true; }
     bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return true;
   };
+  let markerHits = [];
   function drawBigMap(x = lastState.x, z = lastState.z, yaw = lastState.yaw) {
     lastState = { x, z, yaw };
     if (!sizeMap()) return;
     const W = view.width, H = view.height;
-    bctx.fillStyle = '#111d27'; bctx.fillRect(0, 0, W, H);
+    const gradient = bctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H));
+    gradient.addColorStop(0, '#49675d'); gradient.addColorStop(1, '#152d36');
+    bctx.fillStyle = gradient; bctx.fillRect(0, 0, W, H);
     const [ox, oy] = view.toScreen(x0, z0), scale = view.scale;
     bctx.drawImage(base, ox, oy, width * scale, depth * scale);
     const tour = getMode() === 'tour';
+    markerHits = []; const placed = [];
     for (const p of places) {
-      const [sx, sy] = view.toScreen(p.x, p.z);
-      if (sx < -20 || sy < -20 || sx > W + 20 || sy > H + 20) continue;
+      const [anchorX, anchorY] = view.toScreen(p.x, p.z);
+      if (anchorX < 0 || anchorY < 0 || anchorX > W || anchorY > H) continue;
+      const chosen = placeMarker(anchorX, anchorY, placed, W, H, 25);
+      if (!chosen) continue;
+      const [sx, sy] = chosen; placed.push(chosen); markerHits.push({ x: sx, y: sy, point: p });
+      bctx.strokeStyle = '#ffda8099'; bctx.lineWidth = 1;
+      bctx.beginPath(); bctx.moveTo(anchorX, anchorY); bctx.lineTo(sx, sy); bctx.stroke();
       bctx.fillStyle = '#ffc940'; bctx.strokeStyle = '#14232d'; bctx.lineWidth = 2;
-      bctx.beginPath(); bctx.arc(sx, sy, 13, 0, Math.PI * 2); bctx.fill(); bctx.stroke();
+      bctx.beginPath(); bctx.arc(sx, sy, 11, 0, Math.PI * 2); bctx.fill(); bctx.stroke();
       bctx.font = 'bold 10px Segoe UI, sans-serif'; bctx.textAlign = 'center'; bctx.fillStyle = '#15222a';
       bctx.fillText(p.number, sx, sy + 3.5);
       if (view.zoom > 5) {
@@ -115,9 +125,9 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
   }
   function pointAt(sx, sy) {
     let nearest = null, distance = 23;
-    for (const p of places) {
-      const [px, py] = view.toScreen(p.x, p.z), d = Math.hypot(sx - px, sy - py);
-      if (d < distance) { nearest = p; distance = d; }
+    for (const hit of markerHits) {
+      const d = Math.hypot(sx - hit.x, sy - hit.y);
+      if (d < distance) { nearest = hit.point; distance = d; }
     }
     return nearest;
   }
@@ -165,7 +175,7 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
   }, { passive: false });
   $('map-zoom-in').addEventListener('click', () => { view.zoomAt(1.4); drawBigMap(); });
   $('map-zoom-out').addEventListener('click', () => { view.zoomAt(1 / 1.4); drawBigMap(); });
-  $('map-reset').addEventListener('click', () => { view.fit(campusRegion); drawBigMap(); });
+  $('map-reset').addEventListener('click', () => { view.fit(campusRegion); view.zoomAt(1.15); drawBigMap(); });
   addEventListener('resize', () => { dirty = true; });
 
   let lastText = 0, lastMap = -1, frames = 0, fpsT = 0;

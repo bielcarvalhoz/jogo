@@ -3,8 +3,13 @@ import { loadSettings, saveSettings } from '../core/index.js';
 const $ = id => document.getElementById(id);
 let progress = 0, failed = false;
 function paintProgress(value) {
-  progress = Math.max(progress, Math.min(100, value));
-  document.querySelectorAll('[data-load-progress]').forEach(el => { el.value = progress; });
+  progress = Math.round(Math.max(progress, Math.min(100, value)));
+  // One value drives both the number and the fill, including Safari. No native
+  // progress rendering or delayed CSS width transition can desynchronise them.
+  document.querySelectorAll('[data-load-progress]').forEach(el => {
+    el.setAttribute('aria-valuenow', progress);
+    el.querySelector('.load-fill').style.transform = `scaleX(${progress / 100})`;
+  });
   document.querySelectorAll('[data-progress-label]').forEach(el => { el.textContent = `${Math.round(progress)}%`; });
 }
 
@@ -26,11 +31,20 @@ export const loading = {
 
 /** Bind the menu before any network or 3D construction begins. */
 export function createFrontMenu() {
+  document.body.classList.add('intro-playing');
+  const endIntro = () => { document.body.classList.remove('intro-playing'); $('intro-skip').hidden = true; };
+  const introTimer = setTimeout(endIntro, 2200);
+  $('intro-skip').addEventListener('click', () => { clearTimeout(introTimer); endIntro(); });
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { clearTimeout(introTimer); endIntro(); }
   const settings = loadSettings();
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
   let game = null, pendingMode = null, pendingTouch = false;
   const settingsPanel = $('settings-panel'), options = document.querySelector('.menu-options');
-  const showSettings = on => { settingsPanel.classList.toggle('hidden', !on); options.classList.toggle('hidden', on); };
+  const showSettings = on => {
+    endIntro();
+    $('overlay').classList.toggle('settings-open', on);
+    settingsPanel.classList.toggle('hidden', !on); options.classList.toggle('hidden', on);
+  };
   $('settings-open').addEventListener('click', () => showSettings(true));
   $('settings-back').addEventListener('click', () => showSettings(false));
   $('settings-apply').addEventListener('click', () => {

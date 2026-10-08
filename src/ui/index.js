@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { IS_TOUCH } from '../core/index.js';
 import { createHud } from './hud.js';
+import { placeMarker } from './marker-layout.js';
 import './style.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
@@ -25,16 +26,14 @@ export function createUI(game) {
   };
   game.events.on('toast', toast);
 
-  async function startCampaign(touch = touchSession) {
+  function startCampaign(touch = touchSession) {
     touchSession = touch; tour.stop(); game.mode = 'campaign';
     document.body.classList.remove('menu-open', 'tour-active');
     $('tour-panel').classList.add('hidden'); $('tour-markers').classList.add('hidden');
     overlay.classList.add('hidden'); mapPanel.classList.remove('open'); $('hud').classList.remove('hidden');
-    if (touch) {
-      document.body.classList.add('touch');
-      try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { /* iOS */ }
-      try { await screen.orientation?.lock?.('landscape'); } catch { /* requires Android fullscreen */ }
-    }
+    if (touch) document.body.classList.add('touch');
+    document.body.classList.toggle('flying', player.fly);
+    $('btn-fly').setAttribute('aria-pressed', String(player.fly));
     if (game.mode === 'campaign') player.start(touch);
   }
 
@@ -100,24 +99,43 @@ export function createUI(game) {
     const marker = document.createElement('button'); marker.className = 'tour-marker'; marker.textContent = p.number;
     marker.title = `${p.number} · ${p.name}`; marker.setAttribute('aria-label', `Visitar ${p.name}`);
     marker.addEventListener('click', () => tour.focus(p)); $('tour-markers').appendChild(marker);
-    markerPositions.push({ point: p, button: marker, position: new THREE.Vector3(p.x, map.terrain.heightAt(p.x, p.z) + (p.height || 8) + 3, p.z) });
+    const leader = document.createElement('span'); leader.className = 'marker-leader'; leader.hidden = true; $('tour-markers').appendChild(leader);
+    markerPositions.push({ point: p, button: marker, leader, position: new THREE.Vector3(p.x, map.terrain.heightAt(p.x, p.z) + (p.height || 8) + 3, p.z) });
   });
   let markerTime = -1;
   engine.addSystem((dt, t) => {
     if (!tour.active || t - markerTime < .05 || mapPanel.classList.contains('open')) return;
     markerTime = t; engine.camera.updateMatrixWorld();
+    const placed = [], panelTop = $('tour-panel').getBoundingClientRect().top;
     for (const marker of markerPositions) {
       projection.copy(marker.position).project(engine.camera);
       const visible = (!tour.focused || tour.focused === marker.point) && projection.z > -1 && projection.z < 1 && Math.abs(projection.x) < .97 && Math.abs(projection.y) < .92;
-      marker.button.hidden = !visible;
-      if (visible) { marker.button.style.left = `${(projection.x + 1) / 2 * innerWidth}px`; marker.button.style.top = `${(1 - projection.y) / 2 * innerHeight}px`; }
+      marker.button.hidden = !visible; marker.leader.hidden = true;
+      if (visible) {
+        const x = (projection.x + 1) / 2 * innerWidth, y = (1 - projection.y) / 2 * innerHeight;
+        // Keep nearby numbers individually tappable; leaders retain their real anchors.
+        const chosen = placeMarker(x, y, placed, innerWidth, panelTop - 8);
+        if (!chosen) { marker.button.hidden = true; continue; }
+        const [px, py] = chosen; placed.push(chosen);
+        marker.button.style.left = `${px}px`; marker.button.style.top = `${py}px`;
+        const length = Math.hypot(px - x, py - y);
+        if (length > 1) {
+          marker.leader.hidden = false; marker.leader.style.left = `${x}px`; marker.leader.style.top = `${y}px`;
+          marker.leader.style.width = `${length}px`; marker.leader.style.transform = `rotate(${Math.atan2(py - y, px - x)}rad)`;
+        }
+      }
     }
   }, 'late');
   game.events.on('tour-focus', point => {
+    $('tour-panel').classList.toggle('focused', !!point);
     $('tour-title').textContent = point ? `${point.number} · ${point.name}` : 'Cidade de Deus';
     $('tour-description').textContent = point ? 'Arraste para olhar ao redor. Controle o zoom e a órbita ou volte à visão aérea.' : 'Selecione um ponto para se aproximar. Arraste para navegar, use a roda ou dois dedos para dar zoom.';
     for (const b of $('tour-places').children) b.setAttribute('aria-pressed', String(points[+b.dataset.i] === point));
   });
+  // Insets follow actual responsive panel height, including focus expansion.
+  new ResizeObserver(() => {
+    if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 8);
+  }).observe($('tour-panel'));
   $('tour-overview').addEventListener('click', () => tour.overview());
   $('tour-orbit').addEventListener('click', () => { tour.setOrbit(!tour.orbit); $('tour-orbit').setAttribute('aria-pressed', String(tour.orbit)); });
   $('tour-menu').addEventListener('click', showMenu);
@@ -127,11 +145,29 @@ export function createUI(game) {
   player.events.addEventListener('lock', e => {
     if (game.mode !== 'campaign') { player.stop(); return; }
     overlay.classList.add('hidden');
-    if (e.detail.touch) toast('Arraste para olhar · toque duas vezes para voar');
+    if (e.detail.touch) toast('Esquerda: andar · Direita: mirar');
     else if (e.detail.dragMode) toast('Segure e arraste para olhar · clique para atirar');
   });
   player.events.addEventListener('unlock', () => { if (game.mode === 'campaign' && !mapPanel.classList.contains('open')) showMenu(); });
-  player.events.addEventListener('fly', e => { document.body.classList.toggle('flying', e.detail.flying); toast(e.detail.flying ? 'Voando — olhe para cima ou para baixo · toque 2× para parar' : 'Pousando'); });
+  player.events.addEventListener('fly', e => {
+    document.body.classList.toggle('flying', e.detail.flying);
+    $('btn-fly').setAttribute('aria-pressed', String(e.detail.flying));
+    toast(e.detail.flying ? 'Voando · Toque ↟ para pousar' : 'Pousando');
+  });
+  player.events.addEventListener('joystick', e => {
+    const s = e.detail, el = $('joystick'); el.hidden = !s.active;
+    el.style.left = `${s.originX}px`; el.style.top = `${s.originY}px`;
+    el.firstElementChild.style.transform = `translate(${s.dx}px, ${s.dy}px)`;
+  });
+  $('btn-fly').addEventListener('click', () => { if (player.active) player.toggleAutoFly(); });
+  $('btn-orientation').addEventListener('click', async () => {
+    const desired = innerHeight > innerWidth ? 'landscape' : 'portrait';
+    try {
+      if (!screen.orientation?.lock) throw new Error('unsupported');
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
+      await screen.orientation.lock(desired);
+    } catch { toast(`Gire o celular para jogar ${desired === 'landscape' ? 'deitado' : 'em pé'}.`); }
+  });
 
   function openMap() {
     if (!game.mode) return;
@@ -170,7 +206,6 @@ export function createUI(game) {
   addEventListener('resize', () => {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);
-    if (document.body.classList.contains('touch') && innerHeight > innerWidth && player.active) showMenu();
   });
   return { toast, hud, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); } };
 }
