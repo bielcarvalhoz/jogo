@@ -118,7 +118,7 @@ tour entra no modo quando a cena fica pronta. Ao sair do tour, a neblina configu
 
 ## Abertura e celular
 
-A capa usa seis painéis cartoon originais em um atlas WebP (~470 KB), animados individualmente por CSS, com logo em texto “grand treta auto” e subtítulo vermelho “City of God”. A fonte Anton é servida localmente em WOFF, com licença OFL em `public/fonts`. A animação pode ser pulada e respeita movimento reduzido. Não há tempo mínimo de espera para escolher um modo.
+A capa usa seis painéis cartoon originais em um atlas WebP (~470 KB), animados individualmente por CSS, com logo em texto “grand treta auto” e subtítulo vermelho “City of God”. A fonte Anton é servida localmente em WOFF, com licença OFL em `public/fonts`. A animação pode ser pulada e respeita movimento reduzido. Não há tempo mínimo de espera para escolher um modo. A navegação é confirmada no click, depois de terminar o toque, para não repassar um click de compatibilidade a um marcador que estava atrás do menu.
 
 A campanha aceita retrato e paisagem sem pausar no resize ou exigir tela cheia. O botão de orientação solicita fullscreen/lock apenas por escolha do jogador; em navegadores sem suporte, indica que basta girar fisicamente. `player/touch-controls.js` atribui um papel fixo a cada dedo: à esquerda (42% da largura) abre um analógico flutuante com zona morta e velocidade proporcional; o outro controla a mira. Soltar, cancelar, perder captura, redimensionar, desfocar ou esconder a página limpa o movimento. A UI recebe eventos `joystick`; não existem dependências novas entre módulos.
 

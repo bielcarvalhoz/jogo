@@ -62,11 +62,15 @@ export function createFrontMenu() {
     $('overlay').classList.add('hidden'); $('loading-wait').classList.remove('hidden');
   };
   for (const [id, mode] of [['play', 'campaign'], ['tour', 'tour']]) {
-    let lastTouch = 0;
-    $(id).addEventListener('pointerup', e => {
-      if (e.pointerType === 'touch' || e.pointerType === 'pen') { lastTouch = Date.now(); selectMode(mode, true); }
+    let pointerType = '';
+    $(id).addEventListener('pointerdown', e => { pointerType = e.pointerType; });
+    // Commit navigation on the click, after the touch gesture has completed.
+    // Hiding this button on pointerup can retarget its compatibility click to
+    // a newly revealed tour marker underneath, accidentally focusing a building.
+    $(id).addEventListener('click', e => {
+      const type = e.pointerType || (e.detail ? pointerType : '');
+      selectMode(mode, type === 'touch' || type === 'pen' || document.body.classList.contains('touch'));
     });
-    $(id).addEventListener('click', () => { if (Date.now() - lastTouch > 800) selectMode(mode, document.body.classList.contains('touch')); });
   }
   return {
     settings,
