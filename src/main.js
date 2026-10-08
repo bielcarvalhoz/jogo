@@ -14,6 +14,7 @@ import { createHud } from './hud.js';
 import { prepareCampus, buildCampus, campusQA } from './campus.js';
 import { createStyler } from './style.js';
 import { updateNature, buildCampusGrass } from './nature.js';
+import { createPaintball } from './paintball.js';
 import './style.css';
 
 const $ = (id) => document.getElementById(id);
@@ -26,7 +27,8 @@ const status = async (msg) => {
 
 // qualidade gráfica: celulares/tablets usam um perfil mais leve
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const QUALITY = IS_TOUCH
+const INSPECT_LOW = import.meta.env.DEV && new URLSearchParams(location.search).get('quality') === 'low';
+const QUALITY = IS_TOUCH || INSPECT_LOW
   ? { name: 'low', pixelRatio: Math.min(devicePixelRatio, 1.5), shadowMap: 1024, shadowExtent: 90, far: 1800, fog: [220, 1200], groundPx: 2048, detailPx: 2048, antialias: false }
   : { name: 'high', pixelRatio: Math.min(devicePixelRatio, 2), shadowMap: 4096, shadowExtent: 150, far: 3500, fog: [350, 1900], groundPx: 4096, detailPx: 4096, antialias: true };
 
@@ -167,10 +169,11 @@ async function main() {
 
   await status('Plantando árvores...');
   const veg = buildVegetation(world, masks, terrain, { quality: QUALITY.name, sidewalkHeightAt: roads.sidewalkHeightAt, exclude: campus ? [world.quarter] : [] });
+  veg.root.userData.noPaintball=true;
   scene.add(veg.root);
-  if (campusData) scene.add(buildCampusGrass(world, masks, terrain, {
-    quality: QUALITY.name, inside: (x, z) => !campusData.insideSolid(x, z),
-  }).root);
+  if (campusData) {const grass=buildCampusGrass(world, masks, terrain, {
+    quality: QUALITY.name, inside: (x, z) => !campusData.insideSolid(x, z) && !campusData.detailOccupied?.(x,z),
+  }).root;grass.userData.noPaintball=true;scene.add(grass);}
 
   await status('Água, muros, semáforos e placas...');
   scene.add(buildWater(world, terrain, { quality: QUALITY.name }));
@@ -235,7 +238,7 @@ async function main() {
   const player = createPlayer(camera, renderer.domElement, {
     terrain,
     bounds: terrain.bounds,
-    bridgeHeightAt: (x, z, maxY) => Math.max(roads.bridgeHeightAt(x, z, maxY), roads.sidewalkHeightAt(x, z, maxY), campus?.surfaceHeightAt(x, z, maxY) ?? -Infinity),
+    bridgeHeightAt: (x, z, maxY) => Math.max(roads.bridgeHeightAt(x, z, maxY), roads.surfaceHeightAt(x, z, maxY), campus?.surfaceHeightAt(x, z, maxY) ?? -Infinity),
     collide: (x, z, r, feetY) => {
       [x, z] = real.collide(x, z, r, feetY);
       if (procOn) [x, z] = proc.collide(x, z, r, feetY);
@@ -246,6 +249,33 @@ async function main() {
   });
   const spawn = places[0] || { x: 0, z: 0, yaw: 0 };
   player.placeAt(spawn.x, spawn.z, spawn.yaw);
+  const paintEnabled=()=> (player.active||inspectionView==='tinta') && !$('map-panel').classList.contains('open');
+  const paintball=createPaintball({scene,camera,getActive:paintEnabled});
+  const colorChoice=$('paint-color');
+  for(const color of paintball.palette){const option=document.createElement('option');option.value=color.id;option.textContent=color.label;colorChoice.appendChild(option);}
+  const syncPaintColor=()=>{const color=paintball.color;colorChoice.value=color.id;$('paint-label').textContent=color.label;$('paint-chip').style.backgroundColor=color.color;};
+  syncPaintColor();
+  colorChoice.addEventListener('change',()=>{paintball.setColor(colorChoice.value);syncPaintColor();});
+  const nextPaintColor=()=>{paintball.setColor((paintball.colorIndex+1)%paintball.palette.length);syncPaintColor();};
+  $('btn-color').addEventListener('click',nextPaintColor);
+  $('btn-fire').addEventListener('click',()=>paintball.shoot());
+  let paintPointer=null;
+  renderer.domElement.addEventListener('pointerdown',e=>{
+    if(e.button!==0||e.pointerType==='touch'||!paintEnabled())return;
+    if(document.pointerLockElement===renderer.domElement){paintball.shoot();return;}
+    paintPointer={id:e.pointerId,x:e.clientX,y:e.clientY,dragged:false};
+  });
+  window.addEventListener('pointermove',e=>{if(paintPointer?.id===e.pointerId&&Math.hypot(e.clientX-paintPointer.x,e.clientY-paintPointer.y)>6)paintPointer.dragged=true;});
+  window.addEventListener('pointerup',e=>{
+    if(paintPointer?.id!==e.pointerId)return;
+    const click=!paintPointer.dragged&&e.button===0&&e.target===renderer.domElement;
+    paintPointer=null;
+    if(click&&paintEnabled())paintball.shoot();
+  });
+  const clearPaintPointer=()=>{paintPointer=null;};
+  window.addEventListener('pointercancel',clearPaintPointer);
+  window.addEventListener('blur',clearPaintPointer);
+  player.events.addEventListener('unlock',clearPaintPointer);
 
   const hud = createHud({
     groundCanvas: ground.canvas,
@@ -330,6 +360,7 @@ async function main() {
     if (e.code === 'KeyM') { mapPanel.classList.contains('open') ? closeMap(true) : openMap(); return; }
     if (e.code === 'Escape' && mapPanel.classList.contains('open')) { closeMap(false); return; }
     if (!player.active) return;
+    if(e.code==='KeyC'){nextPaintColor();toast(`Tinta: ${paintball.color.label}`);}
     if (e.code === 'KeyP') {
       procOn = !procOn;
       procRoot.visible = procOn;
@@ -379,6 +410,7 @@ async function main() {
 
     signals.update(t);
     campus?.update(dt, player.feet, t);
+    paintball.update(dt);
     boundary.userData.update?.(t);
     if (frame++ % 10 === 0) labels.update(camera.position);
     hud.update(t, dt, player.feet, player.yaw, player.fly);
@@ -386,7 +418,7 @@ async function main() {
   });
 
   // acesso para depuração no console
-  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler, campusData, roads, grading, campusQA: () => campusData && campusQA(campusData) };
+  window.__cdd = { scene, camera, player, world, terrain, proj, renderer, campus, styler, campusData, roads, grading, paintball, campusQA: () => campusData && campusQA(campusData) };
   if (import.meta.env.DEV) {
     if (inspectionView) (await import('./inspection.js')).inspectScene(window.__cdd, inspectionView);
   }

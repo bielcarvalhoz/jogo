@@ -88,6 +88,10 @@ scripts/build-campus.mjs dados do campus (referência visual)
 
 O núcleo tem calçadas com meio-fio, travessias e arborização regular, totens físicos de identificação,
 fachadas específicas dos prédios coloridos, escadas e rampas, portarias detalhadas e campo nivelado.
+Inclui passarela Vermelho–Rubi com entradas opostas, praça do Azul com duas escadarias em torno do chafariz,
+abrigos MOVE, catracas de entrada/saída, locomotiva junto ao CTI e bases niveladas para os prédios em encostas.
+Ruas internas têm seção plana, duas mãos e faixa central. A pistolinha de primeira pessoa atira tinta:
+clique para disparar, `C` para trocar a cor, ou escolha a cor no menu/HUD; no celular há botão de disparo.
 Vegetação, grama e água usam materiais com vento e ondulações inspirados em `sato-agents-lab` / Bruno Simon.
 Veja [as referências, limites e verificação](docs/campus-reference.md) e [a atribuição dos materiais](docs/nature-reference.md).
 Execute `npm test` para verificar a geometria e a navegação.

@@ -18,6 +18,7 @@ function resample(pts, step) {
 }
 
 function textureKey(r) {
+  if (r.internal && !r.bridge) return 'service:0'; // physical centre paint is emitted for every campus street below
   if (r.kind === 'twoway') return `twoway:${r.lanes >= 4 ? 4 : 2}`;
   if (r.kind === 'oneway') return `oneway:${Math.min(5, Math.max(1, r.lanes))}`;
   return `${r.kind}:0`;
@@ -73,7 +74,7 @@ function bridgeChains(roads, terrain) {
 export function buildRoads(world, terrain, renderer) {
   // A separate, deterministic surface elevation also separates equal-priority roads
   // at their overlapping OSM junctions (polygonOffset alone cannot do that).
-  const roadLifts = new Map(world.roads.map((r, i) => [r, 0.07 + r.order * 0.014 + i * 0.00004]));
+  const roadLifts = new Map(world.roads.map((r, i) => [r, (r.internal ? .24 : 0.07 + r.order * 0.014) + i * 0.00004]));
   const chains = bridgeChains(world.roads, terrain);
   const texCache = new Map();
   const getTex = (key) => {
@@ -94,6 +95,8 @@ export function buildRoads(world, terrain, renderer) {
   const pillars = [];
   const bridges = []; // segmentos com altura do tabuleiro para o jogador andar por cima
   const streetIndex = new SpatialGrid(24);
+  const roadSurfaces = new SpatialGrid(12);
+  const roadGround = (r, x, z) => r.internal && terrain.roadHeightAt ? terrain.roadHeightAt(r, x, z) : terrain.heightAt(x, z);
 
   for (const r of world.roads) {
     // índice de nomes de rua (para o HUD)
@@ -145,7 +148,7 @@ export function buildRoads(world, terrain, renderer) {
       const v = acc[i] / ROAD_TILE_M;
       const L = [px + nx, pz + nz], C = [px, pz], R = [px - nx, pz - nz];
       for (const [k, q] of [[0, L], [0.5, C], [1, R]]) {
-        const y = deck ? deck[i] : terrain.heightAt(q[0], q[1]) + lift;
+        const y = deck ? deck[i] : (r.internal ? roadGround(r, px, pz) : terrain.heightAt(q[0], q[1])) + lift;
         g.pos.push(q[0], y, q[1]);
         g.uv.push(k, v);
       }
@@ -155,6 +158,10 @@ export function buildRoads(world, terrain, renderer) {
       // faixas (L,C) e (C,R) — ordem anti-horária vista de cima (normal +y)
       g.idx.push(a + 1, a, b, a + 1, b, b + 1);
       g.idx.push(a + 2, a + 1, b + 1, a + 2, b + 1, b + 2);
+      if (r.internal && !deck) for (const indices of [[a + 1, a, b], [a + 1, b, b + 1], [a + 2, a + 1, b + 1], [a + 2, b + 1, b + 2]]) {
+        const triangle = indices.map(index => g.pos.slice(index * 3, index * 3 + 3));
+        roadSurfaces.insertBox(triangle, Math.min(...triangle.map(v => v[0])), Math.min(...triangle.map(v => v[2])), Math.max(...triangle.map(v => v[0])), Math.max(...triangle.map(v => v[2])));
+      }
     }
 
     if (deck) {
@@ -256,7 +263,15 @@ export function buildRoads(world, terrain, renderer) {
     return bd < 18 ? best : null;
   }
 
-  return { root, bridgeHeightAt, streetAt, sidewalkHeightAt: sidewalks.heightAt, sidewalkStats: sidewalks.stats };
+  function surfaceHeightAt(x, z, maxY = Infinity) {
+    let best = sidewalks.heightAt(x, z, maxY);
+    for (const triangle of roadSurfaces.query(x, z)) {
+      const y = triangleHeightAt(x, z, ...triangle);
+      if (y !== undefined && y <= maxY) best = Math.max(best, y);
+    }
+    return best;
+  }
+  return { root, bridgeHeightAt, streetAt, surfaceHeightAt, sidewalkHeightAt: sidewalks.heightAt, sidewalkStats: sidewalks.stats };
 }
 
 function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
@@ -267,7 +282,9 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
   const sidewalkPos = [], sidewalkUv = [], sidewalkIdx = [], curbPos = [], curbColors = [], curbIdx = [];
   const brickPos = [], brickUv = [], brickIdx = [], tactilePos = [], tactileIdx = [];
   const whitePos = [], whiteIdx = [], yellowPos = [], yellowIdx = [];
+  const retainingPos = [], retainingIdx = [];
   const stats = { roads: 0, sidewalkArea: 0, curbMetres: 0, crossings: 0 };
+  const roadGround = (r, x, z) => terrain.roadHeightAt ? terrain.roadHeightAt(r, x, z) : terrain.heightAt(x, z);
   const layout = new Map();
   const bounds = (polygon) => {
     const xs = polygon.map((p) => p[0]), zs = polygon.map((p) => p[1]);
@@ -346,7 +363,7 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
       }
       // A dropped kerb and shallow 1.5 m ramp at each zebra crossing.
       const ramp = distance < 1.65 ? Math.min(1, Math.max(0, lateral / 1.5)) : 1;
-      return terrain.heightAt(x, z) + lift + 0.025 + 0.145 * ramp;
+      return roadGround(r, x, z) + lift + 0.025 + 0.145 * ramp;
     };
     for (let i = 1; i < frames.length; i++) for (const side of [-1, 1]) {
       const a = frames[i - 1], b = frames[i];
@@ -367,7 +384,7 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
           const edgeL = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
           // Adjacent sections share their ends; emitting both caps causes flicker.
           if (edgeL < 1e-5 || Math.abs((pb[0] - pa[0]) * a.tx + (pb[1] - pa[1]) * a.tz) < edgeL * 0.5) continue;
-          const ya = sidewalkY(...pa), yb = sidewalkY(...pb), bottomA = terrain.heightAt(...pa) + lift, bottomB = terrain.heightAt(...pb) + lift;
+          const ya = sidewalkY(...pa), yb = sidewalkY(...pb), bottomA = roadGround(r, ...pa) + lift, bottomB = roadGround(r, ...pb) + lift;
           curbPos.push(pa[0], ya, pa[1], pb[0], yb, pb[1], pb[0], bottomB, pb[1], pa[0], bottomA, pa[1]);
           for (let v = 0; v < 4; v++) curbColors.push(color.r, color.g, color.b);
           curbIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
@@ -378,26 +395,41 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
         const bb = bounds(polygon);
         occupied.insertBox({ r, polygon, bb }, bb.x0, bb.z0, bb.x1, bb.z1);
       }
+      // Close the engineered platform against the remaining natural hillside.
+      // This is the real retained side of a graded road, not a floating ribbon.
+      const edgeA = offsetPoint(a, side * (hw + width)), edgeB = offsetPoint(b, side * (hw + width));
+      const vx = edgeB[0] - edgeA[0], vz = edgeB[1] - edgeA[1], edgeLength2 = vx * vx + vz * vz;
+      for (const p of clipToRoads(stripQuad(a, b, side * (hw + width - .01), side * (hw + width)), r, true)) {
+        const parameters = p.map(q => ((q[0] - edgeA[0]) * vx + (q[1] - edgeA[1]) * vz) / Math.max(.001, edgeLength2));
+        const start = Math.max(0, Math.min(...parameters)), end = Math.min(1, Math.max(...parameters));
+        if (end - start < .001) continue;
+        const pa = [edgeA[0] + vx * start, edgeA[1] + vz * start], pb = [edgeA[0] + vx * end, edgeA[1] + vz * end];
+        const ya = sidewalkY(...pa), yb = sidewalkY(...pb);
+        const ga = Math.min(ya, terrain.heightAt(...pa) - .05), gb = Math.min(yb, terrain.heightAt(...pb) - .05);
+        const k = retainingPos.length / 3;
+        retainingPos.push(pa[0], ya, pa[1], pb[0], yb, pb[1], pb[0], gb, pb[1], pa[0], ga, pa[1]);
+        retainingIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+      }
     }
-    if (r.name && !['parking_aisle', 'driveway'].includes(r.tags?.service)) {
+    {
       // Campus streets were all classified as service in OSM, losing their paint.
       for (let i = 1; i < frames.length; i++) for (const offset of [-0.13, 0.13]) {
         const a = frames[i - 1], b = frames[i];
         if (crossings.some((at) => Math.abs((a.distance + b.distance) / 2 - at) < 2.1)) continue;
         for (const p of clipToRoads(stripQuad(a, b, offset - 0.045, offset + 0.045), r))
-          addPolygon(p, (x, z) => terrain.heightAt(x, z) + lift + 0.018, yellowPos, yellowIdx);
+          addPolygon(p, (x, z) => roadGround(r, x, z) + lift + 0.018, yellowPos, yellowIdx);
       }
     }
   }
   for (const { r, f } of markedCrossings) {
     const at = (along, across) => [f.x + f.tx * along - f.tz * across, f.z + f.tz * along + f.tx * across];
     for (let across = -r.w / 2 + 0.25; across < r.w / 2 - 0.3; across += 0.85) {
-      addPolygon([at(-1.5, across), at(-1.5, across + 0.48), at(1.5, across + 0.48), at(1.5, across)], (x, z) => terrain.heightAt(x, z) + roadLifts.get(r) + 0.024, whitePos, whiteIdx);
+      addPolygon([at(-1.5, across), at(-1.5, across + 0.48), at(1.5, across + 0.48), at(1.5, across)], (x, z) => roadGround(r, x, z) + roadLifts.get(r) + 0.024, whitePos, whiteIdx);
     }
     for (const side of [-1, 1]) {
       const inner = side * (r.w / 2 + 0.25), outer = side * (r.w / 2 + 0.75);
       for (const p of clipToRoads([at(-0.55, inner), at(0.55, inner), at(0.55, outer), at(-0.55, outer)], r))
-        addPolygon(p, (x, z) => terrain.heightAt(x, z) + roadLifts.get(r) + 0.025 + 0.145 * Math.abs(-(x - f.x) * f.tz + (z - f.z) * f.tx - side * r.w / 2) / 1.5 + 0.014, tactilePos, tactileIdx);
+        addPolygon(p, (x, z) => roadGround(r, x, z) + roadLifts.get(r) + 0.025 + 0.145 * Math.abs(-(x - f.x) * f.tz + (z - f.z) * f.tx - side * r.w / 2) / 1.5 + 0.014, tactilePos, tactileIdx);
     }
   }
   const makeMesh = (name, pos, idx, mat, uv, colors) => {
@@ -412,6 +444,7 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
   };
   makeMesh('calcadas-lajes-concreto', sidewalkPos, sidewalkIdx, new THREE.MeshStandardMaterial({ map: pavementTexture(renderer), color: 0xe9dfc8, roughness: 0.94, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), sidewalkUv);
   makeMesh('meios-fios-bicolor', curbPos, curbIdx, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }), null, curbColors);
+  makeMesh('contencao-vias-campus', retainingPos, retainingIdx, new THREE.MeshStandardMaterial({ color: 0x98958a, roughness: .97, side: THREE.DoubleSide }));
   makeMesh('bordas-tijolos-calcada', brickPos, brickIdx, new THREE.MeshStandardMaterial({ map: pavementTexture(renderer), color: 0xb89a82, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -3 }), brickUv.map((u) => u * 4));
   makeMesh('piso-alerta-rampas', tactilePos, tactileIdx, new THREE.MeshStandardMaterial({ color: 0xdab74e, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
   makeMesh('faixas-pedestres', whitePos, whiteIdx, new THREE.MeshStandardMaterial({ color: 0xf1eee2, roughness: 0.86, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));

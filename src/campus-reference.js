@@ -61,7 +61,10 @@ export function referenceEntrance(building, roads, allowed = () => true) {
         const clearance = q.d - road.w / 2;
         if (facing < .65 || clearance < 4 || clearance > 55) continue;
         const candidate = clearance + (1 - facing) * 16 + (1 - Math.min(1, edge.L / longest)) * 22
-          + (building.planId === 'b6' ? (1 - edge.nz) * 14 : 0);
+          + (building.planId === 'b6' ? (1 - edge.nz) * 14 : 0)
+          // The Blue entrance includes a broad fountain forecourt, which cannot
+          // fit on the narrow southwest pavement. Prefer its northeast frontage.
+          + (building.planId === 'b17' ? Math.max(0, 14 - clearance) * 8 + Math.max(0, edge.nz) * 25 : 0);
         if (candidate < score) {
           score = candidate;
           best = { ...edge, x, z, road, roadX: q.cx, roadZ: q.cz, clearance };
@@ -70,6 +73,70 @@ export function referenceEntrance(building, roads, allowed = () => true) {
     }
   }
   return best;
+}
+
+/** Roof tracing noise must not bend the photographed straight office facades. */
+export function rectifyReferenceFootprint(building) {
+  if (!['b3','b5','b17'].includes(building.planId) || building.rings.length!==1) return building;
+  const ring=building.rings[0];
+  let best=null;
+  for(const e of exteriorEdges(ring)){
+    if(e.L<7)continue;
+    let ux=e.dx,uz=e.dz;
+    if(ux+uz<0){ux=-ux;uz=-uz;}
+    const us=ring.map(p=>p[0]*ux+p[1]*uz),vs=ring.map(p=>-p[0]*uz+p[1]*ux);
+    const u0=Math.min(...us),u1=Math.max(...us),v0=Math.min(...vs),v1=Math.max(...vs),area=(u1-u0)*(v1-v0);
+    if(!best||area<best.area)best={ux,uz,u0,u1,v0,v1,area};
+  }
+  if(!best)return building;
+  const {ux,uz,u0,u1,v0,v1}=best;
+  const outline=[[u0,v0],[u1,v0],[u1,v1],[u0,v1]].map(([u,v])=>[ux*u-uz*v,uz*u+ux*v]);
+  return {...building,rings:[outline],referenceRectified:true};
+}
+
+/** The photographed bridge crosses the shared street, between opposing doors. */
+export function pairedEntrances(red, ruby, roads) {
+  if (!red || !ruby) return null;
+  const edges = exteriorEdges(red.rings[0]);
+  const axis = edges.reduce((a, e) => e.L > a.L ? e : a);
+  let ux = axis.dx, uz = axis.dz;
+  if (ux + uz < 0) { ux = -ux; uz = -uz; }
+  const range = b => b.rings[0].map(([x, z]) => x * ux + z * uz);
+  const ra = range(red), rb = range(ruby);
+  const lo = Math.max(Math.min(...ra), Math.min(...rb)), hi = Math.min(Math.max(...ra), Math.max(...rb));
+  if (hi - lo < 10) return null;
+  const along = lo + (hi - lo) * .60;
+  let nx = uz, nz = -ux;
+  const mean = b => b.rings[0].reduce((s, [x,z]) => s + x * nx + z * nz, 0) / b.rings[0].length;
+  if (mean(ruby) < mean(red)) { nx = -nx; nz = -nz; }
+  const hit = (b, direction) => {
+    const intersections = [];
+    for (const e of exteriorEdges(b.rings[0])) {
+      const a = e.ax * ux + e.az * uz, c = e.bx * ux + e.bz * uz;
+      if (Math.abs(c-a) < 1e-8) continue;
+      const t = (along-a)/(c-a);
+      if (t >= 0 && t <= 1) intersections.push({x:e.ax+(e.bx-e.ax)*t,z:e.az+(e.bz-e.az)*t});
+    }
+    intersections.sort((a,b) => direction*((b.x-a.x)*nx+(b.z-a.z)*nz));
+    return intersections[0];
+  };
+  const a = hit(red,1), b = hit(ruby,-1);
+  if (!a || !b) return null;
+  const length = Math.hypot(b.x-a.x,b.z-a.z);
+  if (length < 8 || length > 55) return null;
+  const frontage = (p,side) => {
+    let nearest = null;
+    for (const road of roads) {
+      if (!road.internal || road.bridge || road.kind === 'foot') continue;
+      for(let i=1;i<road.pts.length;i++) {
+        const q=distToSegment(p.x,p.z,...road.pts[i-1],...road.pts[i]);
+        if (!nearest || q.d < nearest.d) nearest={...q,road};
+      }
+    }
+    return {...p,dx:ux,dz:uz,nx:nx*side,nz:nz*side,L:24,
+      road:nearest?.road,roadX:nearest?.cx,roadZ:nearest?.cz,clearance:nearest ? nearest.d-nearest.road.w/2 : length/2-3};
+  };
+  return {red:frontage(a,1),ruby:frontage(b,-1),length,nx,nz};
 }
 
 /** OSM boundary barriers are superseded only where a campus wall actually exists. */
