@@ -12,3 +12,4 @@ export { createStyler } from './style.js';
 export { loadSettings, saveSettings, normalizeSettings, DEFAULT_SETTINGS } from './settings.js';
 export { createTour } from './tour.js';
 export { partitionStaticInstances } from './instances.js';
+export { createAudio } from './audio.js';

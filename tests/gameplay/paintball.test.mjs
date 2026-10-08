@@ -182,3 +182,16 @@ test('a focused long barrel cannot spawn paint behind a nearby wall', () => {
   assert.equal(paint.shoot(),true);paint.update(.1);assert.equal(paint.stats.marks,1);
   paint.dispose();
 });
+
+test('shot audio receives actual weapon shots only, including held automatic fire', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(); scene.add(camera);
+  let active=true; const sounds=[];
+  const paint=createPaintball({scene,camera,getActive:()=>active,onShot:id=>sounds.push(id)});
+  assert.equal(paint.shoot(),true); assert.deepEqual(sounds,['pistol']);
+  assert.equal(paint.shoot(),false); assert.equal(sounds.length,1);
+  for(let i=0;i<8;i++)paint.update(.04); active=false; assert.equal(paint.shoot(),false);assert.equal(sounds.length,1);
+  active=true;paint.setWeapon('automatic');paint.setTrigger(true);for(let i=0;i<4;i++)paint.update(.04);
+  assert.ok(sounds.filter(id=>id==='automatic').length>=2);
+  paint.setTrigger(false); const count=sounds.length; paint.update(.13);assert.equal(sounds.length,count);
+  paint.dispose();
+});

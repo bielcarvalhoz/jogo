@@ -10,7 +10,7 @@ export function createPaintballModule(game) {
   const $ = (id) => document.getElementById(id);
   const player = game.player;
   const paintEnabled = () => (player.active || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen;
-  const paintball = createPaintball({ scene, camera, getActive: paintEnabled });
+  const paintball = createPaintball({ scene, camera, getActive: paintEnabled, onShot: weapon => game.audio?.shot(weapon) });
 
   // cor da tinta (menu inicial + botão do HUD)
   const colorChoice = $('paint-color');
@@ -25,6 +25,7 @@ export function createPaintballModule(game) {
     const color = paintball.color;
     colorChoice.value = color.id;
     $('paint-label').textContent = color.label;
+    $('btn-color').setAttribute('aria-label', `Tinta: ${color.label}. Trocar cor da tinta`);
     $('paint-chip').style.backgroundColor = color.color;
   };
   syncPaintColor();
@@ -45,6 +46,7 @@ export function createPaintballModule(game) {
   };
   $('btn-aim').addEventListener('click', () => setAiming(!paintball.aiming));
   const syncWeapon = () => {
+    $('weapon-icon')?.setAttribute('href', `./icons/controls.svg#${paintball.weapon.id}`);
     $('weapon-label').textContent = paintball.weapon.label.toUpperCase();
     $('weapon-mode').textContent = paintball.weapon.automatic ? 'AUTO · SEGURE PARA ATIRAR' : 'SEMIAUTO · UM TIRO POR TOQUE';
     $('btn-weapon').setAttribute('aria-label', `Arma: ${paintball.weapon.label}. Trocar arma de paintball`);

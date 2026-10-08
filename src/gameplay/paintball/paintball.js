@@ -98,7 +98,7 @@ function splatterGeometry() {
 }
 
 /** Inputs belong to the existing player/UI, so looking by dragging never fires. */
-export function createPaintball({ scene, camera, getActive = () => true, colliderRoots = () => [scene] }) {
+export function createPaintball({ scene, camera, getActive = () => true, colliderRoots = () => [scene], onShot = () => {} }) {
   const root = new THREE.Group(); root.name = 'paintball-effects'; root.userData.paintballIgnore = true; scene.add(root);
   const gun = new THREE.Group(); gun.name = 'pistolinha-tinta'; gun.userData.paintballIgnore = true;
   const pistolModel = new THREE.Group(), autoModel = new THREE.Group();
@@ -190,7 +190,7 @@ export function createPaintball({ scene, camera, getActive = () => true, collide
     const weapon = PAINTBALL_WEAPONS[weaponIndex];
     ball.velocity.copy(target).sub(ball.mesh.position).normalize().multiplyScalar(weapon.speed);
     ball.mesh.material = colors[colorIndex].ball; ball.mesh.userData.paintColor = colorIndex; ball.mesh.visible = true; ball.age = 0;
-    cooldown = weapon.interval; recoil = 1; shots++;
+    cooldown = weapon.interval; recoil = 1; shots++; onShot(weapon.id);
     return true;
   }
 

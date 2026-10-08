@@ -37,6 +37,10 @@ test('game modes wait for readiness; settings are usable and restart requires co
     el('settings-open').dispatchEvent(new Event('click'));
     assert.equal(el('settings-panel').classList.contains('hidden'),false);
     el('graphics').value='low';
+    el('music').checked=false; el('music').dispatchEvent(new Event('change'));
+    assert.equal(reloads,0);
+    assert.deepEqual(saved,[{quality:'med',surroundings:'off',music:false,effects:true}], 'audio saves without applying pending graphics');
+    assert.equal(menu.audio.preferences.music,false); saved.length=0;
     el('settings-apply').dispatchEvent(new Event('click'));
     assert.equal(el('settings-restart').open,true); assert.equal(reloads,0); assert.deepEqual(saved,[]);
     assert.match(el('restart-description').textContent,/interrompe/);
@@ -55,7 +59,7 @@ test('game modes wait for readiness; settings are usable and restart requires co
     el('settings-apply').dispatchEvent(new Event('click'));
     assert.match(el('restart-description').textContent,/voltará ao menu/);
     el('settings-confirm-restart').dispatchEvent(new Event('click'));
-    assert.equal(reloads,1); assert.deepEqual(saved,[{quality:'low',surroundings:'off'}]);
+    assert.equal(reloads,1); assert.deepEqual(saved,[{quality:'low',surroundings:'off',music:false,effects:true}]);
   } finally {
     for (const [k, value] of Object.entries(originals)) { if (value === undefined) delete globalThis[k]; else globalThis[k] = value; }
   }

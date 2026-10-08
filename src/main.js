@@ -24,7 +24,7 @@ async function main() {
   const base = import.meta.env.BASE_URL;
   const [mapData, campusGeo] = await Promise.all([loadMapData(base), loadCampusData(base)]);
 
-  const game = createGame({ quality: detectQuality(frontMenu.settings), settings: frontMenu.settings, debug: debugOptions(), status: loading.status, container: document.getElementById('app') });
+  const game = createGame({ quality: detectQuality(frontMenu.settings), settings: frontMenu.settings, audio: frontMenu.audio, debug: debugOptions(), status: loading.status, container: document.getElementById('app') });
 
   const campus = createCampusPlugin(game, campusGeo);
   game.map = await buildMap(game, { data: mapData, plugins: [campus] });
