@@ -12,8 +12,8 @@ quebrar o trabalho de quem cuida de outro módulo.
 | `src/map/` | Mapa (mundo real) | relevo SRTM, vias, prédios do OSM, prédios procedurais, vegetação, água, muros, semáforos, placas, destinos do entorno | melhorar ruas, novos tipos de prédio, mais vegetação |
 | `src/campus/` | Campus Cidade de Deus | núcleo do Bradesco: prédios da planta oficial, muros, portarias, estacionamentos, terraplenagem, detalhes | novo prédio, fachada, mobiliário do campus |
 | `src/player/` | Personagem | controle em primeira pessoa: teclado, mouse, toque, colisão, pulo, voo | modelo/avatar, animação, corrida, agachar |
-| `src/gameplay/<mecânica>/` | Jogabilidade | uma pasta por mecânica; hoje `paintball/` (pistolinha de tinta) | missões, carros, coletáveis, multiplayer |
-| `src/ui/` | Interface | tela de carregamento, menu, HUD, minimapa, mapa grande, avisos, celular deitado, CSS | novas telas, configurações, acessibilidade |
+| `src/gameplay/<mecânica>/` | Jogabilidade | uma pasta por mecânica; hoje `paintball/` (pistola e metralhadora de tinta, gatilho e mira focada) | missões, carros, coletáveis, multiplayer |
+| `src/ui/` | Interface | tela de carregamento, menu, HUD, minimapa, mapa grande, avisos, gestos mobile, CSS | novas telas, configurações, acessibilidade |
 | `src/debug/` | Depuração | `window.__cdd`, vistas de inspeção `?inspect=` | ferramentas de QA |
 | `src/shared/` | Utilitários | funções puras: geometria 2D, aleatoriedade, geometria de vias, texturas procedurais | — |
 | `scripts/` | Dados | baixar OSM/SRTM (`npm run data`), gerar o campus (`npm run campus`), verificar módulos | — |
@@ -28,6 +28,11 @@ menu imediato → dados (map + campus) → core (game) → mapa (+ plugin campus
 ```
 
 Tudo gira em torno de um objeto **`game`** (criado em `core/game.js`), o único compartilhado:
+
+O personagem expõe `bindFireButton(element, onHeld)`, `setFocusedAim(bool)` e `jump()`.
+O módulo de paintball conecta o gatilho/mira ao personagem por essa API e expõe
+`setTrigger(bool)`, `setWeapon(id)`, `setAiming(bool)` e `resetInput()`; a UI usa o
+personagem para pulo e voo. Não há imports novos entre módulos.
 
 | Campo | O que é | Quem preenche / usa |
 |---|---|---|

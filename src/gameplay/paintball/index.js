@@ -3,7 +3,7 @@ import { createPaintball } from './paintball.js';
 // API pública da PISTOLINHA DE TINTA. Outros módulos importam SÓ daqui.
 // Usa os elementos #paint-color, #paint-label, #paint-chip, #btn-color e #btn-fire do index.html.
 
-export { PAINTBALL_PALETTE, PAINTBALL_LIMITS } from './paintball.js';
+export { PAINTBALL_PALETTE, PAINTBALL_LIMITS, PAINTBALL_WEAPONS } from './paintball.js';
 
 export function createPaintballModule(game) {
   const { scene, camera, renderer } = game.engine;
@@ -31,28 +31,65 @@ export function createPaintballModule(game) {
   colorChoice.addEventListener('change', () => { paintball.setColor(colorChoice.value); syncPaintColor(); });
   const nextPaintColor = () => { paintball.setColor((paintball.colorIndex + 1) % paintball.palette.length); syncPaintColor(); };
   $('btn-color').addEventListener('click', nextPaintColor);
-  $('btn-fire').addEventListener('click', () => paintball.shoot());
+  const setTrigger = pressed => {
+    paintball.setTrigger(pressed);
+    $('btn-fire').classList.toggle('firing', paintball.firing);
+  };
+  player.bindFireButton($('btn-fire'), setTrigger);
+  // Keyboard/screen-reader activation has no pointer gesture to hold.
+  $('btn-fire').addEventListener('click', e => { if (e.detail === 0) paintball.shoot(); });
+  const setAiming = value => {
+    paintball.setAiming(value); player.setFocusedAim(paintball.aiming);
+    document.body.classList.toggle('aiming', paintball.aiming);
+    $('btn-aim').setAttribute('aria-pressed', String(paintball.aiming));
+  };
+  $('btn-aim').addEventListener('click', () => setAiming(!paintball.aiming));
+  const syncWeapon = () => {
+    $('weapon-label').textContent = paintball.weapon.label.toUpperCase();
+    $('weapon-mode').textContent = paintball.weapon.automatic ? 'AUTO · SEGURE PARA ATIRAR' : 'SEMIAUTO · UM TIRO POR TOQUE';
+    $('btn-weapon').setAttribute('aria-label', `Arma: ${paintball.weapon.label}. Trocar arma de paintball`);
+  };
+  const nextWeapon = () => {
+    if (!paintEnabled()) return;
+    setTrigger(false); paintball.setWeapon((paintball.weaponIndex + 1) % paintball.weapons.length); syncWeapon();
+  };
+  syncWeapon();
+  $('btn-weapon').addEventListener('click', nextWeapon);
+  game.input.bind('KeyQ', nextWeapon, { label: 'trocar arma' });
   game.input.bind('KeyC', () => { nextPaintColor(); game.toast(`Tinta: ${paintball.color.label}`); }, { label: 'cor da tinta' });
 
-  // tiro: clique com o mouse travado, ou clique sem arrastar no modo arrastar
+  // Pistola: clique sem arrastar no fallback. Metralhadora: segurar também
+  // dispara enquanto olha arrastando quando o navegador bloqueia pointer lock.
   let paintPointer = null;
-  renderer.domElement.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.pointerType === 'touch' || !paintEnabled()) return;
-    if (document.pointerLockElement === renderer.domElement) { paintball.shoot(); return; }
-    paintPointer = { id: e.pointerId, x: e.clientX, y: e.clientY, dragged: false };
+  let mouseHeld = false;
+  // Mouse button chords do not produce another pointerdown. Mouse events
+  // report each button, so RMB aim + LMB fire work in either press order.
+  renderer.domElement.addEventListener('mousedown', (e) => {
+    if (player.touchMode || !paintEnabled()) return;
+    if (e.button === 2) { setAiming(true); e.preventDefault(); return; }
+    if (e.button !== 0) return;
+    if (document.pointerLockElement === renderer.domElement || paintball.weapon.automatic) { mouseHeld = true; setTrigger(true); return; }
+    paintPointer = { x: e.clientX, y: e.clientY, dragged: false };
   });
-  window.addEventListener('pointermove', (e) => {
-    if (paintPointer?.id === e.pointerId && Math.hypot(e.clientX - paintPointer.x, e.clientY - paintPointer.y) > 6) paintPointer.dragged = true;
+  window.addEventListener('mousemove', (e) => {
+    if (paintPointer && Math.hypot(e.clientX - paintPointer.x, e.clientY - paintPointer.y) > 6) paintPointer.dragged = true;
   });
-  window.addEventListener('pointerup', (e) => {
-    if (paintPointer?.id !== e.pointerId) return;
-    const click = !paintPointer.dragged && e.button === 0 && e.target === renderer.domElement;
+  window.addEventListener('mouseup', (e) => {
+    if (player.touchMode) return;
+    if (e.button === 2) setAiming(false);
+    if (e.button === 0 && mouseHeld) { mouseHeld = false; setTrigger(false); }
+    if (!paintPointer || e.button !== 0) return;
+    const click = !paintPointer.dragged && e.target === renderer.domElement;
     paintPointer = null;
     if (click && paintEnabled()) paintball.shoot();
   });
-  const clearPaintPointer = () => { paintPointer = null; };
+  const clearPaintPointer = () => {
+    paintPointer = null; mouseHeld = false; setTrigger(false); setAiming(false); paintball.resetInput();
+  };
   window.addEventListener('pointercancel', clearPaintPointer);
   window.addEventListener('blur', clearPaintPointer);
+  window.addEventListener('resize', clearPaintPointer);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearPaintPointer(); });
   player.events.addEventListener('unlock', clearPaintPointer);
 
   game.engine.addSystem((dt) => paintball.update(dt), 'world');

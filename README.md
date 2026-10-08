@@ -25,7 +25,7 @@ npm run dev
 
 Abra http://localhost:5173 e escolha **Campanha** ou **Modo tour**. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon animado enquanto a cidade carrega.
 
-No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico e andar, e arraste do outro lado para mirar. Os dedos funcionam ao mesmo tempo. Use os botões para tinta, voo, mapa, menu e orientação (ou gire o aparelho quando o navegador não permite travá-la).
+No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico (avance até o limite para correr) e arraste do outro lado para mirar. Segure e arraste TIRO para mirar e disparar enquanto anda. MIRA aproxima a visão e reduz a sensibilidade; ARMA troca pistola/metralhadora de paintball. Há botões de pulo, voo, mapa, menu e orientação. Campanha/tour liberam depois do carregamento; configurações estão disponíveis desde o início e avisam antes de reiniciar a cidade.
 
 | Tecla | Ação |
 |---|---|
@@ -33,7 +33,9 @@ No celular, jogue em pé ou deitado: toque à esquerda para abrir o analógico e
 | Mouse | olhar (se o navegador bloquear o pointer lock: segurar e arrastar) |
 | `Shift` | correr |
 | `Espaço` | pular |
-| `F` | voo livre (`E`/`Q` sobe/desce) |
+| `F` | voo livre (`E`/`Control` sobe/desce) |
+| `Q` | trocar pistola/metralhadora |
+| Botão direito | segurar mira focada |
 | `M` | mapa — clique para se teletransportar |
 | `1`–`7` | teletransporte (as 3 portarias do campus e outros lugares) |
 | `P` | liga/desliga os prédios procedurais |
@@ -97,8 +99,8 @@ O núcleo tem calçadas com meio-fio, travessias e arborização regular, totens
 fachadas específicas dos prédios coloridos, escadas e rampas, portarias detalhadas e campo nivelado.
 Inclui passarela Vermelho–Rubi com entradas opostas, praça do Azul com duas escadarias em torno do chafariz,
 abrigos MOVE, catracas de entrada/saída, locomotiva junto ao CTI e bases niveladas para os prédios em encostas.
-Ruas internas têm seção plana, duas mãos e faixa central. A pistolinha de primeira pessoa atira tinta:
-clique para disparar, `C` para trocar a cor, ou escolha a cor no menu/HUD; no celular há botão de disparo.
+Ruas internas têm seção plana, duas mãos e faixa central. Pistola e metralhadora de primeira pessoa atiram tinta:
+clique para disparar (segure com a metralhadora), `C` para trocar a cor, ou escolha a cor no menu/HUD.
 Vegetação, grama e água usam materiais com vento e ondulações inspirados em `sato-agents-lab` / Bruno Simon.
 Veja [as referências, limites e verificação](docs/campus-reference.md) e [a atribuição dos materiais](docs/nature-reference.md).
 Execute `npm test` para verificar a geometria e a navegação.

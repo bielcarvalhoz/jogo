@@ -1,15 +1,17 @@
 # Menu, tour e desempenho
 
 O menu aparece antes do download e da montagem da cidade. A cena começa a carregar em
-segundo plano; escolher um modo antes de ela estar pronta abre a espera, com opção de
-voltar ao menu. A barra avança por etapas ponderadas do pipeline (download, relevo,
+segundo plano; campanha e tour ficam desabilitados até a cidade ficar pronta.
+Configurações estão disponíveis desde o início. Alterar gráficos/entorno abre um
+diálogo informando que aplicar reinicia o carregamento; cancelar não salva nem recarrega.
+A barra avança por etapas ponderadas do pipeline (download, relevo,
 chão, vias, prédios, vegetação, colisões e materiais). É uma indicação do trabalho
 concluído, não uma previsão de segundos restantes. Só chega a 100% após a compilação
 dos materiais e o primeiro quadro renderizado.
 
 ## Modos e mapa
 
-- **Campanha** mantém a exploração em primeira pessoa e a pistolinha existentes.
+- **Campanha** permite exploração em primeira pessoa com pistola ou metralhadora de paintball.
 - **Tour** usa uma câmera independente, sem personagem ativo ou tiros. Começa com o
   campus enquadrado de cima, permite arrastar, zoom e seleção de estruturas. A
   aproximação interpolada dura 1,6 s e respeita a preferência de movimento reduzido.
@@ -36,7 +38,7 @@ recarrega a página para reconstruir a cena, incluindo texturas e geometria.
 | High | 2 | 4096 | 4096 | 4096 |
 
 O perfil também controla os detalhes de árvores, fachadas, água e vegetação.
-O campus usa 20/24/32 cards por copa de árvore e até 35.000/60.000/100.000 lâminas
+O campus usa 32/40/56 cards por copa de árvore e até 35.000/60.000/100.000 lâminas
 de grama em Low/Med/High. O modo pixel restaura o pixel ratio do perfil selecionado ao ser desligado.
 Entorno desabilitado evita a geração de prédios/procedurais, árvores e props externos.
 O relevo e a imagem geral de chão permanecem para navegação e mapa 2D. O modo Fog
@@ -101,7 +103,7 @@ de exclusão linearmente para cada posição de grama. Agora a consulta usa um �
 espacial e os gramados têm uma etapa própria em 76%. A população de árvores cai
 pela metade e os lotes já nascem nas células finais de 125 m.
 
-Comparação da versão de produção em Chromium, mesmo ambiente com GPU por software,
+Comparação da primeira otimização (`09fd813`) em Chromium, mesmo ambiente com GPU por software,
 perfil Med e entorno desabilitado, contra `d2f23d9`: árvores + gramados passaram de
 40.136 ms para 264 ms; chegada ao estado pronto passou de 54.798 ms para 13.489 ms.
 O campus tinha 2.850 árvores e agora tem 1.425, mantendo as 35.350 lâminas de grama
@@ -120,23 +122,34 @@ na CPU, variam por máquina e não equivalem a aumento de FPS do jogo completo.
 
 ### Verificação da interface no navegador
 
-Chromium na versão de produção: menu/configurações antes do download; escolha
-antecipada de modo e retorno ao menu; progresso completo; tour, aproximação,
+Chromium na versão de produção: menu/configurações antes do download; modos
+desabilitados até terminar e aviso de reinício antes de aplicar; progresso completo; tour, aproximação,
 pausa de órbita e visão aérea; mapa com roda, arraste e pinça sem seleção acidental;
 seleção de estruturas; menu em retrato e tour em paisagem; campanha, impacto de
 tinta e teletransporte. Sem erros de JavaScript ou compilação de shaders.
 
 Também foram validados Low + Fog após aplicar e recarregar: preferências persistem,
-o entorno contém 267 prédios reais e 8.909 procedurais, e a escolha antecipada do
-tour entra no modo quando a cena fica pronta. Ao sair do tour, a neblina configurada
+o entorno contém 267 prédios reais e 8.909 procedurais. Ao sair do tour, a neblina configurada
 é restaurada. Os números descrevem os dados atuais do repositório.
 
 
 ## Abertura e celular
 
-A capa usa seis painéis cartoon originais em um atlas WebP (~470 KB), animados individualmente por CSS, com logo em texto “grand treta auto” e subtítulo vermelho “City of God”. A fonte Anton é servida localmente em WOFF, com licença OFL em `public/fonts`. A animação pode ser pulada e respeita movimento reduzido. Não há tempo mínimo de espera para escolher um modo. A navegação é confirmada no click, depois de terminar o toque, para não repassar um click de compatibilidade a um marcador que estava atrás do menu.
+A capa usa seis painéis cartoon originais em um atlas WebP (~470 KB), animados individualmente por CSS, com logo em texto “grand treta auto” e subtítulo vermelho “City of God”. A fonte Anton é servida localmente em WOFF, com licença OFL em `public/fonts`. A animação pode ser pulada e respeita movimento reduzido. Os modos liberam ao terminar a cena. A navegação do menu é confirmada no click, depois de terminar o toque, para não repassar um click de compatibilidade a um marcador que estava atrás do menu.
 
-A campanha aceita retrato e paisagem sem pausar no resize ou exigir tela cheia. O botão de orientação solicita fullscreen/lock apenas por escolha do jogador; em navegadores sem suporte, indica que basta girar fisicamente. `player/touch-controls.js` atribui um papel fixo a cada dedo: à esquerda (42% da largura) abre um analógico flutuante com zona morta e velocidade proporcional; o outro controla a mira. Soltar, cancelar, perder captura, redimensionar, desfocar ou esconder a página limpa o movimento. A UI recebe eventos `joystick`; não existem dependências novas entre módulos.
+A campanha aceita retrato e paisagem sem exigir tela cheia. O botão de orientação solicita fullscreen/lock apenas por escolha do jogador; em navegadores sem suporte, indica que basta girar fisicamente. `player/touch-controls.js` atribui um papel fixo a cada dedo: à esquerda (42% da largura) abre um analógico flutuante com zona morta e velocidade proporcional; o outro controla a mira. O botão de tiro captura seu próprio dedo e permite arrastar para mirar enquanto dispara. Os botões do HUD respondem a dedos adicionais e consomem cliques atrasados para evitar duplicação. Soltar, cancelar, perder captura, redimensionar, desfocar ou esconder a página limpa o movimento/tiro. Gestos de zoom nativos, seleção e menus de toque são bloqueados; pinça do mapa/tour continua pertencendo ao jogo, e configurações/listas ainda têm scroll.
+
+O analógico corre ao avançar até o limite. Mira focada aproxima suavemente o FOV de 70° para 45°, centraliza a arma, reduz sensibilidade a 52% e caminhada a 3,1 m/s, suspendendo corrida. Há botão de pulo e voo explícito, sem ativar voo acidentalmente por dois toques durante a mira. `Q` troca arma no desktop, botão direito segura mira focada e Control desce no voo. A pistola dá um disparo por toque; a metralhadora repete enquanto o gatilho está pressionado, com intervalo mínimo de 120 ms e no máximo um disparo por quadro. Os pools de 16 projéteis/96 manchas e BVHs existentes são preservados. Pausa, mapa, menu, resize e troca de arma soltam o gatilho; mapa/menu restauram o FOV. Os dois modelos são compilados antes de liberar o jogo. A UI recebe eventos `joystick`; não existem dependências novas entre módulos.
+
+Validação em Chromium com GPU por software: toques reais via CDP com três dedos
+simultâneos (analógico + arrastar/disparar + botão de mira), deslocamento e tiros
+ativos com FOV próximo de 45°, zoom nativo fixo em 1 e seleção vazia. Pinça no mapa
+alterou o zoom interno de 1,72 para 2,88 sem alterar a escala da página. Foram
+verificados retrato/paisagem, menu/mapa restaurando FOV e soltando gatilho, tour,
+copas com 40 cartões e 1.425 árvores, configurações durante loading e cancelamento
+do aviso de reinício. No desktop, botão direito + esquerdo mantêm mira/tiro juntos
+e Escape pausa sem deixar o gatilho preso. Sem erros de JavaScript ou shaders.
+As imagens da mira foram revisadas para manter o reservatório fora da linha de visão.
 
 As barras usam preenchimento CSS próprio e o mesmo inteiro da porcentagem/ARIA, sem transição que atrase a largura. O tour abre com enquadramento calculado pelas dimensões reais do campus e pelo espaço disponível, em vez de tratar o maior lado como um quadrado. Sua barra fica em uma linha e expande somente ao visitar um ponto. Números próximos recebem posições separadas e linhas até as âncoras originais, com hit testing atualizado no mapa 2D. O mapa 2D também inicia mais próximo.
 

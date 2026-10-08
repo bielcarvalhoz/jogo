@@ -24,8 +24,8 @@
         </div>
         <nav class="menu-options" aria-label="Menu principal">
           <span class="menu-location">OSASCO / SÃO PAULO</span>
-          <button id="play"><b>Campanha</b></button>
-          <button id="tour"><b>Modo tour</b></button>
+          <button id="play" disabled aria-describedby="loading-text"><b>Campanha</b></button>
+          <button id="tour" disabled aria-describedby="loading-text"><b>Modo tour</b></button>
           <button id="settings-open"><b>Configurações</b></button>
         </nav>
         <section id="settings-panel" class="hidden" aria-label="Configurações">
@@ -33,11 +33,11 @@
           <label>Gráficos <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
           <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Com neblina</option><option value="on">Ativado</option></select></label>
           <label class="paint-choice" for="paint-color">Cor da tinta <select id="paint-color" aria-label="Cor da tinta" disabled><option value="vermelho">Vermelho</option></select></label>
-          <p class="setting-note">Preferências salvas neste aparelho.</p>
+          <p class="setting-note">Gráficos e entorno exigem recarregar a cidade. Você será avisado antes de aplicar. Preferências salvas neste aparelho.</p>
           <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar</button></div>
           <details class="menu-help"><summary>Controles</summary>
-            <p>WASD: andar · Mouse: olhar · Clique: tinta · C: cor · Shift: correr · Espaço: pular · F: voar · E/Q: subir/descer · M: mapa · Esc: menu</p>
-            <p>No celular: toque à esquerda para andar; arraste do outro lado para mirar. Botões para atirar, voar e mapa. Jogue em pé ou deitado.</p>
+            <p>WASD: andar · Mouse: olhar · Clique/segurar: tiro · Botão direito: mira focada · Q: trocar arma · C: cor · Shift: correr · Espaço: pular · F: voar · E/Control: subir/descer · M: mapa · Esc: menu</p>
+            <p>No celular: analógico à esquerda (avance até o limite para correr); arraste à direita para mirar. Segure e arraste o botão de tiro para disparar e mirar juntos. Use Mira para aproximar a visão, Arma para trocar pistola/metralhadora e os botões para pular, voar e abrir o mapa. Jogue em pé ou deitado.</p>
             <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
           </details>
           <p id="stat-line" class="stats"></p>
@@ -45,20 +45,16 @@
         <div id="loading" role="status" aria-live="polite">
           <div class="progress-label"><span id="loading-text">Preparando a cidade…</span><b data-progress-label>0%</b></div>
           <div class="load-track" data-load-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Carregamento da cidade"><span class="load-fill"></span></div>
-          <small>Escolha seu modo para começar.</small>
+          <small>Campanha e tour liberam quando a cidade estiver pronta.</small>
         </div>
       </main>
       <button id="intro-skip">Pular abertura ›</button>
     </div>
 
-    <div id="loading-wait" class="hidden" role="status" aria-live="polite">
-      <p class="eyebrow">GRAND TRETA AUTO / CITY OF GOD</p><h2>Entrando na cidade</h2>
-      <div class="waiting-progress">
-        <div class="progress-label"><span id="waiting-text">Construindo a cidade…</span><b data-progress-label>0%</b></div>
-        <div class="load-track" data-load-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Carregamento da cidade"><span class="load-fill"></span></div>
-      </div>
-      <button id="loading-back">Voltar ao menu</button>
-    </div>
+    <dialog id="settings-restart" aria-labelledby="restart-title" aria-describedby="restart-description">
+      <h2 id="restart-title">Recarregar a cidade?</h2><p id="restart-description"></p>
+      <div class="settings-actions"><button id="settings-cancel-restart" autofocus>Continuar como está</button><button id="settings-confirm-restart">Aplicar e recarregar</button></div>
+    </dialog>
 
     <div id="tour-markers" class="hidden" aria-label="Pontos da cidade"></div>
     <div id="tour-panel" class="hidden">
@@ -79,15 +75,18 @@
       <div id="hud-fps"></div>
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><span id="paint-chip"></span>Tinta <b id="paint-label">Vermelho</b><small class="only-desktop">C troca</small></button>
       <div class="touch-buttons only-touch">
-        <button id="btn-fire" aria-label="Atirar tinta">●</button>
+        <button id="btn-fire" aria-label="Segurar para atirar; arrastar para mirar">◎<small>TIRO</small></button>
+        <button id="btn-aim" aria-label="Alternar mira focada" aria-pressed="false">⊕<small>MIRA</small></button>
+        <button id="btn-jump" aria-label="Pular">↑<small>PULO</small></button>
         <button id="btn-fly" aria-label="Alternar voo" aria-pressed="false">↟</button>
         <button id="btn-orientation" aria-label="Alternar orientação da tela">⤢</button>
         <button id="btn-map" aria-label="Mapa">🗺</button>
         <button id="btn-menu" aria-label="Menu">☰</button>
       </div>
-      <div id="help" class="help only-desktop">WASD andar · Clique tinta · C cor · F voar · M mapa · 1–7 teletransporte · T cartoon · V pixel · H esconder</div>
+      <button id="btn-weapon" class="weapon-hud" aria-label="Trocar arma de paintball"><span id="weapon-label">PISTOLA</span><small id="weapon-mode">SEMIAUTO · Q TROCA</small></button>
+      <div id="help" class="help only-desktop">WASD andar · Segurar: tiro · Botão direito: mira · Q arma · C cor · F voar · M mapa · H esconder</div>
       <div id="joystick" hidden aria-hidden="true"><span class="joystick-thumb"></span></div>
-      <div id="touch-help" class="help only-touch">Esquerda: andar · Direita: mirar</div>
+      <div id="touch-help" class="help only-touch">Analógico: andar/correr · Segure e arraste TIRO</div>
       <div id="crosshair"></div>
       <div id="toast"></div>
       <div class="attrib">Dados © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · Relevo: SRTM / Mapzen Terrarium</div>

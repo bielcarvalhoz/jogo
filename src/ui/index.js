@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { IS_TOUCH } from '../core/index.js';
 import { createHud } from './hud.js';
 import { placeMarker } from './marker-layout.js';
+import { installGestureGuard } from './gestures.js';
 import './style.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
@@ -9,6 +10,7 @@ const $ = id => document.getElementById(id);
 const updateOrientation = () => document.body.classList.toggle('portrait', innerHeight > innerWidth);
 
 export function applyDeviceClasses() {
+  installGestureGuard();
   document.body.classList.toggle('touch', IS_TOUCH);
   document.body.classList.add('menu-open');
   updateOrientation();
@@ -160,6 +162,7 @@ export function createUI(game) {
     el.firstElementChild.style.transform = `translate(${s.dx}px, ${s.dy}px)`;
   });
   $('btn-fly').addEventListener('click', () => { if (player.active) player.toggleAutoFly(); });
+  $('btn-jump').addEventListener('click', () => player.jump());
   $('btn-orientation').addEventListener('click', async () => {
     const desired = innerHeight > innerWidth ? 'landscape' : 'portrait';
     try {
