@@ -2,7 +2,7 @@
 
 O cenário usa a linguagem de vegetação de [sato-agents-lab](https://github.com/satoLG/sato-agents-lab), inspirada no [folio-2025 de Bruno Simon](https://github.com/brunosimon/folio-2025), referência `41046b57eeed8d156d9c3fd7fa259900baef7816`.
 
-- `sources/Game/World/Foliage.js`: cartões de folhas de 0,8 unidades distribuídos numa esfera por `1 - random³`, normais radiais, recorte SDF e rotação suave do recorte com o vento. A adaptação WebGL em `src/nature.js` usa três azimutes e copas largas irregulares, sem uma esfera sólida por trás das folhas.
+- `sources/Game/World/Foliage.js`: cartões de folhas de 0,8 unidades distribuídos numa esfera por `1 - random³`, normais radiais, recorte SDF e rotação suave do recorte com o vento. A adaptação WebGL em `src/map/nature.js` usa três azimutes e copas largas irregulares, sem uma esfera sólida por trás das folhas.
 - `static/foliage/foliageSDF.png`: textura original 128 × 128, copiada de `sato-agents-lab/static/textures/folio-2025`. O arquivo MIT com copyright Bruno Simon acompanha o asset em `public/textures/folio-2025/LICENSE.txt`.
 - `sources/Game/World/Grass.js`: um triângulo por lâmina, raiz fixa e ponta movida pelo vento. Os gramados do campus são curtos, seguindo as fotos; o chão das matas tem lâminas mais altas.
 - `sources/Game/Terrain.js` e `sources/Game/World/WaterSurface.js`: água com cor de profundidade, margem rasa e contornos de ondulação interrompidos por ruído. O lago do campus preserva o tom verde-oliva observado nas fotos. O mapa de distância usa os contornos reais, incluindo furos/ilhas.
