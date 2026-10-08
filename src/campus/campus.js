@@ -11,6 +11,8 @@ import { createSidewalkTrees } from '../map/index.js';
 import { campusWallGeometry } from './wall.js';
 import { buildCampusFoundations } from './access.js';
 import { buildCampusAmenities } from './amenities.js';
+import { createRegionTest } from '../shared/regions.js';
+import { halveTrees } from '../shared/tree-density.js';
 
 // Núcleo Cidade de Deus (matriz do Bradesco), em estilo cartoon/pixel.
 // Dados: public/data/campus-cidade-de-deus.geojson (ver scripts/build-campus.mjs).
@@ -992,8 +994,10 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, quality
   root.add(amenities.root);
   for(const solid of amenities.solids)builder.addSolid(solid.rings,solid.top,null);
   const exclusions=[...details.exclusions,...foundations.exclusions,...amenities.exclusions];
-  C.detailOccupied=(x,z)=>exclusions.some(e=>e.rings ? pointInPolygon(x,z,e.rings) : Math.hypot(x-e.x,z-e.z)<e.radius);
-  C.trees=C.trees.filter(t=>!C.detailOccupied(t.x,t.z));
+  C.detailOccupied=createRegionTest(exclusions);
+  const allowedTrees=C.trees.filter(t=>!C.detailOccupied(t.x,t.z));
+  C.treeSourceCount=allowedTrees.length;
+  C.trees=halveTrees(allowedTrees,new Set(C.monkeys.filter(m=>m.onTree).map(m=>m.tree)));
   C.palms=C.palms.filter(t=>!C.detailOccupied(t.x,t.z));
   C.cars=C.cars.filter(c=>!c.ring.some(p=>C.detailOccupied(...p)));
   C.monkeys=C.monkeys.filter(m=>!C.detailOccupied(m.x,m.z)&&(!m.onTree||C.trees.includes(m.tree)));

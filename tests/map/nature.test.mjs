@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createFoliageCloud, createSidewalkTrees, buildCampusGrass, createWaterMaterial, updateNature } from '../../src/map/nature.js';
-import { makeTreeMeshes } from '../../src/map/vegetation.js';
+import { buildVegetation, makeTreeMeshes } from '../../src/map/vegetation.js';
 import { distToSegment } from '../../src/shared/geo.js';
 
 test('leaf crowns have open card topology, finite unit normals and bounded instances', () => {
@@ -20,7 +20,7 @@ test('leaf crowns have open card topology, finite unit normals and bounded insta
     assert.ok(mesh.boundingSphere.radius > 0);
     assert.ok(mesh.instanceMatrix.array.every(Number.isFinite));
   }
-  assert.equal(trees.getObjectByName('copas').geometry.attributes.position.count, 40 * 4);
+  assert.equal(trees.getObjectByName('copas').geometry.attributes.position.count, 20 * 4);
   assert.equal(trees.getObjectByName('copas').castShadow, false);
   const background = makeTreeMeshes([{ x: 0, z: 0, s: 1, r: 0, v: 0.5 }], { heightAt: () => 0 });
   const backgroundTriangles = background.children.reduce((total, mesh) => total + mesh.geometry.index.count / 3, 0);
@@ -83,4 +83,31 @@ test('water shoreline distance respects islands and time freezes for reduced mot
   const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
   material.onBeforeCompile(shader);
   assert.equal(shader.uniforms.natureTime, material.userData.natureTime);
+});
+
+
+test('disabled surrounding trees perform no sampling, pavement queries or geometry allocation', () => {
+  const unused = () => assert.fail('disabled vegetation must never access world/terrain');
+  const world = new Proxy({}, {get: unused});
+  const result = buildVegetation(world, {tree: {get: unused}}, {heightAt: unused}, {enabled: false});
+  assert.equal(result.count, 0); assert.equal(result.root.children.length, 0);
+});
+
+test('enabled surrounding vegetation renders half its mapped tree population', () => {
+  const world = {points: Array.from({length:100}, (_,i)=>({x:i*3,z:0,tags:{natural:'tree'}})), treeRows:[], areas:[], roads:[]};
+  const result = buildVegetation(world, {tree:{get:()=>false}}, {heightAt:()=>0}, {quality:'med'});
+  assert.equal(result.count,50);
+  assert.equal(result.root.children.filter(m=>m.name==='copas').reduce((n,m)=>n+m.count,0),50);
+});
+
+test('tree batches share soil assets, query pavement once and retain conservative culling bounds', () => {
+  const source = Array.from({length:256}, (_,i)=>({x:i*2,z:0,s:1,r:0,v:.5,sidewalk:true}));
+  let pavementQueries=0;
+  const root=makeTreeMeshes(source,{heightAt:()=>0},{detail:true,quality:'med',sidewalkHeightAt:()=>{pavementQueries++;return 3;}});
+  assert.equal(pavementQueries,source.length);
+  const soils=root.children.filter(m=>m.name==='canteiros-quadrados-arvores');
+  assert.ok(soils.length>1);
+  for(const mesh of root.children){assert.equal(mesh.userData.spatiallyPartitioned,true);assert.ok(mesh.boundingSphere.radius>0);}
+  for(const mesh of soils){assert.equal(mesh.geometry,soils[0].geometry);assert.equal(mesh.material,soils[0].material);}
+  assert.equal(root.children.filter(m=>m.name==='copas').reduce((n,m)=>n+m.count,0),source.length);
 });

@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../shared/rng.js';
 import { pointInPolygon } from '../shared/geo.js';
 import { createFoliageCloud, createFoliageMaterial, createSidewalkTrees } from './nature.js';
+import { halveTrees } from '../shared/tree-density.js';
 
 // Árvores: as mapeadas no OSM (pontos e fileiras) + preenchimento por densidade em
 // matas, praças e áreas verdes reais + arborização de calçada. Tudo em InstancedMesh.
@@ -13,6 +14,10 @@ const MAX_TREES = 16000;
 
 /** options.exclude: lista de polígonos (rings) onde não plantar */
 export function buildVegetation(world, masks, terrain, options = {}) {
+  if (options.enabled === false) {
+    const root = new THREE.Group(); root.name = 'vegetacao';
+    return { root, count: 0 };
+  }
   const rnd = mulberry32(4242);
   const trees = [];
   const excluded = (x, z) => (options.exclude || []).some((rings) => pointInPolygon(x, z, rings));
@@ -31,12 +36,13 @@ export function buildVegetation(world, masks, terrain, options = {}) {
     }
 
   for (const a of world.areas) {
+    if (trees.length >= MAX_TREES) break;
     const dens = DENSITY[a.kind];
     if (!dens) continue;
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const [x, z] of a.rings[0]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
     const n = Math.round((maxX - minX) * (maxZ - minZ) * dens);
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && trees.length < MAX_TREES; i++) {
       // no golfe, árvores em bosques (aglomerados), não espalhadas no fairway
       const x = minX + rnd() * (maxX - minX), z = minZ + rnd() * (maxZ - minZ);
       if (!pointInPolygon(x, z, a.rings) || masks.tree.get(x, z)) continue;
@@ -50,16 +56,17 @@ export function buildVegetation(world, masks, terrain, options = {}) {
   }
 
   // Ritmo regular nos passeios; máscara e vias transversais preservam as travessias.
-  const streetTrees = createSidewalkTrees(world.roads, {
+  const streetTrees = trees.length < MAX_TREES ? createSidewalkTrees(world.roads, {
     existing: trees,
     allowed: (x, z) => !excluded(x, z) && !masks.tree.get(x, z),
     size: 0.9,
-  });
+  }) : [];
   trees.push(...streetTrees.slice(0, Math.max(0, MAX_TREES - trees.length)));
 
-  const root = makeTreeMeshes(trees, terrain, { quality: options.quality, sidewalkHeightAt: options.sidewalkHeightAt });
+  const reduced = halveTrees(trees);
+  const root = makeTreeMeshes(reduced, terrain, { quality: options.quality, sidewalkHeightAt: options.sidewalkHeightAt });
   root.name = 'vegetacao';
-  return { root, count: trees.length };
+  return { root, count: reduced.length };
 }
 
 // ---------------------------------------------------------------- malhas (reutilizadas pelo campus)
@@ -84,6 +91,8 @@ function sharedAssets(cardCount, detail) {
     trunkGeo: mergeGeometries(wood), crownGeo: createFoliageCloud(cardCount),
     trunkMat: new THREE.MeshStandardMaterial({ color: 0x796856, roughness: 1 }),
     crownMat: createFoliageMaterial(),
+    soilGeo: new THREE.BoxGeometry(1.0, 0.06, 1.0),
+    soilMat: new THREE.MeshStandardMaterial({ color: 0x493b2c, roughness: 1 }),
   };
   wood.forEach((geometry) => geometry.dispose());
   shared.set(key, assets);
@@ -95,14 +104,14 @@ const IPE = new THREE.Color('#d9579a'); // ipê-rosa florido
 
 /**
  * trees: [{ x, z, s (escala), r (rotação), v (0..1 variação), pink? }]
- * instâncias agrupadas em blocos de 250 m (frustum culling por bloco)
+ * instâncias agrupadas diretamente em blocos de 125 m (frustum culling por bloco)
  */
 export function makeTreeMeshes(trees, terrain, { quality = 'high', detail = false, sidewalkHeightAt } = {}) {
-  const cardCount = quality === 'low' ? (detail ? 40 : 16) : quality === 'med' ? (detail ? 48 : 18) : (detail ? 64 : 20);
-  const { trunkGeo, crownGeo, trunkMat, crownMat } = sharedAssets(cardCount, detail);
+  const cardCount = quality === 'low' ? (detail ? 20 : 12) : quality === 'med' ? (detail ? 24 : 14) : (detail ? 32 : 16);
+  const { trunkGeo, crownGeo, trunkMat, crownMat, soilGeo, soilMat } = sharedAssets(cardCount, detail);
   const chunks = new Map();
   for (const t of trees) {
-    const k = Math.floor(t.x / 250) + ',' + Math.floor(t.z / 250);
+    const k = Math.floor(t.x / 125) + ',' + Math.floor(t.z / 125);
     if (!chunks.has(k)) chunks.set(k, []);
     chunks.get(k).push(t);
   }
@@ -112,22 +121,26 @@ export function makeTreeMeshes(trees, terrain, { quality = 'high', detail = fals
   for (const list of chunks.values()) {
     const trunk = new THREE.InstancedMesh(trunkGeo, trunkMat, list.length);
     const crown = new THREE.InstancedMesh(crownGeo, crownMat, list.length);
-    const sidewalkTrees = list.filter((t) => t.sidewalk && Number.isFinite(sidewalkHeightAt?.(t.x, t.z)));
-    const soil = sidewalkTrees.length ? new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.06, 1.0), new THREE.MeshStandardMaterial({ color: 0x493b2c, roughness: 1 }), sidewalkTrees.length) : null;
+    // Query the finished pavement once per tree, not three times per soil/trunk.
+    const heights = list.map(t => t.sidewalk ? sidewalkHeightAt?.(t.x, t.z) : undefined);
+    const sidewalkIndices = list.map((t, i) => i).filter(i => list[i].sidewalk && Number.isFinite(heights[i]));
+    const soil = sidewalkIndices.length ? new THREE.InstancedMesh(soilGeo, soilMat, sidewalkIndices.length) : null;
     if (soil) {
-      sidewalkTrees.forEach((t, i) => {
+      sidewalkIndices.forEach((index, i) => {
+        const t = list[index];
         // Soil surface sits 4 cm above the finished pavement, not coplanar with it.
-        const top = sidewalkHeightAt(t.x, t.z);
+        const top = heights[index];
         m.compose(p.set(t.x, top + 0.01, t.z), q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.sidewalkYaw || 0), sc.set(1, 1, 1));
         soil.setMatrixAt(i, m);
       });
       soil.name = 'canteiros-quadrados-arvores';
       soil.receiveShadow = true;
+      soil.userData.spatiallyPartitioned = true;
       soil.computeBoundingSphere();
       root.add(soil);
     }
     list.forEach((t, i) => {
-      const walkY = t.sidewalk ? sidewalkHeightAt?.(t.x, t.z) : undefined;
+      const walkY = heights[i];
       const y = Number.isFinite(walkY) ? walkY : terrain.heightAt(t.x, t.z);
       const h = 2.4 * t.s;
       m.compose(p.set(t.x, y - 0.2, t.z), q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.r), sc.set(t.s, h + 0.6, t.s));
@@ -149,6 +162,7 @@ export function makeTreeMeshes(trees, terrain, { quality = 'high', detail = fals
     crown.castShadow = false;
     trunk.name = 'troncos';
     crown.name = 'copas';
+    trunk.userData.spatiallyPartitioned = crown.userData.spatiallyPartitioned = true;
     root.add(trunk, crown);
   }
   return root;

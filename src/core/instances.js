@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export function partitionStaticInstances(scene, cell = 125) {
   const meshes = [];
   scene.traverse(o => {
-    if (o.isInstancedMesh && o.count >= 128 && !o.userData.dynamicInstances && !o.morphTexture) meshes.push(o);
+    if (o.isInstancedMesh && o.count >= 128 && !o.userData.dynamicInstances && !o.userData.spatiallyPartitioned && !o.morphTexture) meshes.push(o);
   });
   const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), color = new THREE.Color();
   let original = 0, batches = 0;
