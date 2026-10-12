@@ -59,10 +59,10 @@ export function createMultiplayerUI(game) {
   function close() { opened = false; lobby.classList.add('hidden'); }
 
   const hud = document.createElement('section'); hud.id = 'multiplayer-hud'; hud.hidden = true;
-  hud.innerHTML = `<div class="mp-status"><div class="mp-status-heading"><b id="mp-session"></b><button id="mp-copy" aria-label="Copiar código da sala">Copiar código</button></div>
+  hud.innerHTML = `<div class="mp-status" data-collapsible><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="mp-session-details"><b id="mp-session"></b><span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="mp-session-details" class="collapse-body" inert><div class="collapse-inner"><div class="mp-status-heading"><button id="mp-copy" aria-label="Copiar código da sala">Copiar código</button></div>
     <small id="mp-transport"></small><div class="mp-vitals"><strong id="mp-health"></strong><span id="mp-score"></span></div>
     <div class="mp-health-track"><i id="mp-health-fill"></i></div><small>Friendly fire ligado</small>
-    <p id="mp-defense-score"></p><p id="mp-football-score"></p></div>
+    <p id="mp-defense-score"></p><p id="mp-football-score"></p></div></div></div>
     <div id="mp-reconnect" role="status" hidden></div><div id="mp-respawn" role="status" hidden></div>
     <div id="mp-hit" role="status" hidden></div><button id="mp-interact" hidden></button>
     <section id="mp-ready-panel" class="mp-ready" hidden aria-label="Aprovação da partida"><h2>Prontos para a treta?</h2><ul id="mp-ready-list"></ul><button id="mp-ready" aria-pressed="false">Estou pronto</button><small>Começa quando todos aprovarem.</small></section>
@@ -70,7 +70,7 @@ export function createMultiplayerUI(game) {
     <section id="mp-ranking" class="mp-ranking" hidden aria-label="Ranking da partida"><div><b>RANKING</b><button id="mp-ranking-close" aria-label="Fechar ranking">×</button></div><table><thead><tr><th scope="col">#</th><th scope="col">Jogador</th><th scope="col">Kills</th><th scope="col">Assist.</th><th scope="col">Mortes</th></tr></thead><tbody></tbody></table></section>
     <div class="mp-labels" aria-hidden="true"></div>`;
   document.getElementById('hud').append(hud);
-  const h = id => hud.querySelector(`#${id}`), labels = hud.querySelector('.mp-labels');
+  const h = id => document.getElementById(id), labels = hud.querySelector('.mp-labels');
   let waiting = false, rankingSignature = '', readySignature = '';
   function showRanking(value) { h('mp-ranking').hidden = !value || !mp.active; h('mp-ranking-button').setAttribute('aria-expanded', String(value && mp.active)); }
   h('mp-ready').addEventListener('click', () => mp.ready(!mp.self?.ready));

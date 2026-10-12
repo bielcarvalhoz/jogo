@@ -17,7 +17,7 @@ export function createCombatHUD(game) {
       <details class="menu-help"><summary>Regras de dano</summary><small>Modo 1/2/4 — humano: cabeça 1 · tórax 2 · membros 4.<br>Zumbi: cabeça 1 · tórax 4 · membros 8.<br>Dano por arma usa o catálogo. Headshots seguem letais.<br>Botões físicos na bancada à esquerda. Anéis azuis indicam aliados.</small></details>
     </div>`;
   document.getElementById('hud').append(root);
-  const $ = id => root.querySelector(`#${id}`), toggle = $('combat-lab-toggle'), panel = $('combat-lab-panel');
+  const $ = id => document.getElementById(id), toggle = $('combat-lab-toggle'), panel = $('combat-lab-panel');
   const hit = $('combat-hit'), respawn = $('combat-respawn'), interact = $('combat-interact');
   const actionButtons = new Map(); let open = false, hitUntil = -Infinity, hurtUntil = -Infinity;
   for (const record of lab.buttons) {

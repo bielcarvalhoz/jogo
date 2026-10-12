@@ -13,7 +13,7 @@ export function createWeaponWheel(game) {
   const cursor = $('weapon-wheel-cursor');
   let owner = null, choices = [], pending = null, virtualX = 0, virtualY = 0;
   let signature = '', pickupSignature = '', pointerId = null, lastGesture = -Infinity;
-  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.reactions?.opened && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && game.mode !== 'tour';
+  const canUse = () => player.active && !game.ui?.paused && !game.ui?.sessionMenu?.actionsOpen && !game.ui?.mapOpen && !game.ui?.reactions?.opened && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && game.mode !== 'tour';
   const icon = weapon => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
@@ -103,9 +103,13 @@ export function createWeaponWheel(game) {
     document.body.classList.toggle('melee-equipped', paint.weapon.kind !== 'firearm');
   }
   function syncPickup() {
-    const nearby = canUse() && !owner && !player.fly && !game.multiplayer?.nearby ? game.weaponPickups?.nearby : null;
+    const nearby = canUse() && !owner && !player.fly && !game.multiplayer?.nearby ? game.ammoPickups?.nearby || game.weaponPickups?.nearby : null;
     pickupButton.hidden = !nearby;
     if (!nearby) { pickupSignature = ''; return; }
+    if (nearby.kind === 'ammo') {
+      pickupSignature = nearby.id; $('pickup-label').textContent = 'Pegar munição'; $('pickup-detail').textContent = '+2 carregadores por arma';
+      pickupButton.setAttribute('aria-label', 'Pegar munição. Mais dois carregadores por arma'); return;
+    }
     const definition = paint.weapons.find(w => w.id === nearby.weaponId);
     const inventory = paint.inventory;
     const selectedSlot = inventory.slots.indexOf(paint.weapon.id);
@@ -121,6 +125,7 @@ export function createWeaponWheel(game) {
     if (game.multiplayer?.nearby) return;
     if (game.combat?.trainingLab?.probe()) return;
     if (!canUse() || owner || player.fly) return;
+    if (game.ammoPickups?.nearby) { game.ammoPickups.pickup(); syncPickup(); return; }
     const result = game.weaponPickups?.pickup(); if (!result) return;
     syncWeaponButton(); syncPickup();
     game.toast(`Equipada no slot ${result.slot + 1}: ${paint.weapon.label}`);

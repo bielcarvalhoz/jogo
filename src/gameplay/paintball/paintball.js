@@ -83,7 +83,7 @@ function tracePaintMeshes(raycaster, from, to, meshes, ignored) {
 }
 
 /** Inputs belong to the existing player/UI, so looking by dragging never fires. */
-export function createPaintball({ scene, camera, getActive = () => true, getCameraMode = () => 'first', colliderRoots = () => [scene], traceActors = () => null, onShot = () => {}, onReload = () => {}, onAttack = () => {}, onStrike = () => {}, onImpact = () => {}, updateWeaponPose, getShotOrigin, random = Math.random }) {
+export function createPaintball({ scene, camera, getActive = () => true, getVisible = getActive, getCameraMode = () => 'first', colliderRoots = () => [scene], traceActors = () => null, onShot = () => {}, onReload = () => {}, onAttack = () => {}, onStrike = () => {}, onImpact = () => {}, updateWeaponPose, getShotOrigin, random = Math.random }) {
   const root = new THREE.Group(); root.name = 'paintball-effects'; root.userData.paintballIgnore = true; scene.add(root);
   const gun = new THREE.Group(); gun.name = 'pistolinha-tinta'; gun.userData.paintballIgnore = true;
   const pistolModel = new THREE.Group(), autoModel = new THREE.Group();
@@ -181,7 +181,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
   function poseWeapon() {
     const weapon = PAINTBALL_WEAPONS[weaponIndex];
     const scopeActive = scoped();
-    if (!updateWeaponPose?.(gun, { aimBlend, recoil, weapon: weapon.id, kind: weapon.kind, holstered, reloading: !!ammunition.state(weapon.id)?.reloading, active: !!getActive(), scoped: scopeActive })) {
+    if (!updateWeaponPose?.(gun, { aimBlend, recoil, weapon: weapon.id, kind: weapon.kind, holstered, reloading: !!ammunition.state(weapon.id)?.reloading, active: !!getVisible(), scoped: scopeActive })) {
       gun.position.x = Math.min(.34, .32 * camera.aspect) * (1 - aimBlend);
       gun.position.y = -.34 + aimBlend * .27;
       gun.position.z = -.62 + recoil * .045 - aimBlend * .18;
@@ -189,7 +189,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
     }
     // Keep updating the hidden socket: scoped shots still originate at the
     // muzzle and use the same collision/aim path as every other firearm.
-    gun.visible = !!getActive() && !scopeActive && !holstered && !gun.userData.characterEmote;
+    gun.visible = !!getVisible() && !scopeActive && !holstered && !gun.userData.characterEmote;
   }
 
   function resetInput() {
@@ -344,7 +344,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
   function update(dt) {
     if (disposed) return;
     const active = !!getActive();
-    gun.visible = active;
+    gun.visible = !!getVisible();
     // A narrow horizontal FOV must not put the entire first-person weapon offscreen.
     const elapsed = Math.min(.1, Math.max(0, dt));
     const cooldownOvershoot = Math.max(0, elapsed - cooldown);
@@ -385,8 +385,8 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
       ball.age += elapsed;
       ball.distance += ball.mesh.position.distanceTo(step.position);
       if (hit) {
-        onImpact(hit, { weapon: ball.weapon, damage: ball.weapon.damage, impulse: ball.weapon.impulse, direction: ball.velocity.clone().normalize(), kind: 'firearm' });
-        if (hit.entity) { ball.mesh.visible = false; continue; }
+        onImpact(hit, { weapon: ball.weapon, damage: ball.weapon.damage, impulse: ball.weapon.impulse, direction: ball.velocity.clone().normalize(), kind: 'firearm', paintColor: PAINTBALL_PALETTE[ball.mesh.userData.paintColor].color });
+        if (hit.entity || hit.corpse) { ball.mesh.visible = false; continue; }
         const mark = marks[markIndex++ % marks.length]; mark.material = colors[ball.mesh.userData.paintColor].paint;
         const projection = projectSurfacePaint(hit, refreshColliders(), mark.geometry, markIndex);
         mark.position.copy(projection.origin); mark.quaternion.identity(); mark.scale.setScalar(1);
@@ -426,6 +426,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
   return {
     root, gun, update, shoot, reload, setColor, setTrigger, setWeapon, setHolstered, setWeaponModels, resetInput, clearEffects, palette: PAINTBALL_PALETTE, weapons: PAINTBALL_WEAPONS, dispose,
     get ammo() { return ammunition.state(PAINTBALL_WEAPONS[weaponIndex].id); },
+    refillAmmo: () => ammunition.refill(),
     resetAmmo() { cancelReload(); ammunition.reset(); },
     pickupWeapon(id) { const result = inventory.pickup(id); setWeapon(id); return result; },
     get inventory() { return inventory.state; },

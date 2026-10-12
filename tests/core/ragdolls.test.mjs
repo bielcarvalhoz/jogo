@@ -7,6 +7,34 @@ import { createActorView } from '../../src/gameplay/combat/actors.js';
 import { createCombatSimulation } from '../../src/gameplay/combat/simulation.js';
 import { loadAvatarGeometry } from '../player/load-avatar.mjs';
 
+test('paint survives death; firearm and melee hits move a settled corpse while its neck stays outside the chest', async t => {
+  const scene = new THREE.Scene(), game = { engine: { scene, addSystem() {} }, events: createEvents(), training: { active: true }, mode: 'training', player: { active: true } };
+  const manager = await createRagdolls(game); t.after(() => manager.dispose());
+  const simulation = createCombatSimulation({ bounds: { x0: -20, x1: 20, z0: -20, z1: 20 } }); t.after(() => simulation.dispose());
+  const entity = simulation.spawn({ kind: 'human', position: { x: 0, y: 0, z: 0 } });
+  const view = createActorView(entity, await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), { parent: scene }); t.after(() => view.dispose());
+  view.update(.01, 0, null);
+  const aim = view.bones['DEF-spine003'].getWorldPosition(new THREE.Vector3()), normal = new THREE.Vector3(0, 0, 1);
+  const originalMark = game.bodyPaint.stamp(view.root, aim, normal, '#2879b6'); assert.ok(originalMark, 'a shot must paint the actual skin surface');
+  const corpse = manager.capture(view.root, { impulse: { x: 0, y: .2, z: 0 } });
+  let marks = []; corpse.root.traverse(o => { if (o.userData.bodyPaint) marks.push(o); });
+  assert.equal(marks.length, 1); assert.notEqual(marks[0], originalMark); assert.equal(marks[0].material.color.getHexString(), '2879b6');
+  const head = corpse.parts.find(p => /head/i.test(p.bone.name)), chest = corpse.parts.find(p => /spine001/i.test(p.bone.name));
+  const gap = new THREE.Vector3().copy(head.body.translation()).distanceTo(chest.body.translation());
+  for (let i = 0; i < 120; i++) manager.update(1 / 60);
+  for (const kind of ['firearm', 'unarmed']) {
+    const center = new THREE.Vector3().copy(chest.body.translation()), from = center.clone().add(new THREE.Vector3(0, 2, 0));
+    const hit = manager.raycast(from, center.clone().add(new THREE.Vector3(0, -2, 0))); assert.equal(hit?.corpse, corpse);
+    const before = new THREE.Vector3().copy(corpse.parts[0].body.translation());
+    assert.equal(manager.impact(hit, { kind, impulse: 18, direction: new THREE.Vector3(1, .3, 0), paintColor: '#c8102e' }), true);
+    for (let i = 0; i < 20; i++) manager.update(1 / 60);
+    assert.ok(new THREE.Vector3().copy(corpse.parts[0].body.translation()).distanceTo(before) > .08, `${kind}: body must be thrown by the hit`);
+    assert.ok(Math.abs(new THREE.Vector3().copy(head.body.translation()).distanceTo(chest.body.translation()) - gap) < .02, 'head/chest distance must survive impacts');
+  }
+  marks = []; corpse.root.traverse(o => { if (o.userData.bodyPaint) marks.push(o); }); assert.ok(marks.length >= 2, 'new shots must also paint the corpse');
+  game.bodyPaint.clear(view.root); assert.ok(marks.every(mark => mark.parent), 'clearing live wounds must preserve corpse paint');
+});
+
 for (const kind of ['human', 'zombie']) test(`${kind}: articulated physical death falls, sinks and frees its bodies without changing the live rig`, async t => {
   const scene = new THREE.Scene(), game = { engine: { scene, addSystem() {} }, events: createEvents(), training: { active: true }, mode: 'training', player: { active: true } };
   const manager = await createRagdolls(game); t.after(() => manager.dispose());

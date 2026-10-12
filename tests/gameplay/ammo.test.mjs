@@ -5,6 +5,17 @@ import { createAmmoStore } from '../../src/gameplay/paintball/ammo.js';
 import { WEAPONS } from '../../src/gameplay/paintball/weapons.js';
 import { createPaintball } from '../../src/gameplay/paintball/paintball.js';
 const tick = (paint, seconds) => { for (let t = 0; t < seconds; t += .02) paint.update(.02); };
+
+test('ammo loot adds reserve magazines without loading the gun or cancelling a reload, and caps stock', () => {
+  const ammo = createAmmoStore(); ammo.consume('pistol'); ammo.reload('pistol'); ammo.update(.5);
+  const before = ammo.state('pistol'); assert.ok(ammo.refill() > 0);
+  const after = ammo.state('pistol');
+  assert.equal(after.loaded, before.loaded); assert.equal(after.reserve, before.reserve + before.capacity * 2);
+  assert.equal(after.remaining, before.remaining); assert.equal(after.reloading, true);
+  for (let i = 0; i < 20; i++) ammo.refill();
+  for (const w of WEAPONS.filter(w => w.kind === 'firearm')) assert.equal(ammo.state(w.id).reserve, w.reserveAmmo * 2);
+  assert.equal(ammo.refill(), 0); ammo.update(3); assert.equal(ammo.state('pistol').loaded, before.capacity);
+});
 test('each firearm has a finite independent magazine and reserve; cancelled reload transfers no rounds', () => {
   const ammo = createAmmoStore();
   for (const w of WEAPONS.filter(w => w.kind === 'firearm')) {

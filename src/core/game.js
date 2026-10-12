@@ -28,7 +28,7 @@ export function createGame({ quality, debug, status, container, settings, audio 
     /** aviso rápido na tela (a UI escuta o evento) */
     toast: (msg) => events.emit('toast', msg),
     /** jogo rodando (personagem com controle ativo) */
-    isPlaying: () => !!game.player?.active,
+    isPlaying: () => !!game.player?.active && !game.ui?.paused,
     // preenchidos pelos módulos, na ordem de montagem (ver src/main.js)
     map: null,
     campus: null,
