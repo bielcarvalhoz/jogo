@@ -46,14 +46,15 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       if (entry.weapon !== weapon.id) {
         game.audio?.stopReload?.(`reload:${p.id}`);
         gun.clear(); const source = weaponModels?.[weapon.id];
-        if (source) { const model = source.model.clone(true); gun.add(model); gun.userData.grip = source.grip.clone(); gun.userData.muzzle = source.muzzle.clone(); }
+        if (source) { const model = source.model.clone(true); gun.add(model); gun.userData.weaponGrip = source.grip.clone(); gun.userData.weaponLength = source.length; gun.userData.muzzle = source.muzzle.clone(); }
         entry.weapon = weapon.id;
       }
       avatar.setWeapon({ ...weapon, holstered: p.holstered }); avatar.update(dt);
       avatar.updateWeapon(gun, { weapon: weapon.id, kind: weapon.kind, holstered: p.holstered, active: state.active });
-      gun.visible = state.active && !p.holstered && weapon.kind !== 'unarmed' && !gun.userData.characterEmote;
+      gun.visible = state.active && weapon.kind !== 'unarmed' && (!p.holstered || !!gun.userData.stowedVisible) && !gun.userData.characterEmote;
       Object.assign(entity, actor(p)); updateHumanoidHitboxes(entity, p.crouched);
     }, dispose() {
+      game.bodyPaint?.clear(avatar.root);
       avatar.mixer.stopAllAction(); avatar.mixer.uncacheRoot(avatar.model); avatar.appearance.dispose();
       const skeletons = new Set(); avatar.model.traverse(o => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); }); for (const s of skeletons) s.dispose();
       avatar.root.removeFromParent(); gun.removeFromParent();
@@ -174,7 +175,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       Object.assign(z.entity, { position: { x: p.x, y: p.y, z: p.z }, yaw: p.yaw, dead: p.dead, deathImpulse: p.deathImpulse, action: p.action, actionSerial: p.actionSerial });
       z.entity.health.current = p.health; z.entity.health.lastHitAt = lastHit; z.view.update(dt, latest.time, game.engine.camera);
     }
-    for (const [id, z] of zombies) if (!zombieIds.has(id)) { z.view.dispose(); zombies.delete(id); }
+    for (const [id, z] of zombies) if (!zombieIds.has(id)) { game.bodyPaint?.clear(z.view.root); z.view.dispose(); zombies.delete(id); }
     const me = api.self;
     if (me?.dead) game.player.avatar.root.visible = false;
     nearby = markers.find(m => Math.hypot(game.player.feet.x - m.at.x, game.player.feet.z - m.at.z) < (m.id === 'football' ? 6 : 5) && latest[m.id].status !== 'running') || null;
@@ -184,7 +185,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   function clear() {
     mesh?.close(); mesh = null; latest = null; snapshots = []; pending = []; nearby = null; root.visible = false;
     for (const b of bullets) b.ball.visible = false;
-    for (const v of views.values()) v.dispose(); views.clear(); for (const z of zombies.values()) z.view.dispose(); zombies.clear(); roster.clear();
+    for (const v of views.values()) v.dispose(); views.clear(); for (const z of zombies.values()) { game.bodyPaint?.clear(z.view.root); z.view.dispose(); } zombies.clear(); roster.clear();
     game.events.emit('multiplayerleft');
   }
   network.on('left', clear);

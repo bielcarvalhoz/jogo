@@ -50,6 +50,38 @@ test('greeting survives repeated socket evaluations without accumulating arm rot
   for (const name of ['DEF-upper_armR', 'DEF-forearmR']) assert.ok(avatar.bones[name].quaternion.clone().normalize().angleTo(baseline.avatar.bones[name].quaternion.clone().normalize()) < 1e-5, 'the gesture must leave no residual pose');
 });
 
+test('wave raises an enlarged open palm toward the facing direction across yaw changes and restores its size', async () => {
+  const { avatar, camera } = await fixture(), hand = avatar.bones['DEF-handR'], scale = hand.scale.clone();
+  for (const yaw of [0, 1.4, -2.1]) {
+    camera.rotation.set(0, yaw, 0); avatar.playGreeting(); avatar.update(.3);
+    const rotation = hand.getWorldQuaternion(new THREE.Quaternion());
+    const palm = new THREE.Vector3(-1, 0, 0).applyQuaternion(rotation);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(avatar.root.quaternion);
+    assert.ok(palm.dot(forward) > .97, 'the palm must face forward rather than turn edge-on');
+    assert.ok(new THREE.Vector3(0, 1, 0).applyQuaternion(rotation).y > .9, 'fingers point upward');
+    assert.ok(hand.getWorldPosition(new THREE.Vector3()).y > avatar.bones['DEF-head'].getWorldPosition(new THREE.Vector3()).y);
+    assert.ok(hand.scale.x > scale.x * 1.15);
+  }
+  avatar.stopEmote(); avatar.update(.016); assert.ok(hand.scale.distanceTo(scale) < 1e-7);
+});
+
+test('holstered weapon sizes select back or hip, follow the animated body and are hidden only in the first person view', async () => {
+  const { avatar, player, camera, gun } = await fixture();
+  for (const [weapon, length, slot] of [['pistol', .26, 'hip'], ['knife', .3, 'hip'], ['automatic', .75, 'back'], ['sniper', 1.02, 'back'], ['axe', .79, 'back']]) {
+    gun.userData.weaponLength = length; player.cameraMode = 'third'; camera.rotation.set(0, .8, 0);
+    avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
+    assert.equal(gun.userData.stowSlot, slot); assert.equal(gun.userData.stowedVisible, true);
+    const local = avatar.root.worldToLocal(gun.position.clone());
+    assert.ok(slot === 'back' ? local.z > .1 : Math.abs(local.x) > .2, 'weapon must sit outside the body');
+    const position = gun.position.clone(); player.feet.x += 2; player.eyePosition.x += 2; avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
+    assert.ok(Math.abs(gun.position.x - position.x - 2) < .04);
+    avatar.playGreeting(); avatar.update(.3); avatar.updateWeapon(gun, { weapon, holstered: true });
+    assert.equal(gun.userData.characterEmote, false, 'a wave must leave the stowed weapon visible');
+    avatar.stopEmote(); player.cameraMode = 'first'; avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
+    assert.equal(gun.userData.stowedVisible, false);
+  }
+});
+
 test('thumb web fills only the hand base without rewriting original vertices or adding meshes', async () => {
   const original = await loadAvatarGeometry(asset), { avatar } = await fixture();
   for (const side of ['R', 'L']) {

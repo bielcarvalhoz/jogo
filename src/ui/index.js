@@ -12,8 +12,12 @@ import { createCharacterMenu } from './character-menu.js';
 import { createMultiplayerUI } from './multiplayer.js';
 import { createReactions } from './reactions.js';
 import { createGameMenu } from './game-menu.js';
+import { createCombatFeedback } from './combat-feedback.js';
 import './style.css';
 import './game-menu.css';
+import './creation.css';
+import './combat-feedback.css';
+import './reactions.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
 const $ = id => document.getElementById(id);
@@ -35,6 +39,7 @@ export function createUI(game) {
   const sniperScope = createSniperScope(game);
   const posePanel = game.debug.trainingOnly ? createTrainingPosePanel(game) : null;
   const combatHUD = createCombatHUD(game);
+  const combatFeedback = createCombatFeedback(game);
   const characters = createCharacterMenu(game);
   const multiplayerUI = createMultiplayerUI(game);
   const reactions = createReactions(game);
@@ -304,7 +309,7 @@ export function createUI(game) {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);
   });
-  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, reactions, sessionMenu, startMode, showMenu, openMap, closeMap, selectPoint,
+  return { toast, hud, posePanel, combatHUD, combatFeedback, characters, multiplayerUI, reactions, sessionMenu, startMode, showMenu, openMap, closeMap, selectPoint,
     get paused() { return sessionMenu.paused; },
     get mapOpen() { return mapPanel.classList.contains('open'); },
     get weaponWheelOpen() { return weaponWheel.open || reactions.opened || sessionMenu.actionsOpen || sessionMenu.paused; } };

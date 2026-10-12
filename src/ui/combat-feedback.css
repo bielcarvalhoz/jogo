@@ -1,0 +1,25 @@
+#death-feed { position: absolute; top: calc(var(--hud-edge) + 110px); right: max(12px, env(safe-area-inset-right)); width: min(380px, calc(100vw - 24px)); display: grid; justify-items: end; gap: 5px; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+#death-feed li { box-sizing: border-box; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 30px; padding: 5px 10px; border: 1px solid #d4edff22; border-radius: 9px; background: #142331dc; color: var(--ui-ink); font: 800 12px/1.2 Nunito, sans-serif; }
+#death-feed li.local { border-color: #b1e9fb99; }
+.death-killer, .death-victim { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 112px; }
+.death-killer { color: #b1e9fb; }
+.death-victim { color: #f4c0b9; }
+.death-cause { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.death-cause > .control-icon { width: 27px; height: 18px; }
+.death-cause small { max-width: 90px; font-size: 9px; font-weight: 700; }
+.death-headshot .control-icon { width: 15px; height: 15px; color: #f4c0b9; }
+#self-health { position: absolute; transform: translate(-50%, -100%); width: 74px; padding: 4px 6px; border-radius: 8px; background: #142331c9; color: #f4f9fc; pointer-events: none; font: 800 10px/1.2 Nunito, sans-serif; text-align: center; }
+.self-health-track { height: 4px; margin-top: 3px; background: #0008; border-radius: 3px; overflow: hidden; }
+.self-health-track i { display: block; height: 100%; background: #8cddbd; }
+#self-health.critical i { background: #f49191; }
+@media (max-width: 700px), (pointer: coarse) {
+  #death-feed { width: min(260px, calc(100vw - 24px)); gap: 3px; }
+  #death-feed li { min-height: 24px; padding: 4px 7px; font-size: 10px; gap: 5px; }
+  #death-feed li:nth-child(n + 4) { display: none; }
+  .death-killer, .death-victim { max-width: 76px; }
+  .death-cause small { max-width: 64px; font-size: 8px; }
+  .death-cause > .control-icon { width: 21px; height: 14px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #death-feed { top: calc(var(--hud-edge) + 88px); }
+}

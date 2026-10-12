@@ -95,6 +95,9 @@ explicitamente equipa novamente. Sem guarda, o avatar usa `Idle_Loop` completo
 e os braços ficam fora da vista em primeira pessoa. `C` agacha e `V` troca tinta;
 agachar fica no canto inferior esquerdo no toque. Desarmar, tinta, reações,
 câmera e outras ações ficam na grade recolhida de **Mais ações**, no topo esquerdo.
+Armas maiores que 45 cm usam um encaixe no tórax/costas; as menores usam o
+quadril/cintura, ambos acompanhando o esqueleto. `weaponLength`, `stowSlot` e
+`stowedVisible` são metadados do modelo para a visibilidade local e remota.
 
 `weapons.js` mantém o catálogo e a regra de dois slots de fogo, um melee e socos
 sempre disponíveis. `paintball.inventory` retorna `{slots, selected, lastFirearmSlot}`;
@@ -404,20 +407,38 @@ escolher um item. Reações de rede usam o evento autoritativo `emote` com posi�
 `avatar.playEmote(id)` reutiliza `Dance_Loop` e o aceno do rig; `stopEmote()`
 encerra a reação em morte/saída. Movimento,
 ataque, recarga e morte encerram a dança. `ui/reactions` renderiza um pool
-limitado a 24 CSS3DSprites, flutuando e desaparecendo em 2,6 s, com consultas
-de oclusão ao terreno e às colisões estáticas. `audio.notification(position)`
+limitado a 24 `THREE.Sprite`s com imagens Kenney, flutuando e desaparecendo
+em 2,6 s. O depth buffer da cena resolve a oclusão; não há div/bolha HTML.
+Aceno e dança animam somente o corpo, sem imagem adicional. `audio.notification(position)`
 gera um aviso curto em HRTF com atenuação contínua; passos/armas continuam
 usando exclusivamente os samples gravados.
 O marcador de objetivo dos zumbis no treino passa a Y, liberando G para reações.
+
+`game.ui.combatFeedback` contém o feed e o indicador privado de vida.
+`shared.deathNotice` normaliza mortes locais e autoritativas; o evento `death`
+do servidor inclui nomes, tipo de ator, arma/causa e região do golpe fatal.
+O feed expira após seis segundos, limita cinco registros (três visíveis no
+celular) e limpa ao sair. A vida própria é projetada acima da cabeça em terceira
+pessoa; em primeira pessoa há um indicador compacto. Nenhuma barra é criada
+sobre jogadores remotos.
+
+`core/body-paint` projeta a máscara de impacto nos triângulos atuais do skin.
+Cada overlay preserva pesos/índices e compartilha o esqueleto do modelo,
+acompanhando suas articulações. `copyBodyPaint(source, target)`, exportado pelo
+núcleo, transfere geometrias independentes para o esqueleto de um cadáver.
+Cada personagem mantém até 24 impactos; a remoção/respawn libera as geometrias.
 
 ### Personalização e contatos
 
 O catálogo de aparência inclui camisa social/terno, com ou sem gravata,
 calça/sapato social e tênis. Mangas reutilizam pesos do skin original;
 colarinho, lapelas e gravata acompanham o tórax. Cabelos usam uma base contínua
-até a nuca, com curto penteado, fade, enroladinho baixo, comprido, dreads,
-black power, espetado e moicano. Boné/touca preservam a faixa de cabelo na
-nuca e sua cor, exceto no estilo raspado. O GLB original permanece intacto.
+até a nuca, combinada com cinco malhas do Universal Base Characters Standard,
+do Quaternius (CC0): repartido, corte baixo, comprido, coques e curto arredondado.
+`scripts/import-avatar-hair.mjs` reproduz o ajuste das malhas; os IDs de cortes
+antigos migram em `normalizeAppearance`, preservando as outras escolhas. Boné/touca preservam a faixa de cabelo na
+nuca e sua cor, exceto no estilo raspado. Pele e gênero alteram materiais e geometria privada, sem modificar pesos, rig ou
+hitboxes. O GLB original permanece intacto.
 O personagem inicial é Bancário; dados antigos do personagem inicial são
 atualizados preservando o ID e a seleção, sem renomear personagens criados.
 

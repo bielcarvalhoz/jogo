@@ -30,7 +30,9 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     random, traceScenery: world.trace,
     onEvent(event) {
       if (event.type === 'damage') emit('damage', { victim: event.victim.id, source: event.source?.id, region: event.region, damage: event.damage, remaining: event.remaining });
-      if (event.type === 'death') emit('death', { victim: event.victim.id, source: event.source?.id, impulse: event.victim.dead.impulse });
+      if (event.type === 'death') emit('death', { victim: event.victim.id, source: event.source?.id, victimKind: event.victim.kind, sourceKind: event.source?.kind,
+        victimName: players.get(event.victim.id)?.character.name, sourceName: players.get(event.source?.id)?.character.name,
+        weapon: event.weapon?.id, cause: event.source?.kind === 'zombie' ? 'zombie' : event.weapon?.id || (event.weapon?.kind === 'unarmed' ? 'fists' : 'environment'), region: event.region, impulse: event.victim.dead.impulse });
     },
   });
   sim.navigation.setObstacles(world.obstacles);

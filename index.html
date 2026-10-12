@@ -54,7 +54,7 @@
             <p>Toque: analógico para mover; arraste à direita para olhar. Segure ataque ou arma para usar.</p>
             <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
           </details>
-          <p id="stat-line" class="stats"></p>
+          <p id="stat-line" class="stats"></p><a class="asset-credits" href="./credits.html" target="_blank" rel="noopener">Créditos dos assets</a>
         </section>
         <div id="loading" role="status" aria-live="polite">
           <div class="progress-label"><span id="loading-text">Preparando a cidade…</span><b data-progress-label>0%</b></div>
@@ -71,7 +71,7 @@
     </dialog>
 
     <dialog id="character-panel" aria-labelledby="character-title" aria-describedby="character-description">
-      <header class="character-header"><div><span class="eyebrow">CITY OF GOD / PERSONAGENS</span><h2 id="character-title">Seus personagens</h2><p id="character-description">Escolha um personagem ou crie o seu.</p></div><button id="character-close" aria-label="Voltar ao menu">✕</button></header>
+      <header class="character-header"><div><span class="eyebrow">CITY OF GOD / PERSONAGENS</span><h2 id="character-title">Seus personagens</h2><p id="character-description">Escolha um personagem ou crie o seu.</p></div><button id="character-close" aria-label="Voltar ao menu"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header>
       <div class="character-layout">
         <aside class="character-roster"><h3>Seu elenco</h3><div id="character-list" role="group" aria-label="Personagens salvos"></div><button id="character-new">+ Criar personagem</button><button id="character-edit" disabled>Editar visual e nome</button><p>Salvos neste navegador.</p></aside>
         <section class="character-stage" aria-label="Visual do personagem"><div id="character-preview"></div><div class="character-preview-caption"><b id="character-preview-name">Bancário</b><span>Arraste para girar · Scroll ou pinça para zoom</span></div></section>
@@ -105,7 +105,7 @@
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#color" /></svg><span id="paint-chip"></span><span class="paint-caption">Tinta <b id="paint-label">Vermelho</b></span><small class="only-desktop">V troca</small></button>
       <div class="character-controls only-touch"><button id="btn-holster" aria-label="Desarmar" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#holster" /></svg></button><button id="btn-crouch" aria-label="Agachar" aria-pressed="false" title="C · Agachar / levantar"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#crouch" /></svg></button></div>
       <div class="ammo-controls">
-        <button id="btn-reload" class="only-touch" aria-label="Recarregar"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="btn-reload" class="only-touch" aria-label="Recarregar"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#reload" /></svg></button>
         <div id="ammo-hud" hidden aria-label="Munição"><b id="ammo-loaded">20</b><span>/</span><span id="ammo-reserve">120</span><span id="reload-status" role="status"></span><i id="reload-progress"></i></div>
       </div>
       <div class="combat-controls">
@@ -132,7 +132,7 @@
       <div id="map-places" aria-label="Pontos do mapa"></div>
       <div class="map-tools"><button id="map-zoom-in" aria-label="Aumentar zoom">+</button><button id="map-zoom-out" aria-label="Diminuir zoom">−</button><button id="map-reset">Visão ampla</button></div>
       <div class="map-help" id="map-help">Arraste para navegar · Roda ou dois dedos para zoom · Selecione um ponto</div>
-      <button id="map-close">✕</button>
+      <button id="map-close" aria-label="Fechar mapa"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button>
     </div>
 
     <script type="module" src="/src/main.js"></script>

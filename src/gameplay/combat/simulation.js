@@ -180,7 +180,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
         if (time < ai.pending.at) continue;
         const target = ai.pending.target; ai.pending = null;
         if (!target.dead && distance(entity.position, target.position) < 1.8 && visible(entity, target)) {
-          damage(target, { source: entity, region: 'thorax', weapon: { kind: 'melee', damage: entity.kind === 'zombie' ? rules.zombie.damage : 15 } });
+          damage(target, { source: entity, region: 'thorax', weapon: { id: entity.kind === 'zombie' ? 'zombie' : 'fists', kind: 'melee', damage: entity.kind === 'zombie' ? rules.zombie.damage : 15 } });
         }
       }
       if (time >= ai.nextThinkAt || ai.target?.dead) {
