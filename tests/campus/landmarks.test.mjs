@@ -27,6 +27,7 @@ function actualLandmarks() {
   for (const f of campusGeo.features) {
     const p = f.properties, g = f.geometry;
     if (p.kind === 'building') C.buildings.push({ ...p, rings: g.coordinates.map((ring) => openRing(ring.map((c) => proj.toLocal(...c)))) });
+    else if (p.kind === 'gate') { const [x, z] = proj.toLocal(...g.coordinates); C.gates.push({ ...p, x, z }); }
     else if (p.kind === 'landmark') { const [x, z] = proj.toLocal(...g.coordinates); C.landmarks.push({ ...p, x, z }); }
     else if (p.kind === 'plateau') (C.plateaus ||= []).push({ ...p, rings: g.coordinates.map((ring) => openRing(ring.map((c) => proj.toLocal(...c)))) });
     else if (p.kind === 'groundControl') C.groundControl = g.coordinates.map(([lon, lat, altitude]) => [...proj.toLocal(lon, lat), altitude + (p.offset || 0)]);
@@ -135,7 +136,7 @@ test('every landmark floor is above the graded terrain and clear of trees', () =
     if (!tree.fixed) assert.ok(!built.surfaces.some((surface) => pointInPolygon(tree.x, tree.z, surface.rings)));   // (fixas: árvore plantada num canteiro próprio)
     assert.ok(Number.isFinite(tree.x + tree.z + tree.s));
   }
-  assert.ok(built.stats.triangles > 5000 && built.stats.meshes <= 18);   // (uma malha por piso texturizado/pintura + placas)
+  assert.ok(built.stats.triangles > 5000 && built.stats.meshes <= 20);   // (uma malha por piso texturizado/pintura + placas)
 });
 
 test('alley cut separates a retaining block from the building end and its stair fits the gap', () => {
@@ -320,4 +321,23 @@ test('Portaria Bussocaba: one level, straight wall, crossings from kerb to kerb 
   assert.ok(bins, 'sem as lixeiras');
   const cx = bins.rings[0].reduce((sum, p) => sum + p[0], 0) / 4, cz = bins.rings[0].reduce((sum, p) => sum + p[1], 0) / 4, floor = built.surfaceHeightAt(cx, cz);
   assert.ok(Number.isFinite(floor) && bins.top - floor > 1 && bins.top - floor < 1.3, 'lixeiras sem piso por baixo');
+});
+
+test('pedestrian gate 06: portal, stair up to the turnstiles on the right, exit to the left onto the crossing', () => {
+  const L = actualLandmarks(), { C, world, terrain, built } = L, G = built.plan.pedestrianGate, gate = C.gates.find((g) => g.num === 6);
+  assert.ok(G && gate.built && G.road && G.travessia, 'portaria ligada à via interna');
+  // um lance de escada entre a calçada da rua e o estacionamento
+  assert.ok(Math.abs(G.levels.up - G.levels.low - G.espelhos * .17) < 1e-9 && G.espelhos >= 5);
+  assert.ok(Math.abs(terrain.heightAt(...G.at(8.2, -2)) - G.levels.low) < .12, 'calçada da rua rente à soleira');
+  // a escada sobe para a DIREITA de quem entra (s decrescente) e as catracas ficam no topo, olhando para quem sobe
+  assert.ok(G.escada[1] < G.escada[0] && G.escada[0] <= G.portal[0] && G.catracas < G.escada[1]);
+  assert.ok(gate.center.tx * G.axis[0] + gate.center.tz * G.axis[1] < -.99 && gate.turnstiles === 3);
+  // guarita em frente às catracas; saída para o campus à esquerda (fundos), depois delas
+  assert.ok(G.guarita[1] < G.saida[0] + 1 && G.saida[1] < G.catracas - 1.2);
+  // nada no leito da via; a calçada da via é recortada na planta da portaria
+  for (const q of built.solids.filter((q) => /pedestres|catracas/.test(q.kind))) for (const p of q.rings[0]) { const street = nearestStreet(world.roads, ...p, 20); assert.ok(!street || street.d - street.road.w / 2 > .2, q.kind + ' no leito da via'); }
+  assert.ok(world.sidewalkVoids.some((ring) => pointInPolygon(...G.at(2, 3), [ring])));
+  // percurso a pé (sem as catracas e as calçadas das vias neste teste)
+  const mid = (.1 + G.fundo) / 2, route = walk(L, [G.at(8.2, 0), G.at(8.2, 2), G.at(7, mid), G.at(1, mid), G.at(.8, G.fundo + .3)]);
+  assert.ok(route.jump <= .18 && Math.abs(route.end - G.levels.up) < .02 && Math.abs(route.start - G.levels.low) < .02, 'degrau de ' + route.jump.toFixed(2) + ' m');
 });

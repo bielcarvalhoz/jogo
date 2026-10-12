@@ -152,7 +152,8 @@ poly({ kind: 'monkeyPark', source: SRC_PLAN, name: 'Parque dos Macacos', num: 12
 // (reach: o vão do muro fica só sob a cobertura; o pátio da frente é aberto para a rua)
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, reach: 8 }, [-23.5466816, -46.7721977]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, booth: false, reach: 8 }, [-23.5466081, -46.7720745]);
-point({ kind: 'gate', type: 'pedestre', name: 'Portaria Bussocaba (pedestres)', num: 6 }, [-23.547431, -46.773729]);
+// (o ponto fica no portal do muro, medido no Earth; a cobertura vem do marco 'portaria-pedestres')
+point({ kind: 'gate', type: 'pedestre', name: 'Portaria Bussocaba (pedestres)', num: 6 }, [-23.5474105, -46.7736409]);
 point({ kind: 'gate', type: 'pedestre', name: 'Portaria Goiabinha (pedestres)', num: 7 }, [-23.5498934, -46.7739968]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Wenceslau Braz', num: 8, building: true }, [-23.550003, -46.771147]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Vila Yara', num: 9 }, [-23.547399, -46.766712]);
@@ -171,6 +172,16 @@ line({ kind: 'stairway', id: 'escadaria-mata', name: 'Escadaria da mata', source
 // Passarela de grades verdes do pé da escada até a via da Portaria Bussocaba.
 // (termina na calçada bege do lado de dentro da Portaria Bussocaba, rente à Agência)
 line({ kind: 'walkway', id: 'passarela-agencia', from: 'escadaria-mata', source: SRC_FIELD, width: 2.2, endLift: .41 }, [[-23.5466627, -46.7717288], [-23.5467057, -46.7718605]]);
+// Portaria de pedestres da Bussocaba: ponto = ponta oeste da cobertura, na linha do muro; rumo do muro 72°.
+// Em metros: s ao longo do muro a partir dali, v para dentro. Percurso descrito pelo usuário: entra-se
+// pelo portal, vira-se à direita e sobe-se uma escada de ponta a ponta; no topo, as três catracas; em frente,
+// a guarita do guarda; depois das catracas vira-se à esquerda e entra-se no campus.
+// cobertura [comprimento, profundidade]; portal = vão do portão; escada [pé, topo] e nº de espelhos (o
+// estacionamento fica ~1 m acima da calçada no Earth); catracas = s da linha delas; guarita [s0, s1,
+// meia largura]; saida = vão dos fundos para o campus (e a faixa de pedestres); piso [s0, s1];
+// rua = calçada da rua em frente [s0, s1, largura]. Cobertura medida no Earth (30 m) e no Street View de jun/2023.
+point({ kind: 'landmark', type: 'portaria-pedestres', gate: 6, name: 'Portaria Bussocaba (pedestres)', heading: 72, cobertura: [10.9, 5.4], portal: [6.9, 9.5],
+  escada: [6.5, 5], espelhos: 6, catracas: 3.6, quantidade: 3, guarita: [-2.9, -1.2, 1.5], saida: [-.6, 2.2], piso: [-3.3, 10.8], rua: [-14, 24, 5.2], source: SRC_FIELD }, [-23.5474332, -46.7737173]);
 // Locomotiva 801 ao lado do CTI: frente (limpa-trilhos) para ESE, trilho de exposição de 26 m.
 point({ kind: 'landmark', type: 'locomotiva', name: 'Locomotiva 801', source: SRC_FIELD, heading: 113 }, [-23.546803, -46.768288]);
 // Portaria Bussocaba: UMA cobertura comprida (duas lajes em linha, 35 x 12 m) paralela à rua, junto à
