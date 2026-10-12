@@ -5,7 +5,9 @@ body,button,input,select,textarea,kbd{font-family:Nunito,sans-serif}
 .menu-options button,.menu-options #play{font-family:Nunito,sans-serif;font-weight:900;font-size:clamp(22px,2.8vw,34px)}
 .menu-options b{font-weight:900}
 .gta-logo,.logo-sub{font-family:Arcade,monospace}
-.logo-word{letter-spacing:-.025em;line-height:.88;font-size:clamp(76px,min(10vw,15vh),150px)}
+.logo-word{letter-spacing:-.025em;line-height:.90;font-size:clamp(76px,min(10vw,15vh),150px)}
+.logo-word:nth-child(1){transform:translateX(-.12em)}
+.logo-word:nth-child(2){transform:translateX(.12em)}
 .logo-sub{letter-spacing:0;font-size:clamp(36px,min(5vw,7vh),70px)}
 #settings-panel h2{font-family:Nunito,sans-serif;font-weight:900}
 button:focus-visible,select:focus-visible{outline-color:var(--ui-accent)}
@@ -23,7 +25,7 @@ body #hud #actions-toggle{position:absolute;top:var(--hud-edge);left:max(12px,en
 .actions-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 body #hud #more-actions .action-tile{position:relative!important;inset:auto!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%!important;height:auto!important;min-height:78px;padding:10px 3px!important;border:0!important;border-radius:16px!important;background:#21485866!important;box-shadow:none!important;color:var(--ui-ink);font:24px Nunito;touch-action:manipulation;cursor:pointer;opacity:1}
 body #hud #more-actions .action-tile[hidden]{display:none!important}
-#more-actions .action-tile:hover,#more-actions .action-tile[aria-pressed=true]{background:var(--ui-raised)!important;color:var(--ui-accent)}
+body #hud #more-actions .action-tile:hover,body #hud #more-actions .action-tile[aria-pressed=true]{background:var(--ui-raised)!important;color:var(--ui-accent)}
 #more-actions .action-caption{display:block!important;font:700 10px/1.25 Nunito!important;text-align:center;width:auto!important;height:auto!important;border:0!important;color:var(--ui-muted);letter-spacing:0}
 #more-actions .action-tile .control-icon{display:block;width:25px;height:25px}
 #more-actions #btn-color .paint-caption,#more-actions #btn-color small,#more-actions #mp-ranking-button>span:not(.action-caption){display:none}
@@ -79,12 +81,17 @@ body.actions-open #multiplayer-hud .mp-status{visibility:hidden}
 body #hud #btn-pickup{max-width:calc(100vw - 36px);bottom:calc(var(--hud-bottom) + 190px);left:50%;right:auto;transform:translateX(-50%);border:1px solid #d4edff24;border-radius:18px;background:var(--ui-surface)}
 body.touch #hud .character-controls{left:max(18px,env(safe-area-inset-left));bottom:var(--hud-bottom);margin:0;gap:0}
 body.touch #hud .character-controls button{width:48px;height:48px;border:1px solid #d4edff55;background:#142331b3;color:var(--ui-ink);box-shadow:0 4px 12px #0002}
-body.touch #hud .combat-controls{right:max(16px,env(safe-area-inset-right));bottom:var(--hud-bottom);grid-template-columns:52px 72px;grid-template-rows:72px 52px;gap:12px}
+body.touch{--combat-left:52px;--combat-right:72px;--combat-gap:12px}
+body.touch #hud .combat-controls{right:max(16px,env(safe-area-inset-right));bottom:var(--hud-bottom);grid-template-columns:var(--combat-left) var(--combat-right);grid-template-rows:72px 52px;gap:var(--combat-gap)}
 body.touch #hud .combat-controls button{background:#142331b3;border-color:#d4edff55;box-shadow:0 4px 12px #0002;color:var(--ui-ink)}
 body.touch #hud #btn-fire{background:#773a4d99;border-color:#f5d9ab}
-body.touch #hud .ammo-controls{position:absolute;right:max(16px,env(safe-area-inset-right));bottom:calc(var(--hud-bottom) + 146px);display:flex;align-items:center;gap:8px;pointer-events:none}
-body.touch #hud #btn-reload{position:static!important;inset:auto!important;flex:none;width:40px;height:40px;border:1px solid #d4edff55;border-radius:50%;padding:0;background:#142331b3;color:var(--ui-ink);box-shadow:0 4px 12px #0002;pointer-events:auto}
-body.touch #hud #ammo-hud{position:relative;inset:auto;height:40px;box-sizing:border-box;align-items:center;border-radius:14px;padding:8px 12px;background:var(--ui-surface)}
+body.touch #hud .character-controls button[aria-pressed=true],body.touch #hud .combat-controls button[aria-pressed=true]{background:var(--ui-raised);border-color:var(--ui-accent);color:var(--ui-accent);box-shadow:0 0 0 2px #b1e9fb40}
+body.touch #hud #btn-fire.firing{background:#b53652cc;border-color:#ffe1ab}
+body.touch #hud .ammo-controls{position:absolute;right:max(16px,env(safe-area-inset-right));bottom:calc(var(--hud-bottom) + 136px + var(--combat-gap));display:grid;grid-template-columns:var(--combat-left) var(--combat-right);align-items:center;justify-items:center;gap:var(--combat-gap);pointer-events:none}
+body.touch #hud #btn-reload{position:static!important;inset:auto!important;grid-column:1;grid-row:1;width:48px;height:48px;border:1px solid #d4edff55;border-radius:50%;padding:0;background:#142331b3;color:var(--ui-ink);box-shadow:0 4px 12px #0002;pointer-events:auto}
+body.touch #hud #ammo-hud{position:relative;inset:auto;grid-column:2;grid-row:1;width:var(--combat-right);height:52px;border-radius:14px;padding:5px 4px;background:var(--ui-surface);grid-template-columns:24px 4px 20px;column-gap:3px}
+body.touch #hud #ammo-loaded{font-size:20px}
+body.touch #hud #ammo-reserve,body.touch #hud .ammo-separator{font-size:11px}
 body.tour-active #hud .combat-controls,body.tour-active #hud .ammo-controls,body.tour-active #hud .character-controls,body.tour-active #actions-toggle{display:none!important}
 body.training-active #map-panel .map-tools,body.training-active #map-panel #map-places{display:none}
 body.tour-active #hud .hud-top-right #minimap{display:block!important}
@@ -94,10 +101,11 @@ body.tour-active #hud .hud-top-right #minimap{display:block!important}
  .menu-options button,.menu-options #play{font-size:clamp(22px,6.3vw,30px);min-height:46px}
 }
 @media(max-height:500px) and (orientation:landscape){
+ body.touch{--combat-left:48px;--combat-right:64px;--combat-gap:8px}
  body #hud .hud-top-right #minimap{width:76px;height:76px}
- body.touch #hud .combat-controls{grid-template-columns:48px 64px;grid-template-rows:60px 44px;gap:8px}
+ body.touch #hud .combat-controls{grid-template-rows:64px 48px}
  body.touch #hud #btn-fire{width:64px;height:64px}
- body.touch #hud .ammo-controls{bottom:calc(var(--hud-bottom) + 124px)}
+ body.touch #hud .ammo-controls{bottom:calc(var(--hud-bottom) + 112px + var(--combat-gap)*2)}
  #more-actions{top:calc(var(--hud-edge) + 88px);max-height:calc(100dvh - var(--hud-edge) - 108px);width:300px}
  #game-menu{padding:18px 24px}
  .game-menu-settings label{min-height:44px}

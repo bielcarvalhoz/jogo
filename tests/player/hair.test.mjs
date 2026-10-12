@@ -2,7 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { loadAvatarGeometry } from './load-avatar.mjs';
-import { sweepHairTips } from '../../src/player/hair.js';
+import { sweepHairTips, createScalpGeometry } from '../../src/player/hair.js';
+
+test('the nape covering stays within a thin shell of the real skull instead of flaring toward the neck', async () => {
+  const gltf = await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), meshes = [];
+  gltf.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const skull = meshes.filter(m => m.name.startsWith('Sato_clean_face')).map(m => new THREE.Mesh(m.geometry, material));
+  const center = new THREE.Vector3(0, .858, -.009), ray = new THREE.Raycaster();
+  for (const napeOnly of [false, true]) {
+    const geometry = createScalpGeometry(meshes, napeOnly), p = geometry.attributes.position; let napeVertices = 0;
+    for (let i = 0; i < p.count; i++) {
+      const point = new THREE.Vector3().fromBufferAttribute(p, i);
+      if (point.z >= -.03 || point.y >= .83) continue;
+      napeVertices++; ray.set(point, center.clone().sub(point).normalize());
+      const hit = ray.intersectObjects(skull, false)[0];
+      assert.ok(hit && hit.distance > .0005 && hit.distance < .003, `nape vertex is ${hit?.distance} from the skull`);
+      assert.ok(point.y > .77, 'the short covering must stop above the neck');
+    }
+    assert.ok(napeVertices > 30); geometry.dispose();
+  }
+  material.dispose();
+});
 
 test('hair changes only a small rest-shape region and preserves rig, UVs and other meshes', async () => {
   const gltf = await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), meshes = [];

@@ -1,6 +1,6 @@
 # Game Icons
 
-Artwork from [Game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Individual authors and source links are below. The only adaptations are transparent backgrounds, currentColor fills and symbol IDs. See LICENSE-GameIcons.txt.
+Fire and jump are hand-authored project SVGs. Remaining artwork is from [Game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Individual authors and source links are below. Imported icons use transparent backgrounds, currentColor fills and symbol IDs. See LICENSE-GameIcons.txt.
 
 Imported from the [Iconify game-icons collection](https://raw.githubusercontent.com/iconify/icon-sets/master/json/game-icons.json); author paths are from the [official SVG repository](https://github.com/game-icons/icons). Run scripts/import-game-icons.mjs with the downloaded collection JSON and a newline-separated list of SVG paths from that repository.
 
@@ -8,9 +8,9 @@ Imported from the [Iconify game-icons collection](https://raw.githubusercontent.
 | --- | --- | --- |
 | fly | [airplane](https://game-icons.net/1x1/skoll/airplane.html) | Skoll |
 | rotate | [clockwise-rotation](https://game-icons.net/1x1/delapouite/clockwise-rotation.html) | Delapouite |
-| fire | [target-shot](https://game-icons.net/1x1/lorc/target-shot.html) | Lorc |
+| fire | Concentric circles | Project SVG |
 | aim | [crosshair](https://game-icons.net/1x1/delapouite/crosshair.html) | Delapouite |
-| jump | [plain-arrow](https://game-icons.net/1x1/delapouite/plain-arrow.html) | Delapouite |
+| jump | Up arrow | Project SVG |
 | menu | [hamburger-menu](https://game-icons.net/1x1/delapouite/hamburger-menu.html) | Delapouite |
 | color | [paint-bucket](https://game-icons.net/1x1/delapouite/paint-bucket.html) | Delapouite |
 | music | [musical-notes](https://game-icons.net/1x1/delapouite/musical-notes.html) | Delapouite |

@@ -62,6 +62,9 @@ test('training adapter supports physical controls, player death/respawn and comp
     for (let i = 0; i < 120; i++) assert.deepEqual(combat.collide(from.x, from.z, .35, 0, { from }), [from.x, from.z], 'an overlapping character cannot push an idle player every frame');
     assert.deepEqual(combat.collide(from.x + .1, from.z, .35, 0, { from }), [from.x, from.z]);
     assert.deepEqual(combat.collide(from.x - .1, from.z, .35, 0, { from }), [from.x - .1, from.z], 'movement away from contact remains controllable');
+    const around = combat.collide(from.x + .05, from.z + .1, .35, 0, { from });
+    assert.ok(around[1] > from.z + .05, 'contact must preserve sideways movement around a character');
+    assert.ok(Math.hypot(around[0] - from.x - .4, around[1] - from.z) >= .4 - 1e-6, 'sliding cannot deepen an existing overlap');
     game.mode = null; game.training.stop(); game.events.emit('modechange', null); combat.update(.1);
     assert.deepEqual(game.player.feet, checkpoint); assert.equal(city.visible, true);
     assert.equal(combat.root.visible, false); assert.equal(combat.views.size, 0); assert.equal([...combat.simulation.actors].length, 2);

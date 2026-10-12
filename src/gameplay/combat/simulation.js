@@ -3,6 +3,7 @@ import { Vehicle, SeekBehavior, SeparationBehavior, Vector3 } from 'yuka';
 import { combatRules, DIFFICULTIES, damageForHit } from './config.js';
 import { traceHitboxes, updateHumanoidHitboxes, boxEntry } from './hitboxes.js';
 import { createFlowField } from './flow-field.js';
+import { moveWithContacts, slideCharacterContacts } from '../../shared/movement.js';
 
 export const COMBAT_STEP = 1 / 60;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -148,12 +149,11 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       else p.copy(previous);
       vehicle.velocity.set(0, 0, 0);
     }
-    // AI must not walk into the controller then force it out again next frame.
-    for (const other of actors) {
-      if (other === entity || other.dead || Math.abs(other.position.y - previous.y) > 1.7) continue;
-      const limit = entity.radius + other.radius, oldDistance = distance(previous, other.position), nextDistance = distance(p, other.position);
-      if (nextDistance < limit && nextDistance < oldDistance) { p.copy(previous); vehicle.velocity.set(0, 0, 0); break; }
-    }
+    const [x, z] = moveWithContacts(previous, p, entity.radius, previous.y,
+      (x, z, r, y, options) => slideCharacterContacts(x, z, r, y, actors, { ...options, exclude: entity }), { push: false });
+    if (navigation.segmentClear(previous, { x, y: previous.y, z })) p.set(x, previous.y, z);
+    else p.copy(previous);
+    vehicle.velocity.set((p.x - previous.x) / dt, 0, (p.z - previous.z) / dt);
     entity.position = { x: p.x, y: p.y, z: p.z };
     if (entity.muzzle) { entity.muzzle.x += p.x - previous.x; entity.muzzle.z += p.z - previous.z; }
     entity.velocity = { x: (p.x - previous.x) / dt, y: 0, z: (p.z - previous.z) / dt };

@@ -22,6 +22,19 @@ const fixture = t => {
 };
 const place = (p, position) => { p.entity.position = { ...position }; p.entity.protectedUntil = 0; updateHumanoidHitboxes(p.entity); };
 
+test('authoritative player contacts slide around a neighbour without overlap or rejecting all motion', t => {
+  const { s } = fixture(t), a = s.addPlayer('a', {}), b = s.addPlayer('b', {});
+  const center = { x: field.x, y: field.y, z: field.z + 8 };
+  place(b, center); place(a, { ...center, x: center.x - .7 });
+  for (let seq = 1; seq <= 24; seq++) {
+    s.step(); const at = a.entity.position;
+    assert.equal(s.setPose('a', { ...at, x: at.x + .04, z: at.z + .04, seq, yaw: 0 }), true);
+    assert.ok(Math.hypot(a.entity.position.x - center.x, a.entity.position.z - center.z) >= .7 - 1e-6);
+  }
+  assert.ok(a.entity.position.x > center.x && a.entity.position.z > center.z + .7);
+  assert.deepEqual(b.entity.position, center, 'moving around another player cannot push them involuntarily');
+});
+
 test('ammo loot is server-owned, requires proximity and clear sight, and only one player can collect per cooldown', t => {
   const { s, events } = fixture(t), a = s.addPlayer('a', {}), b = s.addPlayer('b', {});
   assert.equal(s.handleAction('a', { type: 'pickupAmmo' }), false, 'remote pickups must be rejected');

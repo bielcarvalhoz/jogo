@@ -67,7 +67,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   sweepHairTips(meshes);
   const appearance = createAppearance(model, bones, meshes);
   const stowSockets = {};
-  for (const [name, bone, at] of [['back', bones['DEF-spine003'], [0, .59, -.102]], ['hip', bones['DEF-hips'], [-.13, .40, -.015]]]) {
+  for (const [name, bone, at] of [['back', bones['DEF-spine003'], [0, .59, -.102]], ['hip', bones['DEF-hips'], [-.13, .40, -.09]]]) {
     stowSockets[name] = { bone, position: bone.worldToLocal(model.localToWorld(vector().set(...at))),
       rotation: bone.getWorldQuaternion(quaternion()).invert().multiply(root.quaternion) };
   }
@@ -130,6 +130,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   const reloadClip = namedClip(clips, 'Pistol_Reload');
   const reloadAction = reloadClip ? layer(reloadClip, true).setLoop(THREE.LoopOnce, 1).setEffectiveWeight(0) : null;
   let reloadState = null;
+  const hitActions = new Map(); let hit = null;
   const swordIdle = layer(swordClip, true).setEffectiveWeight(0).play();
   const punchIdleClip = punchClip.clone(); punchIdleClip.name = 'Punch_Ready';
   punchIdleClip.tracks = punchIdleClip.tracks.map(track => {
@@ -140,7 +141,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   const punchIdle = layer(punchIdleClip, true).setEffectiveWeight(0).play();
   const attackActions = new Map();
   let heldKind = 'firearm', heldWeapon = 'pistol', attack = null, punchSequence = 0, currentAimBlend = 0, scopedView = false;
-  const animationState = { motion: 'Idle_Loop', attack: null, reload: null, kind: heldKind };
+  const animationState = { motion: 'Idle_Loop', attack: null, reload: null, hit: null, kind: heldKind };
   const poseAnchor = vector();
   const authoredSpine = spine.quaternion.clone();
   const evaluatedCamera = quaternion(), evaluatedEye = vector();
@@ -206,7 +207,12 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
       const gait = GAITS[gaitForSpeed(speed, player.crouched && !flying)];
       setMotion(dancing > 0 ? 'Dance_Loop' : flying ? 'Swim_Fwd_Loop' : airborne ? 'Jump_Loop' : gait.clip, dancing > 0 ? 1 : flying ? 1.2 : airborne || !gait.speed ? 1 : speed / gait.speed, fullBody);
       // Reload timing must match the ammo clock even below 20 fps.
-      const frameDt = Math.min(reloadState ? .1 : .05, Math.max(0, dt));
+      const frameDt = Math.min(reloadState || hit ? .1 : .05, Math.max(0, dt));
+      if (hit) {
+        hit.elapsed += frameDt;
+        hit.action.setEffectiveWeight(Math.max(0, Math.min(1, (hit.duration - hit.elapsed) / .08)));
+        if (hit.elapsed >= hit.duration) stopHit();
+      }
       const firstMelee = !fullBody && heldKind === 'melee' && player.cameraMode === 'first';
       const firstAttack = firstMelee;
       if (fullBody) { stopAttack(); stopReload(); shootAction?.stop(); }
@@ -248,7 +254,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
         const hipsWorld = hips.getWorldQuaternion(quaternion());
         spine.quaternion.premultiply(hipsWorld.clone().invert().multiply(model.getWorldQuaternion(quaternion())).multiply(hipsReference));
         root.updateMatrixWorld(true);
-        if (heldKind === 'firearm' && !reloadState) {
+        if (heldKind === 'firearm' && !reloadState && !hit) {
           const gunRotation = rightHand.getWorldQuaternion(quaternion()).multiply(socketRotation);
           const aimFrame = player.cameraMode === 'first' ? camera.quaternion.clone() : quaternion().setFromAxisAngle(vector().set(0, 1, 0), player.yaw);
           const relative = aimFrame.clone().invert().multiply(gunRotation);
@@ -265,7 +271,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
       }
       // Boxing/sword clips tilt the neck with the crouched guard. Preserve the
       // attack below it, while keeping the face at the upright rest orientation.
-      if (!fullBody && heldKind !== 'firearm' && player.cameraMode === 'third' && head && uprightHead) {
+      if (!fullBody && !hit && heldKind !== 'firearm' && player.cameraMode === 'third' && head && uprightHead) {
         root.updateMatrixWorld(true);
         head.quaternion.copy(head.parent.getWorldQuaternion(quaternion()).invert()
           .multiply(root.quaternion).multiply(uprightHead));
@@ -303,6 +309,21 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   }
   function stopReload() {
     reloadAction?.stop(); reloadAction?.setEffectiveWeight(0); reloadState = null; animationState.reload = null;
+  }
+  function stopHit() {
+    hit?.action.stop(); hit = null; animationState.hit = null;
+  }
+  function playHit(region = 'thorax') {
+    if (preview || !player.active) return false;
+    const name = region === 'head' ? 'Hit_Head' : 'Hit_Chest', clip = namedClip(clips, name);
+    if (!clip) return false;
+    dancing = greeting = 0; stopHit();
+    if (!hitActions.has(name)) {
+      const additive = THREE.AnimationUtils.makeClipAdditive(clip.clone(), 0);
+      hitActions.set(name, layer(additive, true).setLoop(THREE.LoopOnce, 1));
+    }
+    const action = hitActions.get(name); action.reset().setEffectiveWeight(1).play(); action.clampWhenFinished = true;
+    hit = { action, duration: clip.duration, elapsed: 0 }; animationState.hit = name; return true;
   }
   function playReload(duration = 2.3) {
     dancing = greeting = 0;
@@ -445,7 +466,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
     preview = { name: clip.name, time }; mixer.clipAction(clip).play(); update(0);
   }
   update(0);
-  return { root, model, bones, meshes, mixer, clips, scale, update, updateWeapon, playShot, playAttack, playReload, stopReload, setWeapon,
+  return { root, model, bones, meshes, mixer, clips, scale, update, updateWeapon, playShot, playAttack, playReload, stopReload, playHit, stopHit, setWeapon,
     setPreviewAnimation, weaponDiagnostics, animationState, poseConfig, appearance, playGreeting() { dancing = 0; greeting = 2.5; },
     stopEmote() { dancing = greeting = 0; animationState.emote = null; },
     playEmote(id) { if (id === 'dance') { stopAttack(); stopReload(); greeting = 0; dancing = 5; } else if (id === 'wave') { dancing = 0; greeting = 2.5; } } };

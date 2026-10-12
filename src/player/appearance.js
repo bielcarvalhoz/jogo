@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { normalizeAppearance, DEFAULT_APPEARANCE } from '../core/index.js';
 import hairAssets from './hair-assets.js';
+import { createScalpGeometry } from './hair.js';
 
 /** Private runtime materials/rest shapes; the GLB, skeleton and clips stay intact. */
 export function createAppearance(model, bones, meshes) {
@@ -40,30 +41,9 @@ export function createAppearance(model, bones, meshes) {
   const sphere = (group, mat, pos, size, half = false) => part(group,
     new THREE.SphereGeometry(1, 16, 10, 0, Math.PI * 2, 0, half ? Math.PI * .55 : Math.PI), mat, pos, size);
   function group(key) { const result = new THREE.Group(); result.name = `character-${key}`; groups.set(key, result); return result; }
-  // A continuous scalp follows the forehead, temples and nape instead of
-  // cutting every style off at the equator of a hemisphere.
+  const fittedScalp = createScalpGeometry(meshes), fittedNape = createScalpGeometry(meshes, true);
   function scalp(g, napeOnly = false) {
-    const vertices = [], indices = [], columns = 32, rows = 12;
-    for (let row = 0; row <= rows; row++) for (let col = 0; col <= columns; col++) {
-      const phi = col / columns * Math.PI * 2, back = (1 - Math.cos(phi)) / 2;
-      const end = 1.12 + 1.24 * back, start = napeOnly ? 1.52 : 0;
-      const theta = start + (Math.max(start, end) - start) * row / rows;
-      vertices.push(Math.sin(phi) * Math.sin(theta) * .102, .858 + Math.cos(theta) * .104, -.009 + Math.cos(phi) * Math.sin(theta) * .103);
-      if (row < rows && col < columns) { const a = row * (columns + 1) + col, b = a + columns + 1; indices.push(a, b, a + 1, b, b + 1, a + 1); }
-    }
-    const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices); geometry.computeVertexNormals();
-    const mesh = part(g, geometry, hair, [0, 0, 0]); mesh.material.side = THREE.DoubleSide;
-    // The back of this head is flatter than a sphere. Extend along that
-    // surface down to the neck instead of disappearing inside the skull.
-    const backVertices = [], backIndices = [], backColumns = 20, backRows = 5;
-    for (let row = 0; row <= backRows; row++) for (let col = 0; col <= backColumns; col++) {
-      const phi = Math.PI / 2 + col / backColumns * Math.PI, t = row / backRows, lower = .780 + Math.cos(phi) * .040;
-      backVertices.push(Math.sin(phi) * .101 * (1 - t * .18), .865 + (lower - .865) * t, -.012 + Math.cos(phi) * .095);
-      if (row < backRows && col < backColumns) { const a = row * (backColumns + 1) + col, b = a + backColumns + 1; backIndices.push(a, b, a + 1, b, b + 1, a + 1); }
-    }
-    const backGeometry = new THREE.BufferGeometry(); backGeometry.setAttribute('position', new THREE.Float32BufferAttribute(backVertices, 3));
-    backGeometry.setIndex(backIndices); backGeometry.computeVertexNormals(); part(g, backGeometry, hair, [0, 0, 0]);
+    part(g, (napeOnly ? fittedNape : fittedScalp).clone(), hair, [0, 0, 0]).material.side = THREE.DoubleSide;
   }
   scalp(group('nape:hair'), true);
   for (const [style, asset] of Object.entries(hairAssets)) {
@@ -84,6 +64,7 @@ export function createAppearance(model, bones, meshes) {
     const merged = mergeGeometries(pieces); for (const geometry of pieces) geometry.dispose();
     g.clear(); part(g, merged, hair, [0, 0, 0]);
   }
+  fittedScalp.dispose(); fittedNape.dispose();
   const cloth = material(DEFAULT_APPEARANCE.shirtColor), lapel = material('#304558'), white = material('#eeeae0'), tie = material('#8b3140');
   const formal = group('clothes:formal'), necktie = group('clothes:tie'), lapels = group('clothes:lapels');
   function patch(g, points, mat) {

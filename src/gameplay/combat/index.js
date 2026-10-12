@@ -5,6 +5,7 @@ import { loadCombatModels, createActorView } from './actors.js';
 import { createTrainingLab } from './training-lab.js';
 import { DIFFICULTIES } from './config.js';
 import { footSurface } from '../../core/index.js';
+import { slideCharacterContacts } from '../../shared/movement.js';
 export { DEFAULT_COMBAT_RULES, DIFFICULTIES } from './config.js';
 export { createCombatSimulation, COMBAT_STEP } from './simulation.js';
 export { traceHitboxes, updateHumanoidHitboxes } from './hitboxes.js';
@@ -34,12 +35,14 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
         if (box && target) game.bodyPaint?.stamp(target, new THREE.Vector3().copy(box.a).lerp(box.b, .5), new THREE.Vector3().copy(event.source.position).sub(event.victim.position).normalize());
       }
       views.get(event.victim)?.react(event.region, event.time);
+      if (event.victim === player) game.player.avatar?.playHit?.(event.region);
       if (event.weapon?.kind === 'melee' && event.source !== player) game.audio?.hit?.({ entity: event.victim, point: event.victim.position }, { kind: 'melee' });
     }
     if (event.type === 'death') {
       game.audio?.stopReload?.(`reload:${event.victim.id}`);
       if (event.victim.kind === 'player') { game.player.spawnCorpse?.(event.victim.dead.impulse); game.player.avatar?.stopEmote(); }
     }
+    if (event.type === 'respawn' && event.entity === player) game.player.avatar?.stopHit?.();
     if (event.type === 'attack') game.audio?.melee?.({ id: 'fists' }, { position: event.entity.position });
     if (event.type === 'reload') { views.get(event.entity)?.reload?.(event.duration, event.time); game.audio?.reload?.({ id: 'automatic' }, { duration: event.duration, position: event.entity.position, tag: `reload:${event.entity.id}` }); }
     if (event.type === 'shot') {
@@ -140,15 +143,7 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     },
     collide(x, z, radius, feetY = 0, { from } = {}) {
       if (!game.training.active) return [x, z];
-      for (const e of simulation.actors) {
-        if (e === player || e.dead || feetY >= e.position.y + 1.8 || feetY + 1.8 <= e.position.y) continue;
-        const dx = x - e.position.x, dz = z - e.position.z, d = Math.hypot(dx, dz), limit = radius + e.radius;
-        if (d < limit) {
-          if (from) { if (d < Math.hypot(from.x - e.position.x, from.z - e.position.z) - .00001) return [from.x, from.z]; }
-          else { x = e.position.x + (d ? dx / d : 1) * limit; z = e.position.z + (d ? dz / d : 0) * limit; }
-        }
-      }
-      return [x, z];
+      return slideCharacterContacts(x, z, radius, feetY, simulation.actors, { from, exclude: player });
     },
   };
   api.trainingLab = createTrainingLab(game, api);

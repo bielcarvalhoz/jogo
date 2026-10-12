@@ -576,10 +576,11 @@ body.training-active .desktop-menu { left: 270px; top: 14px; bottom: auto; }
 .weapon-hud span { font-size: 11px; letter-spacing: .02em; }
 .weapon-hud [hidden], #btn-reload[hidden], #ammo-hud[hidden] { display: none !important; }
 .paint-hud { right: 15px; bottom: 80px; padding: 6px 9px; }
-#ammo-hud { position: absolute; right: 16px; bottom: 127px; display: flex; align-items: baseline; gap: 6px; color: #eef3f2; background: #13212bd9; padding: 7px 10px; border-radius: 7px; font-variant-numeric: tabular-nums; }
-#ammo-loaded { font-size: 25px; line-height: 1; }
-#ammo-reserve { font-size: 13px; color: #c5cfce; }
-#reload-status { font-size: 11px; color: #ffda8e; min-width: 0; }
+#ammo-hud { position: absolute; right: 16px; bottom: 127px; box-sizing: border-box; width: 112px; height: 52px; display: grid; grid-template-columns: 32px 6px 28px; grid-template-rows: 24px 14px; justify-content: center; align-items: baseline; align-content: center; column-gap: 4px; color: #eef3f2; background: #13212bd9; padding: 5px 7px; border-radius: 7px; overflow: hidden; font-variant-numeric: tabular-nums; }
+#ammo-loaded { font-size: 25px; line-height: 1; text-align: right; }
+#ammo-reserve { font-size: 13px; color: #c5cfce; text-align: left; }
+.ammo-separator { text-align: center; }
+#reload-status { grid-column: 1 / -1; grid-row: 2; align-self: center; text-align: center; height: 14px; line-height: 14px; font-size: 11px; color: #ffda8e; }
 #reload-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #f2cc7c; transform: scaleX(var(--reload-progress, 0)); transform-origin: left; border-radius: 2px; }
 .low-ammo #ammo-loaded { color: #ffbc88; }
 .compact-help { position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column-reverse; align-items: flex-start; max-width: min(480px, 70vw); color: #dce4e2; pointer-events: auto; }
