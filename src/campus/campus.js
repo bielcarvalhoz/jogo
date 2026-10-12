@@ -1046,6 +1046,8 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
   C.streetTreeCount=C.trees.filter(t=>t.sidewalk).length;
   function pedestrianGate(g) {
     // guarita de pedestres junto ao vão do muro (lado de dentro)
+    // (g.built: portaria levantada em campo, construída em portaria-pedestres.js — aqui só o rótulo)
+    if (g.built) { label(`${g.num ? String(g.num).padStart(2, '0') + ' · ' : ''}${g.name}`, g.center.x + g.center.tx * 3, H(g.center.x, g.center.z) + 7, g.center.z + g.center.tz * 3, '🚶'); return; }
     const ends = [];
     for (const w of C.walls) for (const p of [w[0], w[w.length - 1]]) if (Math.hypot(p[0] - g.x, p[1] - g.z) < 14) ends.push(p);
     ends.sort((a, b) => Math.hypot(a[0] - g.x, a[1] - g.z) - Math.hypot(b[0] - g.x, b[1] - g.z));

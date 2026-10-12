@@ -66,6 +66,16 @@ Correção de leitura: o “bloco dos fundos de telhado escuro” da recepção,
 
 Ainda diferente do local: a rua interna tem 4,5 m no jogo (cerca de 9 m no local), então a faixa de pedestres de dentro tem ~10 m em vez de ~17 m; as faixas das bocas ficam atravessadas no meio-fio da rua do jogo (o eixo do OSM não coincide com o leito real em ±1 m); a ilha da árvore tem a ponta do lado da rua escondida pela copa nas imagens (contorno estimado); e o fechamento do lado da Agência é um muro (no local a Agência tem frente aberta para a rua, com rampa rente à fachada).
 
+## Portaria de pedestres da Bussocaba (06) (10/2026)
+
+`src/campus/portaria-pedestres.js`; dados no marco `portaria-pedestres`. Medida em vista de topo do Google Earth (30 m, com a grade do jogo) e no Street View de jun/2023 indicado pelo usuário; o interior segue a descrição dele:
+
+- na rua: muro de concreto com um portal branco e portão de correr cinza; atrás, cobertura branca alta (~11 × 5,4 m) sobre pilares finos, faixa de vidro acima do muro e pórtico vermelho na ponta oeste;
+- percurso: entra-se pelo portal, vira-se à **direita** e sobe-se uma **escada de ponta a ponta** (6 espelhos; o estacionamento fica ~1 m acima da calçada no Earth); no topo, as **três catracas**; em frente a elas, a **guarita** do guarda; depois das catracas vira-se à **esquerda** e sai-se para o campus pela faixa de pedestres;
+- o relevo é rebaixado na calçada da rua e sob o saguão (`terrain.gradeProfile`); a calçada da via interna é recortada na planta da portaria (`world.sidewalkVoids`) e os fundos do saguão são muro de arrimo com vidro.
+
+Diferente do local: o muro do jogo passa ~1,7 m mais perto da rua, então a portaria foi deslocada junto; atrás dela o jogo tem vias de serviço com calçadas onde no local é o pátio do estacionamento (a faixa zebrada real atravessa o pátio até o Balança); o interior além do percurso descrito é aproximado.
+
 ## Relevo e navegação
 
 O SRTM original continua intacto no arquivo de dados; antes de qualquer terraplenagem ele é corrigido pelos pontos de controle descritos acima. Campo/pista/arquibancada são nivelados antes das vias. Prédios recebem cotas fixas, plataformas de construção e bases de contenção, incluindo amostras do interior da planta. As cotas próximas da entrada do Azul são vinculadas à rua para impedir uma praça suspensa. A seção transversal das ruas/passeios é horizontal e a rampa longitudinal é limitada a 12%; todas as vias internas de veículos têm duas mãos e faixa central amarela, inclusive ruas sem nome. Os perfis das vias não são recalculados a partir do aterro dos prédios.

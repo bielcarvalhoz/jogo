@@ -4,6 +4,7 @@ import { exteriorEdges } from './reference.js';
 import { createKit, toWorld } from './landmark-kit.js';
 import { planStairway, resolveStairway, stairwaySamples, buildStairway } from './stairway.js';
 import { planPortaria, fitPortariaRoads, buildPortaria } from './portaria.js';
+import { planPedestrianGate, fitPedestrianGate, gradePedestrianGate, buildPedestrianGate } from './portaria-pedestres.js';
 import { planLocomotive, settleLocomotive, buildLocomotive } from './locomotive.js';
 import { WALK, prepareAlley, nearestStreet, terraceSamples, planAlleyStair, alleySamples, backDoorFrame, spanAt, buildPrataAccess } from './prata-access.js';
 
@@ -38,6 +39,9 @@ export function prepareLandmarks(C, world) {
     if (world) fitPortariaRoads(C.portaria, world, C);
     for (const g of C.gates || []) if (g.num === gate.gate && g.type === 'portaria') g.combined = true;
   }
+  // portaria de pedestres levantada: cobertura, portal e faixa próprios (campus.js só põe o rótulo)
+  const pedestrians = marks.find((m) => m.type === 'portaria-pedestres');
+  if (pedestrians) { C.pedestrianGate = planPedestrianGate(pedestrians, (x, z) => pointInPolygon(x, z, C.quarter)); if (world) fitPedestrianGate(C.pedestrianGate, world, C); }
   const locomotive = marks.find((m) => m.type === 'locomotiva');
   if (locomotive) C.locomotive = planLocomotive(locomotive);
 }
@@ -150,6 +154,12 @@ export function gradeLandmarks(world, terrain, C) {
     report.locomotive = terrain.gradeProfile(samples, { radius: 8.5, band: 7, clearance: 0, minClearance: -.4, protect: (x, z) => bed(x, z) || inBuilding(x, z) });
   }
 
+  // Portaria de pedestres: a calçada da rua e o saguão ficam um lance abaixo do estacionamento.
+  if (C.pedestrianGate) {
+    const leito = (x, z) => { const s = nearestStreet(roads.filter((r) => r.kind !== 'foot'), x, z, 14); return !!s && s.d - s.road.w / 2 <= .4; };
+    report.pedestrianGate = gradePedestrianGate(C.pedestrianGate, terrain, { roadLevel: (road, x, z) => { const s = road && nearestStreet([road], x, z, 40); return s ? terrain.roadHeightAt(road, s.x, s.z) : undefined; }, protect: (x, z) => leito(x, z) || inBuilding(x, z) });
+  }
+
   // 4) Escadarias: corte/aterro sob lances, patamares e passarela.
   C.stairways = [];
   for (const path of (C.paths || []).filter((p) => p.kind === 'stairway')) {
@@ -219,6 +229,7 @@ export function buildLandmarks(C, { renderer, terrain, world, roads, rendered })
   const roadClearance = (x, z) => { const s = nearestStreet(world.roads, x, z, 20); return s ? s.d - s.road.w / 2 : Infinity; };
   if (C.locomotive) plan.locomotive = { ...C.locomotive, ...take(buildLocomotive(kit, C.locomotive, { ground, clearance: roadClearance })) };
   if (C.portaria) plan.portaria = { ...C.portaria, ...take(buildPortaria(kit, C.portaria, { ground, clearance: roadClearance, surfaceAt, streetMesh: !rendered || !C.portaria.rua || rendered(C.portaria.rua) })) };
+  if (C.pedestrianGate) plan.pedestrianGate = { ...C.pedestrianGate, ...take(buildPedestrianGate(kit, C.pedestrianGate, { ground, surfaceAt })) };
   const access = take(buildPrataAccess(kit, C, { ground, roads: world.roads, surfaceAt, sidewalkAt }));
   plan.access = access.notes;
 
