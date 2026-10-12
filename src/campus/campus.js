@@ -417,6 +417,9 @@ function computeWalls(C, ring, carRoads, RI, insideSolid, createCanvas) {
     g2.lineWidth = (r.w + 2 * 1.0) / RES;
     g2.beginPath(); r.pts.forEach((p, i) => { const [a, b] = P(p); i ? g2.lineTo(a, b) : g2.moveTo(a, b); }); g2.stroke();
   }
+  // trechos em que o muro real passa na borda da calçada da rua (portaria levantada em campo);
+  // a calçada da rua, desenhada em seguida, recorta o polígono exatamente na borda dela
+  for (const fill of C.wallFills || []) { g2.beginPath(); fill.forEach((p, i) => { const [a, b] = P(p); i ? g2.lineTo(a, b) : g2.moveTo(a, b); }); g2.closePath(); g2.fill(); }
   g2.strokeStyle = '#000';
   for (const r of carRoads) {
     if (!isPublic(r)) continue;
@@ -939,7 +942,8 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
     for (const w of C.walls) {
       builder.addBarrier(w, WALL_H);
     }
-    const wg = campusWallGeometry(C.walls, H, WALL_H);
+    // (C.wallLevel: base do muro no nível da calçada da rua onde o lado de dentro foi rebaixado)
+    const wg = campusWallGeometry(C.walls, C.wallLevel ? (x, z) => C.wallLevel(x, z) ?? H(x, z) : H, WALL_H);
     const wall = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide }));
     wall.castShadow = wall.receiveShadow = true;
     wall.name = 'muro-campus';

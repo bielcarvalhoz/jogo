@@ -6,6 +6,7 @@ import { planStairway, resolveStairway, stairwaySamples, buildStairway } from '.
 import { planPortaria, fitPortariaRoads, buildPortaria } from './portaria.js';
 import { planLot, fitLot, buildLot } from './estacionamento.js';
 import { planPedestrianGate, fitPedestrianGate, gradePedestrianGate, buildPedestrianGate } from './portaria-pedestres.js';
+import { prepareGoiabinha, gradeGoiabinha, buildGoiabinha } from './portaria-goiabinha.js';
 import { planLocomotive, settleLocomotive, buildLocomotive } from './locomotive.js';
 import { WALK, prepareAlley, nearestStreet, terraceSamples, planAlleyStair, alleySamples, backDoorFrame, spanAt, buildPrataAccess } from './prata-access.js';
 
@@ -49,6 +50,9 @@ export function prepareLandmarks(C, world) {
   // portaria de pedestres levantada: cobertura, portal e faixa próprios (campus.js só põe o rótulo)
   const pedestrians = marks.find((m) => m.type === 'portaria-pedestres');
   if (pedestrians) { C.pedestrianGate = planPedestrianGate(pedestrians, (x, z) => pointInPolygon(x, z, C.quarter)); if (world) fitPedestrianGate(C.pedestrianGate, world, C); }
+  // portaria Goiabinha: muro até a calçada da avenida, rampa descendo para a via interna rebaixada
+  const goiabinha = marks.find((m) => m.type === 'portaria-goiabinha');
+  if (goiabinha) C.goiabinha = prepareGoiabinha(goiabinha, world, C);
   const locomotive = marks.find((m) => m.type === 'locomotiva');
   if (locomotive) C.locomotive = planLocomotive(locomotive);
 }
@@ -167,6 +171,9 @@ export function gradeLandmarks(world, terrain, C) {
     report.pedestrianGate = gradePedestrianGate(C.pedestrianGate, terrain, { roadLevel: (road, x, z) => { const s = road && nearestStreet([road], x, z, 40); return s ? terrain.roadHeightAt(road, s.x, s.z) : undefined; }, protect: (x, z) => leito(x, z) || inBuilding(x, z) });
   }
 
+  // Portaria Goiabinha: o lado de dentro do muro abaixo da avenida, sob as vias internas rebaixadas pelo platô tardio.
+  if (C.goiabinha) report.goiabinha = gradeGoiabinha(C.goiabinha, terrain, { roads: roads.filter((r) => r.internal && !r.bridge && r.kind !== 'foot'), protect: (x, z) => inBuilding(x, z) });
+
   // 4) Escadarias: corte/aterro sob lances, patamares e passarela.
   C.stairways = [];
   for (const path of (C.paths || []).filter((p) => p.kind === 'stairway')) {
@@ -250,6 +257,7 @@ export function buildLandmarks(C, { renderer, terrain, world, roads, rendered })
   plan.portaria = plan.portarias[0] || null;
   if (C.lot) plan.lot = { ...C.lot, ...take(buildLot(kit, C.lot, { ground })) };
   if (C.pedestrianGate) plan.pedestrianGate = { ...C.pedestrianGate, ...take(buildPedestrianGate(kit, C.pedestrianGate, { ground, surfaceAt })) };
+  if (C.goiabinha) plan.goiabinha = { ...C.goiabinha, ...take(buildGoiabinha(kit, C.goiabinha, { ground, streetMesh: !rendered || !C.goiabinha.avenida || rendered(C.goiabinha.avenida) })) };
   // (o beco do Balança começa no asfalto do pátio)
   const lotAt = (x, z) => { let y = -Infinity; for (const s of plan.lot?.surfaces || []) if (s.y > y && pointInPolygon(x, z, s.rings)) y = s.y; return y; };
   const access = take(buildPrataAccess(kit, C, { ground, roads: world.roads, surfaceAt: (x, z, maxY) => Math.max(surfaceAt?.(x, z, maxY) ?? -Infinity, lotAt(x, z)), sidewalkAt }));

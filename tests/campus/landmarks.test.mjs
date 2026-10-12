@@ -137,10 +137,10 @@ test('every landmark floor is above the graded terrain and clear of trees', () =
     assert.ok(Number.isFinite(tree.x + tree.z + tree.s));
   }
   // Uma malha por piso texturizado/pintura (asfalto, calçada, tinta, vidro, marquise) e uma por
-  // placa. Hoje: 9 de piso/material + 13 placas — locomotiva (4), placas da história (2), as duas
+  // placa. Hoje: 9 de piso/material + 14 placas — locomotiva (4), placas da história (2), as duas
   // testeiras de portaria, o atlas de texto de pista e a marca do totem da Wenceslau, o símbolo das
-  // vagas, os degraus coloridos e o totem do Prata.
-  assert.ok(built.stats.triangles > 5000 && built.stats.meshes <= 22);
+  // vagas, os degraus coloridos, o totem do Prata e a placa da Portaria Goiabinha.
+  assert.ok(built.stats.triangles > 5000 && built.stats.meshes <= 23);
 });
 
 test('alley cut separates a retaining block from the building end and its stair fits the gap', () => {
@@ -418,6 +418,30 @@ test('pedestrian gate 06: portal, stair up to the turnstiles on the right, exit 
   // percurso a pé (sem as catracas e as calçadas das vias neste teste)
   const mid = (.1 + G.fundo) / 2, route = walk(L, [G.at(8.2, 0), G.at(8.2, 2), G.at(7, mid), G.at(1, mid), G.at(.8, G.fundo + .3)]);
   assert.ok(route.jump <= .18 && Math.abs(route.end - G.levels.up) < .02 && Math.abs(route.start - G.levels.low) < .02, 'degrau de ' + route.jump.toFixed(2) + ' m');
+});
+
+test('pedestrian gate 07 (Goiabinha): door at street level, two turnstiles, ramp down to the east onto the lowered inner sidewalk', () => {
+  const L = actualLandmarks(), { C, world, terrain, built } = L, G = built.plan.goiabinha, gate = C.gates.find((g) => g.num === 7), lv = G.levels;
+  assert.ok(G && gate.built && gate.turnstiles === 2 && Math.abs(gate.floorLevel() - lv.floor) < 1e-9);
+  // catracas logo depois da porta, viradas para a rampa (para o leste); o portal fica na borda da calçada da avenida (o muro vai até ali)
+  assert.ok(gate.center.tx * G.axis[0] + gate.center.tz * G.axis[1] > .99 && G.catracas < G.rampa[0] && G.catracas > G.porta / 2);
+  // as catracas (amenities.js) ficam na mesma linha das grades, sem o sentido ser invertido
+  const lanes = planCampusAmenities(C, world).gates.find((g) => g.gate.num === 7).lanes;
+  assert.ok(lanes.length === 2 && lanes.every((lane) => Math.abs(G.local(lane.x, lane.z)[0] - G.catracas) < .01));
+  const kerb = (road, x, z) => Math.min(...road.pts.slice(1).map((b, i) => distToSegment(x, z, ...road.pts[i], ...b).d)) - road.w / 2;
+  assert.ok(Math.abs(kerb(G.avenida, ...G.at(0, 0)) - 2.2) < .05 && C.wallFills.some((ring) => pointInPolygon(...G.at(0, -.3), [ring]) && pointInPolygon(...G.at(10, 1), [ring])));
+  // a rampa DESCE para o LESTE (para o lado em que a avenida sobe), dentro do limite de acessibilidade
+  assert.ok(G.axis[0] > 0 && G.rampa[1] > G.rampa[0] && lv.low < lv.floor - .3);
+  assert.ok((lv.floor - lv.low) / (G.rampa[1] - G.rampa[0]) <= .0833);
+  assert.ok(lv.rua.find(([s]) => s >= G.rampa[1])[1] - lv.low > .8, 'o pé da rampa fica abaixo da calçada da avenida');
+  // a calçada da via interna no pé da rampa está no nível do patamar (platô tardio)
+  const foot = nearestStreet([G.interna], ...G.at(G.patamar - .5, 8.5), 12);
+  assert.ok(Math.abs(terrain.roadHeightAt(G.interna, foot.x, foot.z) + .41 - lv.low) < .03);
+  // nada no leito da avenida nem das vias internas
+  for (const q of built.solids.filter((q) => /goiabinha|catracas/.test(q.kind))) for (const p of q.rings[0]) { const s = nearestStreet(world.roads, ...p, 20); assert.ok((!s || s.d - s.road.w / 2 > .2) && kerb(G.avenida, ...p) > .2, q.kind + ' no leito da via'); }
+  // percurso a pé: calçada da avenida -> porta -> catraca -> topo da rampa -> patamar (a calçada, inclinada, é feita de placas planas de 50 cm)
+  const lane = (G.rampa[2] + G.rampa[3]) / 2, route = walk(L, [G.at(0, -1.2), G.at(0, .5), G.at(0, lane), G.at(G.catracas, lane), G.at(G.rampa[0], lane), G.at(G.rampa[1], lane), G.at(G.patamar - .4, lane)]);
+  assert.ok(route.jump <= .06 && Math.abs(route.start - lv.floor) < .07 && Math.abs(route.end - lv.low - .015) < .02, `degrau de ${route.jump.toFixed(2)} m, ${route.start.toFixed(2)} -> ${route.end.toFixed(2)}`);
 });
 
 test('Balança lot is one open asphalt yard with the surveyed stalls, and the Balança facade is straight', () => {

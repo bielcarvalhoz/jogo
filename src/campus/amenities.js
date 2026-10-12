@@ -68,7 +68,8 @@ function gatePedestrianFrame(gate, C) {
     const [cx, cz] = ringCentroid(C.quarter[0]), length = Math.hypot(cx - x, cz - z) || 1;
     tx = (cx - x) / length; tz = (cz - z) / length;
   }
-  if (!pointInPolygon(x + tx * 10, z + tz * 10, C.quarter)) { tx = -tx; tz = -tz; }
+  // (portaria levantada em campo: o sentido vem dela — na Goiabinha as catracas olham ao longo do muro)
+  if (!gate.built && !pointInPolygon(x + tx * 10, z + tz * 10, C.quarter)) { tx = -tx; tz = -tz; }
   return { x, z, tx, tz, yaw: Math.atan2(tx, tz) };
 }
 
@@ -203,7 +204,7 @@ export function buildCampusAmenities(C, { renderer, terrain, world, sidewalkHeig
   for (const gate of plan.gates) {
     let pedestrianHeight;
     // (gate.built: portaria levantada em campo — as catracas ficam no piso dela, sem abrigo próprio)
-    const level = gate.gate.built ? C.pedestrianGate?.levels?.up : undefined;
+    const level = gate.gate.built ? gate.gate.floorLevel?.() ?? C.pedestrianGate?.levels?.up : undefined;
     if (!gate.vehicle && !Number.isFinite(level)) {
       const [x, z] = localPoint(gate, 0, 1.1), place = { ...gate, x, z };
       pedestrianHeight = pad(place, 3.5, 3.6, .025);

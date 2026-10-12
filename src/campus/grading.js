@@ -24,7 +24,9 @@ export function gradeCampusTerrain(world, terrain, campus) {
   // Platôs de projeto: áreas que no local são planas e niveladas (estacionamentos, baixada do
   // campo). O relevo de satélite e a suavização das vias criavam barrigas e depressões; aqui a
   // cota é imposta ao relevo e aos nós das vias que passam por dentro.
-  const plateaus = (campus.plateaus || []).map((p) => ({ ...p, level: p.altitude - terrain.base }));
+  // (`late`: platô de um marco aplicado só depois da terraplenagem, ver o fim desta função)
+  const levelOf = (p) => typeof p.level === 'function' ? p.level(terrain) : p.altitude - terrain.base;
+  const plateaus = (campus.plateaus || []).filter((p) => !p.late).map((p) => ({ ...p, level: levelOf(p) }));
   plateaus.forEach((p, i) => {
     const graded = terrain.gradePlatform(p.rings, { level: p.level, band: p.band ?? 12, preserve: [...preserve, ...plateaus.slice(0, i).map((q) => ({ rings: q.rings, margin: 0 }))] });
     report.plateaus.push({ id: p.id, level: p.level, ...graded });
@@ -108,5 +110,17 @@ export function gradeCampusTerrain(world, terrain, campus) {
     preserve.push({ rings: apron.rings, margin: 0, roadCutAllowed: true });
   }
   report.roads = terrain.gradeCorridors(internalRoads, { preserve, reuseProfiles: true });
+  // Platôs tardios: um marco rebaixa um trecho de via (ex.: a via interna junto à rampa da Portaria
+  // Goiabinha, abaixo da avenida). Só o perfil das vias até `reach` m dele muda — os nós mais longe
+  // ficam presos ao perfil de antes — e o relevo continua o da terraplenagem: o marco o rebaixa por
+  // baixo das vias depois (gradeLandmarks), sem arrastar a rua de fora junto.
+  const late = (campus.plateaus || []).filter((p) => p.late).map((p) => ({ ...p, level: levelOf(p) }));
+  if (late.length) {
+    const near = (x, z) => late.some((p) => p.rings[0].some(([px, pz]) => Math.hypot(px - x, pz - z) < (p.reach ?? 80)));
+    const roads = internalRoads.filter((r) => r.pts.some((p) => near(...p)));
+    const before = (x, z) => { let best = Infinity, y; for (const r of roads) for (let i = 1; i < r.pts.length; i++) { const d = distToSegment(x, z, ...r.pts[i - 1], ...r.pts[i]).d; if (d < best) { best = d; y = terrain.roadHeightAt(r, x, z); } } return y; };
+    terrain.gradeCorridors(roads, { profileOnly: true, pinned: (x, z) => late.find((p) => pointInPolygon(x, z, p.rings))?.level ?? (near(x, z) ? plateauLevel(x, z) : before(x, z)) });
+    report.late = late.map((p) => ({ id: p.id, level: p.level, roads: roads.length }));
+  }
   return report;
 }
