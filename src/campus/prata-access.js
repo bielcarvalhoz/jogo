@@ -241,7 +241,7 @@ export function buildPrataAccess(kit, C, { ground, roads, surfaceAt, sidewalkAt 
     const lot = (x, z) => Math.max(ground(x, z), roadAt(x, z));
     // cotas reais das calçadas nas duas pontas (a terraplenagem usou a estimativa do perfil das vias)
     const topY = Number.isFinite(actual) && Math.abs(actual - stair.topY) < .6 ? actual : stair.topY, entryY = lot(...alley.at(alley.uA, alley.v0 - .9)) + .02;
-    const bottomY = Math.abs(entryY - stair.bottomY) < .7 ? entryY : stair.bottomY, h = (topY - bottomY) / stair.K, yOf = (k) => bottomY + h * k;
+    const bottomY = Math.abs(entryY - stair.bottomY) < 1.1 ? entryY : stair.bottomY, h = (topY - bottomY) / stair.K, yOf = (k) => bottomY + h * k;
     const stepBox = (x0, x1, y) => {
       const ring = rectRing(f, x0, -half, x1, half), base = Math.min(y - .4, ...ring.map(([x, z]) => ground(x, z) - .3));
       kit.box(C_STEP, f, (x0 + x1) / 2, (y + base) / 2, 0, x1 - x0 + .004, y - base, alley.width); floor(ring, y);
@@ -365,10 +365,11 @@ export function buildPrataAccess(kit, C, { ground, roads, surfaceAt, sidewalkAt 
     // faixa zebrada que vem do estacionamento rente à grade verde, até a quina do bloco
     const corner = toWorld(north, -west * (half + 4.6), 1.6), away = [-alley.ux * .97 - alley.nx * .24, -alley.uz * .97 - alley.nz * .24];
     const lane = frameAt(corner[0], corner[1], yawOf(...away));
-    for (let t = .6; t < 27; t += 1.05) { const [x, z] = toWorld(lane, t, 0); kit.box(C_ZEBRA, frameAt(x, z, lane.yaw, lot(x, z) + .02), 0, 0, 0, .5, .03, 2.1); }
-    for (let t = 2; t < 27; t += .32) { const [x, z] = toWorld(lane, t, 1.35); kit.box(C_GREEN, frameAt(x, z, lane.yaw, lot(x, z)), 0, 1.1, 0, .05, 2.2, .05); }
-    for (const y of [.25, 2.15]) for (let t = 2; t < 27; t += 5) { const a = toWorld(lane, t, 1.35), b = toWorld(lane, Math.min(27, t + 5), 1.35); kit.rail(C_GREEN, [a[0], lot(...a) + y, a[1]], [b[0], lot(...b) + y, b[1]], .035); }
-    for (let t = 2; t < 27; t += 5) solid([toWorld(lane, t, 1.25), toWorld(lane, Math.min(27, t + 5), 1.25), toWorld(lane, Math.min(27, t + 5), 1.45), toWorld(lane, t, 1.45)], lot(...toWorld(lane, t + 2.5, 1.35)) + 2.2, 'grade-verde');
+    // (com o pátio levantado, a faixa e a grade vêm de estacionamento.js — aqui seriam uma segunda faixa por cima)
+    if (!C.lot) for (let t = .6; t < 27; t += 1.05) { const [x, z] = toWorld(lane, t, 0); kit.box(C_ZEBRA, frameAt(x, z, lane.yaw, lot(x, z) + .02), 0, 0, 0, .5, .03, 2.1); }
+    if (!C.lot) for (let t = 2; t < 27; t += .32) { const [x, z] = toWorld(lane, t, 1.35); kit.box(C_GREEN, frameAt(x, z, lane.yaw, lot(x, z)), 0, 1.1, 0, .05, 2.2, .05); }
+    if (!C.lot) for (const y of [.25, 2.15]) for (let t = 2; t < 27; t += 5) { const a = toWorld(lane, t, 1.35), b = toWorld(lane, Math.min(27, t + 5), 1.35); kit.rail(C_GREEN, [a[0], lot(...a) + y, a[1]], [b[0], lot(...b) + y, b[1]], .035); }
+    if (!C.lot) for (let t = 2; t < 27; t += 5) solid([toWorld(lane, t, 1.25), toWorld(lane, Math.min(27, t + 5), 1.25), toWorld(lane, Math.min(27, t + 5), 1.45), toWorld(lane, t, 1.45)], lot(...toWorld(lane, t + 2.5, 1.35)) + 2.2, 'grade-verde');
     exclusions.push({ kind: 'beco', rings: [rectRing(f, alley.v0 - 5, -half - 3, stair.exit + 1, half + 3)] }, { kind: 'arrimo', rings: [block], padding: 1 },
       { kind: 'faixa', rings: [[toWorld(lane, 0, -1.6), toWorld(lane, 28, -1.6), toWorld(lane, 28, 2), toWorld(lane, 0, 2)]] },
       { kind: 'calcada', rings: [rectRing(north, -(half + 23), -.2, half + 23, 2.2)] }, { kind: 'largo-beco', rings: [rectRing(f, stair.sTop - .5, -6.5, stair.exit + .3, 6.5)] });

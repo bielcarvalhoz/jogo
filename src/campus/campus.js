@@ -272,6 +272,7 @@ export function prepareCampus(geo, world, proj) {
   const stallSegs = [];
   computeParking(C, carRoads, RI, insideSolid, nearWall, treeGrid, stallSegs, rnd);
   world.paintExtras = [{ color: 'rgba(240,240,232,0.9)', width: 0.14, segments: stallSegs }];
+  if (C.lot?.cars) C.cars.push(...C.lot.cars);   // pátio levantado: carros nas vagas medidas (estacionamento.js)
 
   // -- palmeiras ao longo do estacionamento sul (vistas nas imagens 3D)
   for (const p of C.parkings) {

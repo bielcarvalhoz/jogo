@@ -305,7 +305,8 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
     }
   }
   const signedArea = (p) => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0) / 2;
-  const clipToRoads = (polygon, r, overlap = false) => {
+  /** `open`: também recorta nos pátios/largos sem calçada (`world.sidewalkVoids`) */
+  const clipToRoads = (polygon, r, overlap = false, open = overlap) => {
     const cx = polygon.reduce((s, p) => s + p[0], 0) / polygon.length, cz = polygon.reduce((s, p) => s + p[1], 0) / polygon.length;
     let pieces = [polygon];
     const bb = bounds(polygon);
@@ -320,7 +321,7 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
       pieces = pieces.flatMap((p) => subtractConvex(p, obstacle.polygon));
       if (!pieces.length) break;
     }
-    if (overlap) for (const hole of voids) {
+    if (open) for (const hole of voids) {
       if (!pieces.length) break;
       if (intersects(hole.bb)) pieces = pieces.flatMap((p) => subtractConvex(p, hole.polygon));
     }
@@ -427,7 +428,8 @@ function buildCampusSidewalks(world, terrain, renderer, roadLifts) {
       for (let i = 1; i < frames.length; i++) for (const offset of [-0.13, 0.13]) {
         const a = frames[i - 1], b = frames[i];
         if (crossings.some((at) => Math.abs((a.distance + b.distance) / 2 - at) < 2.1)) continue;
-        for (const p of clipToRoads(stripQuad(a, b, offset - 0.045, offset + 0.045), r))
+        // (sem eixo pintado dentro de pátios e largos)
+        for (const p of clipToRoads(stripQuad(a, b, offset - 0.045, offset + 0.045), r, false, true))
           addPolygon(p, (x, z) => roadGround(r, x, z) + lift + 0.018, yellowPos, yellowIdx);
       }
     }

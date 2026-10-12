@@ -76,6 +76,34 @@ Ainda diferente do local: a rua interna tem 4,5 m no jogo (cerca de 9 m no local
 
 Diferente do local: o muro do jogo passa ~1,7 m mais perto da rua, então a portaria foi deslocada junto; atrás dela o jogo tem vias de serviço com calçadas onde no local é o pátio do estacionamento (a faixa zebrada real atravessa o pátio até o Balança); o interior além do percurso descrito é aproximado.
 
+## Estacionamento do Balança (10/2026)
+
+`src/campus/estacionamento.js`; dados no marco `estacionamento`. No OSM os corredores do estacionamento são vias de serviço, e o jogo as desenhava como ruas com calçada; no local é **um pátio de asfalto único**. Medido numa vista de topo do Google Earth a 170 m (dobro da resolução), girada para o sistema do pátio (u ao longo da fachada do Balança, v da fachada para o muro) com grade de 1 m:
+
+- as vias do OSM por dentro do pátio são retiradas do mundo (`fitLot`); o asfalto usa a textura das vias internas e emenda nas ruas que chegam; o platô vai até o muro e até a portaria de pedestres;
+- fileiras: A em diagonal (45°) junto à pista da fachada e B reta, de costas para ela (amarelas); C e D retas, brancas, com o quadrado do símbolo na entrada da vaga; E em diagonal (60°) junto ao muro, com o losango; mais C2, F, G e H na metade leste; carros só nas vagas;
+- faixas zebradas da ponta leste do Balança até a portaria de pedestres 06 (que agora sai direto no pátio); árvores em canteiros entre as vagas; pátio de equipamentos murado na ponta oeste;
+- **Balança**: planta trocada por um retângulo medido (fachada reta de 126,5 m; a planta oficial vinha serrilhada), com a calçada reta rente à fachada e a marquise da entrada.
+
+Correções do usuário (2ª rodada):
+
+- a **rua rente ao muro** (via do OSM `way/965541335`) é rua de verdade e continua inteira: vem da bifurcação da Portaria Bussocaba, passa atrás da portaria de pedestres, segue ao longo do muro e contorna a ponta oeste até sair atrás do Balança (`vias` do marco; sem calçada ao longo do pátio);
+- a **escada do beco** fica como era (2,6 m); só o muro a leste dela é fino (30 cm), e o espaço ganho é pátio, com vagas logo ao lado;
+- ponta leste: ao sul da faixa zebrada o pátio continua **livre e plano** (sem grade) até o **muro do fundo**, na mesma profundidade da casa de máquinas, com vagas junto à faixa e junto ao muro; **casa de máquinas** (galpão envidraçado e duas torres de resfriamento) e, do lado leste dela, o caminho com a **escadinha** que sobe para a rua de cima (~2,3 m, degraus acompanhando o talude);
+- **uma faixa zebrada só**, contínua, da calçada do Balança até a travessia da portaria de pedestres (a faixa antiga de `prata-access.js` deixou de ser desenhada: ficava por cima da nova);
+- relevo: platô estendido até a casa de máquinas e o pé do beco; o muro do fundo tem o terreno de cima por trás (aterro), e nenhum muro é criado automaticamente nas bordas — um deles fechava a entrada da escada do beco (altitudes do Earth: pátio 734 m, rua de cima 737 m).
+
+Canto leste refeito (3ª rodada), medido em dez vistas de topo do Earth a 30 m com grade de 1 m (`tools/lotgrid2.mjs`) e conferido contra a captura do usuário na mesma orientação:
+
+- o pátio entre o muro da escada do beco e a casa de máquinas vai até um **muro de arrimo enviesado** (de v = -13,4 junto à escada a -6,9 junto às máquinas); atrás dele fica o passeio da rua do Prata, ~7 m acima (terraço);
+- **duas faixas zebradas**: da portaria de pedestres até a quina nordeste da casa de máquinas (3 m de largura), e dali pela frente das máquinas até a calçada do Balança (1,9 m); guia clara no lado sul desta, de onde saem 7 vagas; 2 vagas junto às máquinas; caixa amarela; passeio rente ao muro da escada;
+- zebrado em diagonal atrás da casa de máquinas, no nível de cima, e a escadinha do lado leste dela até ali;
+- a escada do beco não foi alterada (2,6 m, 43 espelhos).
+
+Não refeito: o encontro das ruas de cima (continua em “X”, como no OSM), as vagas a leste da casa de máquinas, a cobertura de vidro rente ao muro do fundo, e a posição da portaria de pedestres (o muro do jogo passa ~9 m ao norte do muro real nessa ponta, então sobra pátio entre a portaria e as vagas).
+
+Limites: o pictograma das vagas brancas não é legível nas imagens (o jogo pinta um traço neutro); as fileiras C2, F, G e H e as árvores foram lidas sob sombra e são aproximadas; o lado sul do Balança ficou onde estava (a rua de trás foi deslocada antes); as vistas do Earth a 60–120 m saíram fora de escala nesta área e não foram usadas para medir.
+
 ## Relevo e navegação
 
 O SRTM original continua intacto no arquivo de dados; antes de qualquer terraplenagem ele é corrigido pelos pontos de controle descritos acima. Campo/pista/arquibancada são nivelados antes das vias. Prédios recebem cotas fixas, plataformas de construção e bases de contenção, incluindo amostras do interior da planta. As cotas próximas da entrada do Azul são vinculadas à rua para impedir uma praça suspensa. A seção transversal das ruas/passeios é horizontal e a rampa longitudinal é limitada a 12%; todas as vias internas de veículos têm duas mãos e faixa central amarela, inclusive ruas sem nome. Os perfis das vias não são recalculados a partir do aterro dos prédios.

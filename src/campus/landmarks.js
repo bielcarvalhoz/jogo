@@ -4,6 +4,7 @@ import { exteriorEdges } from './reference.js';
 import { createKit, toWorld } from './landmark-kit.js';
 import { planStairway, resolveStairway, stairwaySamples, buildStairway } from './stairway.js';
 import { planPortaria, fitPortariaRoads, buildPortaria } from './portaria.js';
+import { planLot, fitLot, buildLot } from './estacionamento.js';
 import { planPedestrianGate, fitPedestrianGate, gradePedestrianGate, buildPedestrianGate } from './portaria-pedestres.js';
 import { planLocomotive, settleLocomotive, buildLocomotive } from './locomotive.js';
 import { WALK, prepareAlley, nearestStreet, terraceSamples, planAlleyStair, alleySamples, backDoorFrame, spanAt, buildPrataAccess } from './prata-access.js';
@@ -39,6 +40,9 @@ export function prepareLandmarks(C, world) {
     if (world) fitPortariaRoads(C.portaria, world, C);
     for (const g of C.gates || []) if (g.num === gate.gate && g.type === 'portaria') g.combined = true;
   }
+  // pátio de estacionamento levantado: tira as vias do OSM de dentro dele (antes de quem procura vias vizinhas)
+  const lot = marks.find((m) => m.type === 'estacionamento');
+  if (lot) { C.lot = planLot(lot); if (world) fitLot(C.lot, world); }
   // portaria de pedestres levantada: cobertura, portal e faixa próprios (campus.js só põe o rótulo)
   const pedestrians = marks.find((m) => m.type === 'portaria-pedestres');
   if (pedestrians) { C.pedestrianGate = planPedestrianGate(pedestrians, (x, z) => pointInPolygon(x, z, C.quarter)); if (world) fitPedestrianGate(C.pedestrianGate, world, C); }
@@ -123,10 +127,10 @@ export function gradeLandmarks(world, terrain, C) {
       // estacionamento ele fica no nível do térreo (a fachada da frente aparece inteira).
       const inset = 5, front = (x, z) => A.V([x, z]) < streetSideAt(A, A.U([x, z])) - inset - .5;
       const terrace = terraceSamples(roads, terrain, A.at(A.uMin, 0), [A.ux, A.uz], [A.nx, A.nz], A.uMax - A.uMin, { inset, depthAt: (s) => streetSideAt(A, A.uMin + s) });
-      report.terrace = terrain.gradeProfile(terrace.samples, { radius: 1.2, band: 4, clearance: .05, minClearance: .02, protect: (x, z) => bed(x, z) || inBuilding(x, z, A.pieces) || front(x, z) });
+      report.terrace = terrain.gradeProfile(terrace.samples, { radius: 1.2, band: 4, clearance: .05, minClearance: .02, protect: (x, z) => bed(x, z) || inBuilding(x, z, A.pieces) || front(x, z) || !!C.lot?.rings.some((ring) => pointInPolygon(x, z, [ring])) });
       report.beds = restoreBeds([...A.pieces.map((piece) => piece.rings[0]), A.block]);
       A.stair = planAlleyStair(A, A.lowLevel + .1, exit.y, exit.t);
-      report.alley = terrain.gradeProfile(alleySamples(A, A.stair), { radius: 1, band: 2.5, clearance: .3, minClearance: .1, protect: bed });
+      report.alley = terrain.gradeProfile(alleySamples(A, A.stair), { radius: 1, band: 2.5, clearance: .3, minClearance: .1, protect: (x, z) => bed(x, z) || !!C.lot?.rings.some((ring) => pointInPolygon(x, z, [ring])) });   // (o pátio do estacionamento fica plano até o pé da escada)
       for (const piece of A.pieces) {
         const platform = terrain.platformFor(piece)?.height ?? A.lowLevel;
         // a laje é estacionamento: fica rente à calçada da rua de trás
@@ -188,6 +192,17 @@ export function gradeLandmarks(world, terrain, C) {
     C.stairways.push(S);
   }
   report.stairways = C.stairways.map((S) => ({ id: S.id, risers: S.risers, riser: S.riser, topY: S.topY, bottomY: S.bottomY, endY: S.endY, ...S.grading }));
+  // Pátio de estacionamento: volta ao nível do platô onde os cortes vizinhos (beco, plataformas) deixaram calombos.
+  if (C.lot && C.plateauLevel) {
+    const samples = [], gate = C.pedestrianGate;
+    // (inclui a frente do Balança junto ao beco: a malha do relevo tem ~6 m e a encosta de dentro da planta vazava para as vagas)
+    const L = C.lot, under = L.calcada ? [[L.at(L.calcada[1] - 8, -10.5), L.at(L.calcada[1] + 3.6, -10.5), L.at(L.calcada[1] + 3.6, .4), L.at(L.calcada[1] - 8, .4)]] : [];
+    // (e o chão sob o terraço do fundo: o barranco não pode vazar para dentro do pátio)
+    if (L.terraco && L.muroFundo) under.push([...L.muroFundo.filter((p) => p[0] <= L.terraco[1]).map(([u, v]) => L.at(Math.max(u, L.terraco[0] + 4), v)), L.at(L.terraco[1], L.terraco[2]), L.at(L.terraco[0] + 4, L.terraco[2])]);   // (a 4 m da escada do beco, que se apoia no terreno)
+    for (const ring of [...C.lot.rings, ...under]) { const xs = ring.map((p) => p[0]), zs = ring.map((p) => p[1]);
+      for (let x = Math.min(...xs); x <= Math.max(...xs); x += 1.5) for (let z = Math.min(...zs); z <= Math.max(...zs); z += 1.5) { const level = C.plateauLevel(x, z); if (level !== undefined && pointInPolygon(x, z, [ring]) && Math.abs(terrain.heightAt(x, z) - level) > .04 && !(gate && Math.hypot(x - gate.frame.x, z - gate.frame.z) < 30)) samples.push([x, z, level]); } }
+    report.lot = terrain.gradeProfile(samples, { radius: 1.6, band: 1.2, clearance: 0, minClearance: -9, protect: (x, z) => inBuilding(x, z, C.alley?.pieces || []) });
+  }
   return report;
 }
 
@@ -229,8 +244,11 @@ export function buildLandmarks(C, { renderer, terrain, world, roads, rendered })
   const roadClearance = (x, z) => { const s = nearestStreet(world.roads, x, z, 20); return s ? s.d - s.road.w / 2 : Infinity; };
   if (C.locomotive) plan.locomotive = { ...C.locomotive, ...take(buildLocomotive(kit, C.locomotive, { ground, clearance: roadClearance })) };
   if (C.portaria) plan.portaria = { ...C.portaria, ...take(buildPortaria(kit, C.portaria, { ground, clearance: roadClearance, surfaceAt, streetMesh: !rendered || !C.portaria.rua || rendered(C.portaria.rua) })) };
+  if (C.lot) plan.lot = { ...C.lot, ...take(buildLot(kit, C.lot, { ground })) };
   if (C.pedestrianGate) plan.pedestrianGate = { ...C.pedestrianGate, ...take(buildPedestrianGate(kit, C.pedestrianGate, { ground, surfaceAt })) };
-  const access = take(buildPrataAccess(kit, C, { ground, roads: world.roads, surfaceAt, sidewalkAt }));
+  // (o beco do Balança começa no asfalto do pátio)
+  const lotAt = (x, z) => { let y = -Infinity; for (const s of plan.lot?.surfaces || []) if (s.y > y && pointInPolygon(x, z, s.rings)) y = s.y; return y; };
+  const access = take(buildPrataAccess(kit, C, { ground, roads: world.roads, surfaceAt: (x, z, maxY) => Math.max(surfaceAt?.(x, z, maxY) ?? -Infinity, lotAt(x, z)), sidewalkAt }));
   plan.access = access.notes;
 
   const root = kit.finish('marcos-cidade-de-deus');
