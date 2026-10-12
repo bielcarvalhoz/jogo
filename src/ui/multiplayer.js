@@ -66,8 +66,8 @@ export function createMultiplayerUI(game) {
     <div id="mp-reconnect" role="status" hidden></div><div id="mp-respawn" role="status" hidden></div>
     <div id="mp-hit" role="status" hidden></div><button id="mp-interact" hidden></button>
     <section id="mp-ready-panel" class="mp-ready" hidden aria-label="Aprovação da partida"><h2>Prontos para a treta?</h2><ul id="mp-ready-list"></ul><button id="mp-ready" aria-pressed="false">Estou pronto</button><small>Começa quando todos aprovarem.</small></section>
-    <button id="mp-ranking-button" aria-label="Ranking · Tab" aria-expanded="false">🏆 <span>Tab</span></button>
-    <section id="mp-ranking" class="mp-ranking" hidden aria-label="Ranking da partida"><div><b>RANKING</b><button id="mp-ranking-close" aria-label="Fechar ranking">×</button></div><table><thead><tr><th scope="col">#</th><th scope="col">Jogador</th><th scope="col">Kills</th><th scope="col">Assist.</th><th scope="col">Mortes</th></tr></thead><tbody></tbody></table></section>
+    <button id="mp-ranking-button" aria-label="Ranking · Tab" aria-expanded="false"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#trophy" /></svg><span>Tab</span></button>
+    <section id="mp-ranking" class="mp-ranking" hidden aria-label="Ranking da partida"><div><b>RANKING</b><button id="mp-ranking-close" aria-label="Fechar ranking"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></div><table><thead><tr><th scope="col">#</th><th scope="col">Jogador</th><th scope="col">Kills</th><th scope="col">Assist.</th><th scope="col">Mortes</th></tr></thead><tbody></tbody></table></section>
     <div class="mp-labels" aria-hidden="true"></div>`;
   document.getElementById('hud').append(hud);
   const h = id => document.getElementById(id), labels = hud.querySelector('.mp-labels');
@@ -126,7 +126,8 @@ export function createMultiplayerUI(game) {
     for (const p of snapshot.players) {
       const isSelf = p.id === net.session.selfId, entry = mp.views.get(p.id);
       if (p.dead || !p.connected || isSelf) continue;
-      const el = plate(p.id); el.textContent = `${mp.roster.get(p.id)?.character.name || 'Jogador'}${p.protected ? ' · 🛡️' : ''}`;
+      const el = plate(p.id); el.textContent = mp.roster.get(p.id)?.character.name || 'Jogador';
+      if (p.protected) { const shield = document.createElement('span'); shield.innerHTML = '<svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#shield" /></svg>'; shield.title = 'Proteção ao renascer'; el.append(shield); }
       place(el, entry?.state.feet || { x: p.x, y: p.y, z: p.z });
     }
     for (const marker of mp.markers) {

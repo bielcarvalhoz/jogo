@@ -35,7 +35,7 @@ try {
     if (!touch) {
       const preview = await page.locator('#character-preview canvas').boundingBox();
       async function rotate(amount) { await page.mouse.move(preview.x + preview.width / 2, preview.y + preview.height / 2); await page.mouse.down(); await page.mouse.move(preview.x + preview.width / 2 + amount, preview.y + preview.height / 2, { steps: 12 }); await page.mouse.up(); await page.waitForTimeout(200); }
-      for (const hairStyle of ['original', 'crop', 'dreads']) {
+      for (const hairStyle of ['original', 'crop', 'long', 'buns', 'sidecut']) {
         await page.locator('#character-hairStyle').selectOption(hairStyle); await rotate(190);
         await page.screenshot({ path: path.join(directory, `hair-${hairStyle}-back.png`) }); await rotate(-190);
       }
@@ -46,7 +46,7 @@ try {
       }
       await page.locator('#character-headAccessory').selectOption('none'); await page.locator('#character-hairColor').fill('#503b2d');
     }
-    for (const [key, value] of Object.entries({ hairStyle: touch ? 'long' : 'curls', shirtStyle: touch ? 'socialTie' : 'suitTie', pantsStyle: 'dress', shoeStyle: 'dress' })) await page.locator(`#character-${key}`).selectOption(value);
+    for (const [key, value] of Object.entries({ hairStyle: touch ? 'long' : 'buns', shirtStyle: touch ? 'socialTie' : 'suitTie', pantsStyle: 'dress', shoeStyle: 'dress' })) await page.locator(`#character-${key}`).selectOption(value);
     await page.waitForTimeout(200); await page.screenshot({ path: path.join(directory, `${label}-banker.png`) });
     await page.locator('#character-save').click(); await page.locator('#character-confirm').click();
     await page.waitForFunction(() => __cdd.game.mode === 'multiplayer' && __cdd.player.active && __cdd.game.multiplayer.network.ready, null, { timeout: 30000 });
@@ -71,9 +71,13 @@ try {
   assert.equal(await a.locator('#reaction-wheel').isVisible(), true);
   await a.screenshot({ path: path.join(directory, 'desktop-reactions.png') });
   await a.keyboard.press('Escape'); await a.keyboard.up('KeyG');
-  await b.locator('#btn-reactions').click(); await b.getByRole('menuitem', { name: 'Dançar', exact: true }).click();
+  await b.locator('#actions-toggle').click(); await b.locator('#btn-reactions').click(); await b.getByRole('menuitem', { name: 'Dançar', exact: true }).click();
   await a.waitForFunction(() => [...__cdd.game.multiplayer.views.values()].some(v => v.avatar.animationState.motion === 'Dance_Loop'));
-  await a.waitForFunction(() => document.querySelectorAll('.reaction-bubble').length > 0);
+  assert.equal(await a.locator('.reaction-bubble').count(), 0);
+  assert.equal(await a.evaluate(() => __cdd.game.engine.scene.children.some(o => o.name.startsWith('kenney-reaction-'))), false, 'dance has no extra emoji');
+  await b.waitForTimeout(1100);
+  await b.evaluate(() => __cdd.game.ui.reactions.react('smile'));
+  await a.waitForFunction(() => __cdd.game.engine.scene.children.some(o => o.name === 'kenney-reaction-smile'));
   await a.screenshot({ path: path.join(directory, 'desktop-dance.png') });
   await a.keyboard.down('KeyW'); await a.waitForTimeout(500); await a.keyboard.up('KeyW');
   await a.waitForTimeout(250);
@@ -116,6 +120,9 @@ try {
   await b.waitForFunction(() => __cdd.game.multiplayer.self.dead, null, { timeout: 10000 });
   await a.evaluate(() => { __cdd.game.paintball.setTrigger(false); __cdd.game.paintball.setAiming(false); });
   assert.equal(pa.entity.stats.kills, 1); assert.equal(pb.entity.stats.deaths, 1);
+  await b.locator('#death-feed li').first().waitFor({ state: 'visible' });
+  assert.match(await b.locator('#death-feed').innerText(), /Biel.*M4A4.*Colega/s);
+  assert.ok(await b.locator('#death-feed').evaluate(el => el.getBoundingClientRect().height < 100));
   await b.screenshot({ path: path.join(directory, 'mobile-friendly-fire.png') });
   await b.waitForFunction(() => !__cdd.game.multiplayer.self.dead, null, { timeout: 6000 });
   relocate(pa, field.x - 4, field.z); relocate(pb, field.x + 4, field.z);

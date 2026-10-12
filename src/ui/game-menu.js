@@ -4,14 +4,14 @@ import { controlsGuide } from './controls-guide.js';
 export function createGameMenu(game, { exit, resume, setTouch }) {
   const $ = id => document.getElementById(id), hud = $('hud');
   const trigger = document.createElement('button');
-  trigger.id = 'actions-toggle'; trigger.type = 'button'; trigger.textContent = '•••';
+  trigger.id = 'actions-toggle'; trigger.type = 'button'; trigger.innerHTML = '<svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#more" /></svg>';
   trigger.setAttribute('aria-label', 'Mais ações'); trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-controls', 'more-actions');
   const tray = document.createElement('section'); tray.id = 'more-actions'; tray.hidden = true;
   tray.setAttribute('aria-label', 'Mais ações');
-  tray.innerHTML = '<header><b>Mais ações</b><button id="actions-close" aria-label="Fechar mais ações">×</button></header><div class="actions-grid"></div>';
+  tray.innerHTML = '<header><b>Mais ações</b><button id="actions-close" aria-label="Fechar mais ações"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header><div class="actions-grid"></div>';
   hud.append(trigger, tray);
   const grid = tray.querySelector('.actions-grid');
-  for (const [id, label] of [['btn-color', 'Trocar tinta'], ['btn-holster', 'Guardar / equipar'], ['btn-reactions', 'Reações'], ['btn-camera', 'Câmera'], ['btn-fly', 'Voar / pousar'], ['btn-orientation', 'Girar tela'], ['mp-ranking-button', 'Ranking']]) {
+  for (const [id, label] of [['btn-color', 'Trocar tinta'], ['btn-holster', 'Guardar / equipar'], ['btn-reactions', 'Interações'], ['btn-camera', 'Câmera'], ['btn-fly', 'Voar / pousar'], ['btn-orientation', 'Girar tela'], ['mp-ranking-button', 'Ranking']]) {
     const button = $(id); if (!button) continue;
     button.classList.remove('only-touch'); button.classList.add('action-tile');
     const caption = document.createElement('span'); caption.className = 'action-caption'; caption.textContent = label;
@@ -39,7 +39,7 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
 
   const dialog = document.createElement('dialog'); dialog.id = 'game-menu';
   dialog.setAttribute('aria-labelledby', 'game-menu-title');
-  dialog.innerHTML = `<header><div><small id="game-menu-mode"></small><h2 id="game-menu-title">Seu jogo</h2></div><button id="game-menu-close" aria-label="Continuar jogando">×</button></header>
+  dialog.innerHTML = `<header><div><small id="game-menu-mode"></small><h2 id="game-menu-title">Seu jogo</h2></div><button id="game-menu-close" aria-label="Continuar jogando"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header>
     <p id="game-menu-description"></p><div class="game-menu-settings">
     <label>Câmera<select id="session-camera"><option value="third">Terceira pessoa</option><option value="first">Primeira pessoa</option></select></label>
     <label>Controles na tela<input id="session-touch" type="checkbox" /></label>

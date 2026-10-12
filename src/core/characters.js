@@ -1,7 +1,8 @@
 export const CHARACTER_STORAGE_KEY = 'cdd.characters.v1';
 
 export const APPEARANCE_OPTIONS = Object.freeze({
-  hairStyle: { original: 'Curto penteado', crop: 'Corte baixo / fade', curls: 'Enroladinho baixo', long: 'Comprido', dreads: 'Dreads', spikes: 'Espetado', mohawk: 'Moicano', afro: 'Black power', bald: 'Raspado' },
+  gender: { male: 'Masculino', female: 'Feminino' },
+  hairStyle: { original: 'Repartido', crop: 'Corte baixo', long: 'Comprido', buns: 'Coques', sidecut: 'Curto arredondado', bald: 'Raspado' },
   eyeStyle: { original: 'Anime original', round: 'Arredondado', sharp: 'Olhar marcante', sleepy: 'Relaxado' },
   beard: { none: 'Sem barba', stubble: 'Barba por fazer', goatee: 'Cavanhaque', full: 'Barba cheia' },
   shirtStyle: { classic: 'Camiseta lisa', stripes: 'Listrada', sport: 'Esportiva', social: 'Camisa social', socialTie: 'Camisa e gravata', suit: 'Terno sem gravata', suitTie: 'Terno e gravata' },
@@ -12,13 +13,15 @@ export const APPEARANCE_OPTIONS = Object.freeze({
 });
 
 export const DEFAULT_APPEARANCE = Object.freeze({
-  hairStyle: 'original', hairColor: '#503b2d', eyeStyle: 'original', eyeColor: '#6d4932', beard: 'none',
+  gender: 'male', skinColor: '#edbd9b', hairStyle: 'original', hairColor: '#503b2d', eyeStyle: 'original', eyeColor: '#6d4932', beard: 'none',
   shirtStyle: 'classic', shirtColor: '#263746', pantsStyle: 'jeans', pantsColor: '#536b88',
   shoeStyle: 'casual', shoeColor: '#734f44', faceAccessory: 'glasses', headAccessory: 'none', accessoryColor: '#293543',
 });
 
 export function normalizeAppearance(value = {}) {
   const result = { ...DEFAULT_APPEARANCE };
+  const legacyHair = { curls: 'buns', dreads: 'long', spikes: 'original', mohawk: 'crop', afro: 'buns' };
+  value = { ...value, hairStyle: legacyHair[value?.hairStyle] || value?.hairStyle };
   for (const key of Object.keys(result)) {
     if (APPEARANCE_OPTIONS[key]) {
       if (Object.hasOwn(APPEARANCE_OPTIONS[key], value?.[key])) result[key] = value[key];

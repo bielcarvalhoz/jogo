@@ -114,7 +114,7 @@ test('server bounds movement budget, rejects old/nonfinite poses and prevents wa
 });
 
 test('friendly fire uses server projectile hits, weapon damage and cooldown; death respawns at a separate gate position', t => {
-  const { s, events } = fixture(t), a = s.addPlayer('a', {}), b = s.addPlayer('b', {});
+  const { s, events } = fixture(t), a = s.addPlayer('a', { name: 'Biel' }), b = s.addPlayer('b', { name: 'Joana' });
   // Stand beside the wood crate, rather than firing from inside its collider.
   place(a, { ...field, x: field.x - 4 }); place(b, { ...field, x: field.x - 4, z: field.z - 5 });
   const action = { type: 'attack', weapon: 'pistol', origin: { x: field.x - 4, y: field.y + 1, z: field.z }, direction: { x: 0, y: 0, z: -1 }, damage: 99999, target: 'b' };
@@ -126,6 +126,9 @@ test('friendly fire uses server projectile hits, weapon damage and cooldown; dea
   advance(s, 3.2); assert.equal(!!b.entity.dead, false); assert.equal(b.entity.health.current, 100); assert.equal(b.life, 2);
   assert.ok(Math.hypot(b.entity.position.x - flat.landmarks.spawn.x, b.entity.position.z - flat.landmarks.spawn.z) < 10);
   assert.equal(events.filter(e => e.type === 'death').length, 1);
+  const death = events.find(e => e.type === 'death');
+  assert.equal(death.weapon, 'pistol'); assert.equal(death.cause, 'pistol'); assert.equal(death.region, 'thorax');
+  assert.equal(death.sourceName, 'Biel'); assert.equal(death.victimName, 'Joana'); assert.equal(death.sourceKind, 'player');
 });
 
 test('scenery and disconnected ghosts cannot be used as targets or shot through', t => {

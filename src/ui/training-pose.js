@@ -11,7 +11,7 @@ export function createTrainingPosePanel(game) {
   panel.setAttribute('aria-label', 'Configuração de armas e braços no treino');
   const header = el('div'); header.className = 'pose-header';
   const title = el('b', 'AJUSTES DO TREINO');
-  const close = button('×', 'pose-close', () => setOpen(false)); close.setAttribute('aria-label', 'Fechar ajustes');
+  const close = button('', 'pose-close', () => setOpen(false)); close.innerHTML = '<svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg>'; close.setAttribute('aria-label', 'Fechar ajustes');
   header.append(title, close);
   const identity = el('div', '', 'pose-identity');
   const controls = el('div'); controls.className = 'pose-editor';

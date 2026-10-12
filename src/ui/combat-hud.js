@@ -10,7 +10,7 @@ export function createCombatHUD(game) {
     <div id="combat-hit" hidden role="status"></div><div id="combat-respawn" hidden role="status"></div>
     <button id="combat-interact" hidden></button>
     <div id="combat-lab-panel" hidden aria-label="Laboratório de combate">
-      <div class="combat-lab-heading"><b>LABORATÓRIO</b><button id="combat-lab-close" aria-label="Fechar laboratório">×</button></div>
+      <div class="combat-lab-heading"><b>LABORATÓRIO</b><button id="combat-lab-close" aria-label="Fechar laboratório"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></div>
 
       <div id="combat-lab-actions"></div>
       <button id="combat-mark-point">Marcar ponto na direção da mira · G</button>

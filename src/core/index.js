@@ -18,3 +18,4 @@ export { createDynamicProps } from './dynamic-props.js';
 export { createRagdolls } from './ragdolls.js';
 export { bindLocomotionAudio, footSurface } from './locomotion-audio.js';
 export { createCharacterStore, normalizeAppearance, DEFAULT_APPEARANCE, APPEARANCE_OPTIONS } from './characters.js';
+export { copyBodyPaint } from './body-paint.js';

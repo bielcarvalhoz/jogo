@@ -40,7 +40,7 @@ export async function createRagdolls(game) {
   }
   function remove(corpse) {
     if (!corpses.delete(corpse)) return;
-    releasePhysics(corpse); corpse.root.removeFromParent();
+    releasePhysics(corpse); bodyPaint.clear(corpse.root); corpse.root.removeFromParent();
     if (corpse.cleanup) corpse.cleanup();
     else {
       const skeletons = new Set(); corpse.root.traverse(object => { if (object.isSkinnedMesh) skeletons.add(object.skeleton); });
@@ -51,6 +51,7 @@ export async function createRagdolls(game) {
     if (disposed) return null;
     if (corpses.size >= MAX_CORPSES) remove(corpses.values().next().value);
     const root = owned ? source : cloneSkeleton(source), bones = {};
+    if (!owned) root.traverse(o => { if (o.userData.bodyPaint) o.geometry = o.geometry.clone(); });
     root.name = 'ragdoll-corpse'; root.visible = true; root.userData.paintballIgnore = true;
     root.traverse(object => { if (object.isBone) bones[normalized(object.name)] = object; if (object.isMesh) object.frustumCulled = false; });
     game.engine.scene.add(root); root.updateMatrixWorld(true);

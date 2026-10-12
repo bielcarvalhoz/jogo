@@ -26,7 +26,7 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     if (event.type === 'spawn' && ['human', 'zombie'].includes(event.entity.kind)) {
       views.set(event.entity, createActorView(event.entity, models[event.entity.kind], { parent: root, weaponModel: weaponModels?.automatic, ragdolls: game.ragdolls }));
     }
-    if (event.type === 'remove') { views.get(event.entity)?.dispose(); views.delete(event.entity); }
+    if (event.type === 'remove') { const view = views.get(event.entity); game.bodyPaint?.clear(view?.root); view?.dispose(); views.delete(event.entity); }
     if (event.type === 'damage') {
       if (event.source !== player && event.weapon?.kind === 'firearm') {
         const view = views.get(event.victim), target = event.victim === player ? game.player.avatar?.root : view?.root;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { normalizeAppearance, DEFAULT_APPEARANCE } from '../core/index.js';
+import hairAssets from './hair-assets.js';
 
 /** Private runtime materials/rest shapes; the GLB, skeleton and clips stay intact. */
 export function createAppearance(model, bones, meshes) {
@@ -8,8 +9,9 @@ export function createAppearance(model, bones, meshes) {
   const entries = meshes.map(mesh => {
     mesh.material = mesh.material.clone();
     const clothing = /Sato_shirt|Sato_trousers|Sato_sneaker/.test(mesh.name);
+    const deformable = clothing || mesh.name.startsWith('Sato_clean_face');
+    if (deformable) mesh.geometry = mesh.geometry.clone();
     if (clothing) {
-      mesh.geometry = mesh.geometry.clone();
       const p = mesh.geometry.attributes.position, uv = [];
       for (let i = 0; i < p.count; i++) {
         if (mesh.name.startsWith('Sato_shirt')) uv.push(p.getX(i) / .42 + .5, (p.getY(i) - .43) / .29);
@@ -19,7 +21,7 @@ export function createAppearance(model, bones, meshes) {
       mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     }
     return { mesh, material: mesh.material, color: mesh.material.color.clone(), map: mesh.material.map,
-      emissiveMap: mesh.material.emissiveMap, positions: clothing ? mesh.geometry.attributes.position.array.slice() : null };
+      emissiveMap: mesh.material.emissiveMap, positions: deformable ? mesh.geometry.attributes.position.array.slice() : null };
   });
   const groups = new Map(), accessoryMaterials = [], hairMaterials = [], beardTextures = [];
   const material = (color, hair = false) => {
@@ -64,37 +66,16 @@ export function createAppearance(model, bones, meshes) {
     backGeometry.setIndex(backIndices); backGeometry.computeVertexNormals(); part(g, backGeometry, hair, [0, 0, 0]);
   }
   scalp(group('nape:hair'), true);
-  for (const style of ['original', 'crop', 'curls', 'long', 'dreads', 'spikes', 'mohawk', 'afro']) {
-    const g = group(`hair:${style}`);
-    scalp(g);
-    if (style === 'original') for (let i = 0; i < 5; i++) {
-      const tuft = sphere(g, hair, [-.067 + i * .031, .945 + Math.sin(i) * .004, .028], [.032, .018, .064]); tuft.rotation.z = -.23;
-    }
-    if (style === 'curls' || style === 'afro') {
-      const radius = style === 'curls' ? .105 : .125, curl = style === 'curls' ? .017 : .028;
-      for (let row = 0; row < 6; row++) {
-        const theta = .15 + row * .31, count = Math.max(5, Math.round(Math.sin(theta) * 24));
-        for (let i = 0; i < count; i++) {
-          const phi = (i + row * .47) / count * Math.PI * 2;
-          if (theta > 1.3 && Math.cos(phi) > .3) continue;
-          sphere(g, hair, [Math.sin(phi) * Math.sin(theta) * radius, .858 + Math.cos(theta) * radius, -.009 + Math.cos(phi) * Math.sin(theta) * radius], [curl, curl * .95, curl]);
-        }
-      }
-    }
-    if (style === 'long' || style === 'dreads') for (let i = 0; i < 19; i++) {
-      const phi = .77 + i / 18 * (Math.PI * 2 - 1.54), length = .18 + Math.sin(i * 1.7) * .015;
-      const x = Math.sin(phi) * .092, z = -.009 + Math.cos(phi) * .096;
-      const lock = part(g, new THREE.CapsuleGeometry(style === 'dreads' ? .012 : .020, length, 3, 7), hair, [x, .855 - length / 2, z]);
-      lock.rotation.z = -Math.sin(phi) * .09; lock.rotation.x = Math.cos(phi) * .10;
-    }
-    if (style === 'spikes') for (let i = 0; i < 7; i++) {
-      const angle = i * Math.PI * 2 / 7;
-      const spike = part(g, new THREE.ConeGeometry(.033, .075, 5), hair, [Math.cos(angle) * .058, .957, Math.sin(angle) * .056 - .008]);
-      spike.rotation.z = -Math.cos(angle) * .45; spike.rotation.x = Math.sin(angle) * .45;
-    }
-    if (style === 'mohawk') for (let i = 0; i < 5; i++) box(g, hair, [0, .978 - Math.abs(i - 2) * .009, -.074 + i * .035], [.029, .10, .037]);
+  for (const [style, asset] of Object.entries(hairAssets)) {
+    const g = group(`hair:${style}`); scalp(g);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(asset.position, 3));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(asset.normal, 3));
+    geometry.setIndex(asset.index);
+    const authored = part(g, geometry, hair, [0, 0, 0]); authored.userData.hairSource = asset.source;
+    g.userData.hairSource = asset.source;
   }
-  // Dense curls still cost one draw call per head, including in full rooms.
+  // Merge the fitted scalp and authored asset into one draw call per head.
   for (const [key, g] of groups) if (key.startsWith('hair:') || key.startsWith('nape:')) {
     const pieces = g.children.map(mesh => {
       mesh.updateMatrix(); const geometry = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
@@ -119,7 +100,7 @@ export function createAppearance(model, bones, meshes) {
     }
     for (let i = 0; i < p.count; i++) { p.setY(i, .682 + (p.getY(i) - .682) * 1.12); p.setZ(i, .009 + (p.getZ(i) - .009) * 1.12); }
     geometry.setIndex(indices); geometry.computeVertexNormals();
-    const mesh = new THREE.SkinnedMesh(geometry, cloth); mesh.bind(source.skeleton, source.bindMatrix); mesh.frustumCulled = false;
+    const mesh = new THREE.SkinnedMesh(geometry, cloth); mesh.name = `character-formal:${source.name}`; mesh.bind(source.skeleton, source.bindMatrix); mesh.frustumCulled = false;
     mesh.castShadow = mesh.receiveShadow = true; formal.add(mesh);
   }
   patch(lapels, [[-.052, .695, .056], [.052, .695, .056], [.005, .540, .079], [-.005, .540, .079]], white);
@@ -221,9 +202,21 @@ export function createAppearance(model, bones, meshes) {
   function paintFace(entry) {
     if (!entry.map?.image || !globalThis.document?.createElement) return entry.map;
     const a = appearance;
-    if (a.eyeStyle === 'original' && a.eyeColor === DEFAULT_APPEARANCE.eyeColor) return entry.map;
+    if (a.eyeStyle === 'original' && a.eyeColor === DEFAULT_APPEARANCE.eyeColor && a.skinColor === DEFAULT_APPEARANCE.skinColor) return entry.map;
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
     const ctx = canvas.getContext('2d'); ctx.drawImage(entry.map.image, 0, 0, 256, 256);
+    if (a.skinColor !== DEFAULT_APPEARANCE.skinColor) {
+      const pixels = ctx.getImageData(0, 0, 256, 256), target = new THREE.Color(a.skinColor);
+      target.convertLinearToSRGB();
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const r = pixels.data[i], g = pixels.data[i + 1], b = pixels.data[i + 2];
+        if (r > 100 && g > 65 && r / g > 1.1 && r / g < 1.55 && g / Math.max(1, b) < 1.8) {
+          const shade = Math.min(1.12, r / 237);
+          pixels.data[i] = target.r * 255 * shade; pixels.data[i + 1] = target.g * 255 * shade; pixels.data[i + 2] = target.b * 255 * shade;
+        }
+      }
+      ctx.putImageData(pixels, 0, 0);
+    }
     if (a.eyeStyle !== 'original' || a.eyeColor !== DEFAULT_APPEARANCE.eyeColor) {
       for (const [cx, sign] of [[68, -1], [188, 1]]) {
         const skin = ctx.getImageData(128, 60, 1, 1).data;
@@ -254,7 +247,12 @@ export function createAppearance(model, bones, meshes) {
     for (const entry of entries) {
       const { mesh } = entry;
       mesh.userData.characterHidden = false;
+      if (entry.positions) mesh.geometry.attributes.position.array.set(entry.positions);
       paint(entry, { color: entry.color, map: entry.map, emissiveMap: entry.emissiveMap });
+      if (/warm peach skin|ear fold/.test(entry.material.name)) {
+        const color = new THREE.Color(a.skinColor); if (entry.material.name.includes('ear fold')) color.multiplyScalar(.73);
+        paint(entry, { color });
+      }
       if (mesh.name.startsWith('Sato_hair_cap')) {
         mesh.userData.characterHidden = true;
         if (a.hairColor !== DEFAULT_APPEARANCE.hairColor) paint(entry, { color: new THREE.Color(a.hairColor), map: null, emissiveMap: null });
@@ -284,6 +282,20 @@ export function createAppearance(model, bones, meshes) {
         if (kind === 'shoe' && style === 'high' && y > .04 && z < .03) p.setY(i, y + .026 * THREE.MathUtils.smoothstep(y, .04, .06));
       }
       p.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingBox(); mesh.geometry.computeBoundingSphere();
+    }
+    // Adjust rest geometry, never the animation skeleton or hitbox dimensions.
+    for (const entry of entries) if (entry.positions) {
+      const p = entry.mesh.geometry.attributes.position;
+      if (a.gender === 'female') for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        if (entry.mesh.name.startsWith('Sato_shirt')) {
+          const waist = 1 - THREE.MathUtils.smoothstep(Math.abs(y - .51), .025, .13);
+          p.setX(i, x * (.97 - waist * .08));
+          if (z > 0) p.setZ(i, z + .012 * THREE.MathUtils.smoothstep(y, .55, .62) * (1 - THREE.MathUtils.smoothstep(y, .65, .70)));
+        } else if (entry.mesh.name.startsWith('Sato_trousers') && y > .3) p.setX(i, x * (1 + .07 * THREE.MathUtils.smoothstep(y, .3, .40)));
+        else if (entry.mesh.name.startsWith('Sato_clean_face') && y < .80) p.setX(i, x * .94);
+      }
+      p.needsUpdate = true; entry.mesh.geometry.computeVertexNormals(); entry.mesh.geometry.computeBoundingBox(); entry.mesh.geometry.computeBoundingSphere();
     }
     for (const m of hairMaterials) m.color.set(a.hairColor);
     for (const m of accessoryMaterials) if (![dark, lens, cloth, lapel, white, tie].includes(m)) m.color.set(a.accessoryColor);
