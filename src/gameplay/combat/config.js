@@ -8,7 +8,7 @@ export const DIFFICULTIES = Object.freeze({
 // firearm catalogue; neither mode changes crate impulses or their damage.
 export const DEFAULT_COMBAT_RULES = Object.freeze({
   damageMode: 'training', friendlyFire: false, playerDamage: true, maxActors: 32,
-  human: Object.freeze({ health: 100 }),
+  human: Object.freeze({ health: 100, magazineSize: 30, reloadDuration: 2.3 }),
   zombie: Object.freeze({ health: 200, speed: 1.8, damage: 20, interval: 1.1 }),
   objective: Object.freeze({ health: 500 }),
   firearm: Object.freeze({ head: 100, thorax: 50, limb: 25 }),
@@ -29,6 +29,7 @@ export function combatRules(overrides = {}) {
     if (!Number.isFinite(rules[group][region]) || rules[group][region] < 0) throw new RangeError('Dano inválido');
   }
   if (!Number.isInteger(rules.maxActors) || rules.maxActors < 1) throw new RangeError('Limite de personagens inválido');
+  if (!Number.isInteger(rules.human.magazineSize) || rules.human.magazineSize < 1 || !Number.isFinite(rules.human.reloadDuration) || rules.human.reloadDuration <= 0) throw new RangeError('Recarga de humano inválida');
   for (const key of ['corpseSeconds', 'respawnSeconds', 'spawnProtection']) if (!Number.isFinite(rules[key]) || rules[key] < 0) throw new RangeError('Tempo de combate inválido');
   if (!Number.isFinite(rules.zombie.speed) || rules.zombie.speed < 0 || !Number.isFinite(rules.zombie.damage) || rules.zombie.damage < 0 || !Number.isFinite(rules.zombie.interval) || !(rules.zombie.interval > 0)) throw new RangeError('Configuração de zumbi inválida');
   return rules;

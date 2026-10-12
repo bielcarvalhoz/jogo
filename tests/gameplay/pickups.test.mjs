@@ -17,11 +17,11 @@ test('ground pickup swaps selected firearm in place, drops old melee, and separa
     inventory.select('automatic');
     const result = pickups.pickup();
     assert.equal(result.dropped, 'automatic'); assert.equal(record.weaponId, 'automatic');
-    assert.deepEqual(inventory.state.slots, ['pistol', 'revolver', 'knife']);
+    assert.deepEqual(inventory.state.slots, ['revolver', 'pistol', 'knife']);
     assert.equal(pickups.records.length, count);
     const axe = pickups.records.find(r => r.weaponId === 'axe' && r.mode === 'training');
     game.player.feet.copy(axe.group.position); pickups.pickup();
-    assert.equal(axe.weaponId, 'knife'); assert.deepEqual(inventory.state.slots, ['pistol', 'revolver', 'axe']);
+    assert.equal(axe.weaponId, 'knife'); assert.deepEqual(inventory.state.slots, ['revolver', 'pistol', 'axe']);
     game.training.active = false; game.player.feet.set(0, 10, 0); pickups.update();
     assert.ok(pickups.records.filter(r => r.mode === 'training').every(r => !r.group.visible));
     assert.ok(pickups.records.filter(r => r.mode === 'campaign').every(r => r.group.visible));

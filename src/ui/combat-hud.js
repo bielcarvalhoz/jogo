@@ -3,19 +3,18 @@ export function createCombatHUD(game) {
   if (!game.combat) return null;
   const combat = game.combat, simulation = combat.simulation, lab = combat.trainingLab;
   const root = document.createElement('section'); root.id = 'combat-hud'; root.hidden = true;
-  root.innerHTML = `<div class="combat-status"><small>TREINO · LABORATÓRIO DE COMBATE</small>
+  root.innerHTML = `<div class="combat-status"><small>TREINO</small>
     <div class="combat-health"><b id="combat-hp"></b><span id="combat-score"></span></div>
     <div class="combat-health-track"><i id="combat-health-fill"></i></div>
-    <p id="combat-population"></p><p id="combat-goal"></p>
-    <button id="combat-lab-toggle" aria-expanded="false" aria-controls="combat-lab-panel">Laboratório <kbd>J</kbd></button></div>
+    <div data-collapsible><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="combat-details">Placar <span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="combat-details" class="collapse-body" inert><div class="collapse-inner"><p id="combat-population"></p><p id="combat-goal"></p><button id="combat-lab-toggle" aria-expanded="false" aria-controls="combat-lab-panel">Laboratório <kbd>J</kbd></button></div></div></div></div>
     <div id="combat-hit" hidden role="status"></div><div id="combat-respawn" hidden role="status"></div>
     <button id="combat-interact" hidden></button>
     <div id="combat-lab-panel" hidden aria-label="Laboratório de combate">
       <div class="combat-lab-heading"><b>LABORATÓRIO</b><button id="combat-lab-close" aria-label="Fechar laboratório">×</button></div>
-      <p>Adicione personagens ou carregue um cenário. A IA pausa enquanto este painel está aberto.</p>
+
       <div id="combat-lab-actions"></div>
       <button id="combat-mark-point">Marcar ponto na direção da mira · G</button>
-      <small>Modo 1/2/4 — humano: cabeça 1 · tórax 2 · membros 4.<br>Zumbi: cabeça 1 · tórax 4 · membros 8.<br>Dano por arma usa o catálogo. Headshots seguem letais.<br>Botões físicos na bancada à esquerda. Anéis azuis indicam aliados.</small>
+      <details class="menu-help"><summary>Regras de dano</summary><small>Modo 1/2/4 — humano: cabeça 1 · tórax 2 · membros 4.<br>Zumbi: cabeça 1 · tórax 4 · membros 8.<br>Dano por arma usa o catálogo. Headshots seguem letais.<br>Botões físicos na bancada à esquerda. Anéis azuis indicam aliados.</small></details>
     </div>`;
   document.getElementById('hud').append(root);
   const $ = id => root.querySelector(`#${id}`), toggle = $('combat-lab-toggle'), panel = $('combat-lab-panel');

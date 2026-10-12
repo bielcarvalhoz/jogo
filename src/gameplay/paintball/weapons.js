@@ -3,7 +3,8 @@
 const firearm = (id, label, damage, interval, automatic, extra = {}) => Object.freeze({
   id, label, icon: id, kind: 'firearm', damage, interval, automatic,
   pellets: 1, spread: 0, range: 180, speed: 80, impulse: damage * .09,
-  aimFov: 45, recoilStrength: 1, recoilDecay: 16, ...extra,
+  aimFov: 45, recoilStrength: 1, recoilDecay: 16,
+  magazineSize: 30, reserveAmmo: 90, reloadDuration: 2.3, ...extra,
 });
 const melee = (id, label, damage, interval, range, extra = {}) => Object.freeze({
   id, label, icon: id.startsWith('knife') ? 'knife' : id,
@@ -11,11 +12,11 @@ const melee = (id, label, damage, interval, range, extra = {}) => Object.freeze(
 });
 
 export const WEAPONS = Object.freeze([
-  firearm('pistol', 'Glock-18', 30, .15, false, { speed: 34, csWeapon: 'weapon_glock', spread: .002 }),
+  firearm('pistol', 'Glock-18', 30, .15, false, { magazineSize: 20, reserveAmmo: 120, reloadDuration: 2.2, speed: 34, csWeapon: 'weapon_glock', spread: .002 }),
   firearm('automatic', 'M4A4', 33, .09, true, { speed: 90, csWeapon: 'weapon_m4a1', spread: .0006 }),
-  firearm('revolver', 'R8 Revolver', 86, .5, true, { csWeapon: 'weapon_revolver', spread: .00052, windup: .2 }),
-  firearm('shotgun', 'Nova', 26, .88, false, { csWeapon: 'weapon_nova', pellets: 9, spread: .04, speed: 70, range: 70, impulse: 2.4, recoilStrength: 2.8, recoilDecay: 10 }),
-  firearm('sniper', 'AWP', 115, 1.455, false, { csWeapon: 'weapon_awp', spread: .0002, hipSpread: .0808, speed: 150, range: 300, aimFov: 40 }),
+  firearm('revolver', 'R8 Revolver', 86, .5, true, { magazineSize: 8, reserveAmmo: 32, reloadDuration: 2.7, csWeapon: 'weapon_revolver', spread: .00052, windup: .2 }),
+  firearm('shotgun', 'Nova', 26, .88, false, { magazineSize: 8, reserveAmmo: 32, reloadDuration: .6, reloadStyle: 'shell', csWeapon: 'weapon_nova', pellets: 9, spread: .04, speed: 70, range: 70, impulse: 2.4, recoilStrength: 2.8, recoilDecay: 10 }),
+  firearm('sniper', 'AWP', 115, 1.455, false, { magazineSize: 5, reserveAmmo: 30, reloadDuration: 3.2, csWeapon: 'weapon_awp', spread: .0002, hipSpread: .0808, speed: 150, range: 300, aimFov: 40 }),
   firearm('smg', 'MP5-SD', 28, .08, true, { csWeapon: 'weapon_mp5sd', spread: .0006, speed: 80 }),
   melee('knife', 'Faca', 40, .65, 1.65),
   melee('knife-tactical', 'Faca tática', 40, .65, 1.65),
@@ -29,8 +30,8 @@ export const WEAPON_BY_ID = Object.freeze(Object.fromEntries(WEAPONS.map(weapon 
 
 /** Two firearm slots, one melee slot, and an always available unarmed option. */
 export function createWeaponInventory() {
-  const slots = ['pistol', 'automatic', 'knife'];
-  let selected = 'pistol', lastFirearmSlot = 0;
+  const slots = ['automatic', 'pistol', 'knife'];
+  let selected = 'pistol', lastFirearmSlot = 1;
   return {
     get state() { return { slots: [...slots], selected, lastFirearmSlot }; },
     get available() { return [...slots.map(id => WEAPON_BY_ID[id]), WEAPON_BY_ID.fists]; },

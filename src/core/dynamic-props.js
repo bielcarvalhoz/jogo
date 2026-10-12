@@ -121,7 +121,7 @@ export async function createDynamicProps(game) {
     if (info.kind !== 'firearm') direction.y += impulse * .13;
     crate.body.applyImpulseAtPoint(direction, hit.point, true);
     crate.damage += Math.max(0, info.damage || 0); crate.hits++;
-    game.audio?.impact?.(crate.type, impulse);
+    // The projectile/melee impact owner plays the positional material sound.
     return true;
   }
   function collide(x, z, radius = .35, feetY = 0, { push = true } = {}) {

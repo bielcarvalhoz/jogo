@@ -43,7 +43,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       const vehicle = new Vehicle(); vehicle.position.copy(entity.position); vehicle.maxForce = 18; vehicle.updateOrientation = false;
       const seek = new SeekBehavior(new Vector3()), separation = new SeparationBehavior(); separation.weight = 1.8;
       vehicle.steering.add(seek); vehicle.steering.add(separation);
-      world.addComponent(entity, 'ai', { difficulty, stationary, target: null, lastKnown: null, lastSeenAt: -Infinity, acquiredAt: time, nextThinkAt: 0, sees: false, nextAttackAt: 0, pending: null });
+      world.addComponent(entity, 'ai', { difficulty, stationary, rounds: rules.human.magazineSize, reloadUntil: 0, target: null, lastKnown: null, lastSeenAt: -Infinity, acquiredAt: time, nextThinkAt: 0, sees: false, nextAttackAt: 0, pending: null });
       world.addComponent(entity, 'steering', { vehicle, seek });
     }
     events('spawn', { entity }); return entity;
@@ -65,7 +65,8 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
     if (victim.health.current <= 1e-8) {
       victim.health.current = 0; victim.velocity = { x: 0, y: 0, z: 0 }; victim.action = 'death'; victim.actionSerial++;
       if (victim.steering) victim.steering.vehicle.velocity.set(0, 0, 0);
-      world.addComponent(victim, 'dead', { at: time }); victim.stats.deaths++;
+      const direction = source ? new Vector3(victim.position.x - source.position.x, 0, victim.position.z - source.position.z).normalize() : new Vector3(0, 0, -1);
+      world.addComponent(victim, 'dead', { at: time, impulse: { x: direction.x * 1.6, y: .5, z: direction.z * 1.6 } }); victim.stats.deaths++;
       if (source && victim.kind !== 'objective') { source.stats.kills++; if (region === 'head' && weapon.kind === 'firearm') source.stats.headshots++; }
       events('death', { source, victim, region, weapon });
     }
@@ -108,7 +109,11 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       entity.action = 'melee'; entity.actionSerial++; events('attack', { entity, target, kind: 'melee' });
       return;
     }
-    ai.nextAttackAt = time + d.interval; entity.action = 'shoot'; entity.actionSerial++;
+    if (ai.rounds === 0) {
+      ai.reloadUntil = time + rules.human.reloadDuration; ai.nextAttackAt = ai.reloadUntil;
+      entity.action = 'reload'; events('reload', { entity, duration: rules.human.reloadDuration }); return;
+    }
+    ai.rounds--; ai.nextAttackAt = time + d.interval; entity.action = 'shoot'; entity.actionSerial++;
     const from = { ...(entity.muzzle || point(entity, 1.4)) }, aim = aimPoint(target, random() < d.headChance);
     const direction = new Vector3(aim.x - from.x, aim.y - from.y, aim.z - from.z).normalize();
     const right = new Vector3(direction.z, 0, -direction.x).normalize(), up = new Vector3().crossVectors(direction, right).normalize();
@@ -118,7 +123,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
     const wall = sceneryHit(from, to), hit = traceHitboxes(from, to, actors, { exclude: entity });
     const accepted = hit && (!wall || hit.distance < wall.distance) ? hit : null;
     const end = accepted?.point || (wall ? { x: from.x + direction.x * wall.distance, y: from.y + direction.y * wall.distance, z: from.z + direction.z * wall.distance } : to);
-    events('shot', { entity, from, to: end });
+    events('shot', { entity, from, to: end, hit: accepted || (wall ? { ...wall, point: end } : null) });
     if (accepted) damage(accepted.entity, { source: entity, region: accepted.region, weapon: { id: 'automatic', kind: 'firearm', damage: 33, pellets: 1 } });
   }
   function move(entity, target, dt, stopDistance) {
@@ -157,6 +162,10 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
     for (const entity of agents) {
       const ai = entity.ai;
       if (ai.stationary) continue;
+      if (ai.reloadUntil) {
+        if (time < ai.reloadUntil) { entity.action = 'reload'; continue; }
+        ai.reloadUntil = 0; ai.rounds = rules.human.magazineSize;
+      }
       if (ai.pending) {
         if (time < ai.pending.at) continue;
         const target = ai.pending.target; ai.pending = null;

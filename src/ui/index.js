@@ -1,3 +1,4 @@
+import { bindCollapsiblePanels } from './collapsible.js';
 import * as THREE from 'three';
 import { IS_TOUCH } from '../core/index.js';
 import { createHud } from './hud.js';
@@ -54,7 +55,7 @@ export function createUI(game) {
     if (touch) document.body.classList.add('touch');
     document.body.classList.toggle('flying', player.fly);
     $('btn-fly').setAttribute('aria-pressed', String(player.fly));
-    help.textContent = `WASD andar · Shift correr · Espaço pular · C agachar · Z desarmar · Segurar: atacar · Segure Q: armas · E pegar / acionar · V tinta · X câmera${mode === 'training' ? ' · J laboratório · G marcar ponto' : mode === 'multiplayer' ? ' · T acenar · G emojis · M mapa · Friendly fire ligado' : ' · F voar · M mapa'} · H esconder`;
+    help.querySelector('.collapse-inner').textContent = `WASD mover · R recarregar · 1–4 armas · Q roda · E pegar · X câmera · M mapa${mode === 'training' ? ' · J laboratório' : ''}`;
     game.events.emit('modechange', mode);
     player.start(touch);
   }
@@ -276,19 +277,8 @@ export function createUI(game) {
   $('map-close').addEventListener('click', () => closeMap());
   game.input.bind('KeyM', () => mapPanel.classList.contains('open') ? closeMap() : openMap(), { when: 'always', label: 'mapa' });
   game.input.bind('Escape', () => { if (weaponWheel.open) weaponWheel.cancel(); else if (game.mode) showMenu(); }, { when: 'always' });
-  game.input.bind('KeyH', () => help.classList.toggle('hidden'), { label: 'esconder ajuda' });
-  for (let n = 1; n <= 9; n++) {
-    const go = () => {
-      if (!game.mode || game.mode === 'training' || game.mode === 'multiplayer' || mapPanel.classList.contains('open')) return;
-      if (game.mode === 'tour') tour.focus(points.find(p => p.number === n));
-      else {
-        const p = places[n - 1]; if (!p) return;
-        player.placeAt(p.x, p.z, p.yaw); toast(`Teletransportado: ${p.name}`);
-      }
-    };
-    game.input.bind(`Digit${n}`, go, { when: 'always', label: n === 1 ? 'destinos (1–9)' : '' });
-    game.input.bind(`Numpad${n}`, go, { when: 'always' });
-  }
+  bindCollapsiblePanels();
+  game.input.bind('KeyH', () => $('help-toggle').click(), { label: 'esconder ajuda' });
   addEventListener('resize', () => {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);

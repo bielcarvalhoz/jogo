@@ -1,11 +1,12 @@
+import { createRecordedAudio } from './recorded-audio.js';
 import { mulberry32 } from '../shared/rng.js';
 
-/** Original, procedural menu groove and short UI/paint sounds. No recordings,
- * downloads or work on the render loop; one lazy, gesture-unlocked context. */
-export function createAudio({ music = true, effects = true, contextFactory = () => {
+/** Procedural music/UI; recorded footsteps, weapons and environmental foley. */
+export function createAudio({ music = true, effects = true, base = '/', fetcher = globalThis.fetch, contextFactory = () => {
   const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
   return Audio ? new Audio({ latencyHint: 'interactive' }) : null;
 }, schedule = setInterval, unschedule = clearInterval } = {}) {
+  let recordings = null;
   let context = null, musicBus, effectsBus, noiseBuffer, clock = null, step = 0, nextBeat = 0;
   let menu = true, unlocked = false, disposed = false, hidden = false;
   const voices = new Set(), rnd = mulberry32(1947);
@@ -66,7 +67,7 @@ export function createAudio({ music = true, effects = true, contextFactory = () 
     if (unlocked && menu && preferences.music && !hidden) {
       if (clock === null) { nextBeat = context.currentTime + .04; step = 0; tick(); clock = schedule(tick,80); }
     } else stopMusic();
-    if (!preferences.effects) for (const v of voices) if (v.bus === effectsBus) stopVoice(v);
+    if (!preferences.effects) { for (const v of voices) if (v.bus === effectsBus) stopVoice(v); recordings?.stopAll(); }
   }
   async function unlock() {
     if (disposed || hidden) return false;
@@ -75,6 +76,8 @@ export function createAudio({ music = true, effects = true, contextFactory = () 
         context = contextFactory(); if (!context) return false;
         const master = context.createGain(); master.gain.value = .55; master.connect(context.destination);
         musicBus = context.createGain(); effectsBus = context.createGain(); musicBus.connect(master); effectsBus.connect(master);
+        recordings = createRecordedAudio({ context, bus: effectsBus, audible, base, fetcher });
+        void recordings.preload();
         noiseBuffer = context.createBuffer(1,Math.ceil(context.sampleRate*.35),context.sampleRate);
         const data = noiseBuffer.getChannelData(0); for (let i=0;i<data.length;i++) data[i] = rnd()*2-1;
       }
@@ -88,7 +91,7 @@ export function createAudio({ music = true, effects = true, contextFactory = () 
     unlock,
     setPreferences(next) { for (const key of ['music','effects']) if (typeof next[key] === 'boolean') preferences[key] = next[key]; sync(); },
     setMenu(value) { menu = !!value; sync(); },
-    async setHidden(value) { hidden = !!value; sync(); if (hidden) for (const v of voices) stopVoice(v); if (context) { if (hidden) await context.suspend().catch(()=>{}); else if (unlocked) await unlock(); } },
+    async setHidden(value) { hidden = !!value; sync(); if (hidden) { for (const v of voices) stopVoice(v); recordings?.stopAll(); } if (context) { if (hidden) await context.suspend().catch(()=>{}); else if (unlocked) await unlock(); } },
     ui(kind = 'select') {
       if (!audible() || context.currentTime - lastUi < .045) return;
       lastUi = context.currentTime; const now = context.currentTime;
@@ -96,45 +99,21 @@ export function createAudio({ music = true, effects = true, contextFactory = () 
       note(base,.085,.13,effectsBus,now,'triangle',kind === 'back' ? 180 : base*1.15);
       if (kind === 'start' || kind === 'confirm') note(base*1.5,.14,.085,effectsBus,now+.035,'sine');
     },
-    shot(weapon = 'pistol') {
-      if (!audible()) return;
-      const now = context.currentTime;
-      const [pitch, duration, volume] = ({ automatic: [190,.045,.30], smg: [220,.035,.25], revolver: [115,.11,.38], shotgun: [85,.17,.42], sniper: [100,.21,.4] })[weapon] || [150,.07,.33];
-      note(pitch,.09,volume * .73,effectsBus,now,'sine',55);
-      noise(duration,volume,effectsBus,now,1300+ rnd()*500);
-    },
-    footstep(surface = 'concrete', { speed = 3, foot = 0 } = {}) {
-      if (!audible()) return;
-      const now = context.currentTime, grass = surface === 'grass';
-      const volume = Math.min(.18, .065 + speed * .01) * (foot ? .96 : 1);
-      note(grass ? 95 : 165,grass ? .065 : .045,volume,effectsBus,now,'sine',grass ? 45 : 70);
-      noise(grass ? .13 : .05,volume * (grass ? 1.15 : .85),effectsBus,now,grass ? 850 + rnd() * 400 : 2400 + rnd() * 600,grass ? 'lowpass' : 'bandpass');
-    },
-    jump(surface = 'concrete') {
-      if (!audible()) return;
-      const now = context.currentTime;
-      note(125,.08,.11,effectsBus,now,'sine',190);
-      noise(.14,.08,effectsBus,now,surface === 'grass' ? 800 : 1700,'lowpass');
-    },
-    land(surface = 'concrete', speed = 4) {
-      if (!audible()) return;
-      const now = context.currentTime, strength = Math.min(.27, .09 + Math.abs(speed) * .014);
-      note(100,.12,strength,effectsBus,now,'sine',38);
-      noise(surface === 'grass' ? .16 : .075,strength * .75,effectsBus,now,surface === 'grass' ? 900 : 2100);
-    },
-    melee(weapon = {}) {
-      if (!audible()) return;
-      const now = context.currentTime, fists = weapon.id === 'fists' || weapon.kind === 'unarmed';
-      noise(fists ? .09 : .16,.12,effectsBus,now,fists ? 850 : 1600,'lowpass');
-    },
-    impact(surface = 'wood', impulse = 6) {
-      if (!audible()) return;
-      const now = context.currentTime, volume = Math.min(.26, .07 + impulse * .007);
-      note(surface === 'wood' ? 145 : 210,.085,volume,effectsBus,now,'triangle',65);
-      noise(.07,volume * .65,effectsBus,now,700 + rnd() * 300);
-    },
+    preload() { return recordings?.preload() || Promise.resolve([]); },
+    setListener(...args) { recordings?.setListener(...args); },
+    setAmbience(value) { recordings?.setAmbience(value); },
+    shot(...args) { recordings?.shot(...args); },
+    footstep(...args) { recordings?.footstep(...args); },
+    jump(...args) { recordings?.jump(...args); },
+    land(...args) { recordings?.land(...args); },
+    melee(...args) { recordings?.melee(...args); },
+    impact(...args) { recordings?.impact(...args); },
+    hit(...args) { recordings?.hit(...args); },
+    whiz(...args) { return recordings?.whiz(...args) || false; },
+    reload(...args) { recordings?.reload(...args); },
+    stopReload(...args) { recordings?.stopReload(...args); },
     get preferences() { return {...preferences}; },
-    get state() { return { unlocked, running: context?.state === 'running', musicPlaying: clock !== null, voices: voices.size }; },
-    dispose() { if (disposed) return; disposed = true; stopMusic(); for (const v of voices) stopVoice(v); context?.close().catch(()=>{}); },
+    get state() { return { unlocked, running: context?.state === 'running', musicPlaying: clock !== null, voices: voices.size + (recordings?.state.voices || 0), recordings: recordings?.state }; },
+    dispose() { if (disposed) return; disposed = true; recordings?.dispose(); stopMusic(); for (const v of voices) stopVoice(v); context?.close().catch(()=>{}); },
   };
 }

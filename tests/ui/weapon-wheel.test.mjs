@@ -140,7 +140,8 @@ test('three slots and free fists appear in the held wheel; pickup identifies the
   assert.equal(s.wheel.open, false);
   assert.equal(s.element('weapon-wheel-options').children.length, 0);
   s.key('KeyQ');
-  assert.deepEqual(s.element('weapon-wheel-options').children.map(option => option.children[2].textContent), ['SLOT 1 · FOGO', 'SLOT 2 · FOGO', 'SLOT 3 · MELEE', 'SOCOS · LIVRE']);
+  assert.deepEqual(s.element('weapon-wheel-options').children.map(option => option.children[1].textContent), ['Glock-18', 'AK-47', 'Faca', 'Socos']);
+  assert.ok(s.element('weapon-wheel-options').children.every(option => option.children.length === 2), 'only SVG and weapon name');
   s.send(window, 'keyup', { code: 'KeyQ' }); assert.equal(s.element('weapon-wheel').hidden, true);
   s.game.weaponPickups.nearby = { id: 4, weaponId: 'shotgun', label: 'Nova' };
   s.paintball.setWeapon('automatic'); s.systems.forEach(fn => fn());

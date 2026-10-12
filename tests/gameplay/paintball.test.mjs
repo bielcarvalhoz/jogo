@@ -108,6 +108,7 @@ test('long painting sessions reuse bounded meshes and dispose shared resources o
   const paint = createPaintball({ scene, camera, colliderRoots: [wall] });
   const meshes = paint.root.children.length;
   for (let i = 0; i < 220; i++) {
+    if (!paint.ammo.loaded) { if (!paint.ammo.reserve) paint.resetAmmo(); else { paint.reload(); for (let frame = 0; frame < 24; frame++) paint.update(.1); } }
     paint.setColor(i % paint.palette.length); assert.equal(paint.shoot(), true); paint.update(.1); paint.update(.1);
   }
   assert.equal(paint.root.children.length, meshes); assert.equal(paint.stats.marks, PAINTBALL_LIMITS.marks); assert.equal(paint.stats.projectiles, 0);

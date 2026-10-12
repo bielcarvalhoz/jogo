@@ -4,6 +4,7 @@ import { updateHumanoidHitboxes } from './hitboxes.js';
 import { loadCombatModels, createActorView } from './actors.js';
 import { createTrainingLab } from './training-lab.js';
 import { DIFFICULTIES } from './config.js';
+import { footSurface } from '../../core/index.js';
 export { DEFAULT_COMBAT_RULES, DIFFICULTIES } from './config.js';
 export { createCombatSimulation, COMBAT_STEP } from './simulation.js';
 export { traceHitboxes, updateHumanoidHitboxes } from './hitboxes.js';
@@ -23,16 +24,27 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
   let showHitboxes = false, lastObstaclesAt = -Infinity, sequence = 0, disposed = false, wasTraining = false, simulation;
   function onEvent(event) {
     if (event.type === 'spawn' && ['human', 'zombie'].includes(event.entity.kind)) {
-      views.set(event.entity, createActorView(event.entity, models[event.entity.kind], { parent: root, weaponModel: weaponModels?.automatic }));
+      views.set(event.entity, createActorView(event.entity, models[event.entity.kind], { parent: root, weaponModel: weaponModels?.automatic, ragdolls: game.ragdolls }));
     }
     if (event.type === 'remove') { views.get(event.entity)?.dispose(); views.delete(event.entity); }
-    if (event.type === 'damage') views.get(event.victim)?.react(event.region, event.time);
+    if (event.type === 'damage') {
+      views.get(event.victim)?.react(event.region, event.time);
+      if (event.weapon?.kind === 'melee' && event.source !== player) game.audio?.hit?.({ entity: event.victim, point: event.victim.position }, { kind: 'melee' });
+    }
+    if (event.type === 'death') {
+      game.audio?.stopReload?.(`reload:${event.victim.id}`);
+      if (event.victim.kind === 'player') game.player.spawnCorpse?.(event.victim.dead.impulse);
+    }
+    if (event.type === 'attack') game.audio?.melee?.({ id: 'fists' }, { position: event.entity.position });
+    if (event.type === 'reload') { views.get(event.entity)?.reload?.(event.duration, event.time); game.audio?.reload?.({ id: 'automatic' }, { duration: event.duration, position: event.entity.position, tag: `reload:${event.entity.id}` }); }
     if (event.type === 'shot') {
       views.get(event.entity)?.shoot();
       const tracer = tracers[traceIndex++ % tracers.length], positions = tracer.line.geometry.attributes.position;
       positions.setXYZ(0, event.from.x, event.from.y, event.from.z); positions.setXYZ(1, event.to.x, event.to.y, event.to.z); positions.needsUpdate = true;
       tracer.line.material = traceMaterials[event.entity.role === 'ally' ? 1 : 0]; tracer.line.visible = true; tracer.until = event.time + .08;
-      if (Math.hypot(event.from.x - player.position.x, event.from.z - player.position.z) < 40) game.audio?.shot('automatic');
+      game.audio?.shot('automatic', { position: event.from });
+      game.audio?.whiz?.(event.from, event.to);
+      if (event.hit) game.audio?.hit?.(event.hit, { kind: 'firearm' });
     }
     game.events.emit(`combat${event.type}`, event);
   }
@@ -140,10 +152,17 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
       if (simulation.time - lastObstaclesAt >= .25) { syncObstacles(); lastObstaclesAt = simulation.time; }
       simulation.update(dt);
       if (player.dead && simulation.time - player.dead.at >= simulation.rules.respawnSeconds) {
-        game.player.placeAt(spawn.x, spawn.z, spawn.yaw); simulation.revive(player, game.player.feet); game.paintball?.clearEffects();
+        game.player.placeAt(spawn.x, spawn.z, spawn.yaw); simulation.revive(player, game.player.feet); game.paintball?.clearEffects(); game.paintball?.resetAmmo?.();
       }
     }
-    for (const [entity, view] of views) view.update(running ? Math.min(.1, Math.max(0, dt)) : 0, simulation.time, game.engine.camera, showHitboxes);
+    for (const [entity, view] of views) {
+      const speed = Math.hypot(entity.velocity.x, entity.velocity.z);
+      if (running && !entity.dead) {
+        view.stepDistance = (view.stepDistance || 0) + speed * Math.min(.1, dt);
+        if (view.stepDistance >= .8) { view.stepDistance %= .8; game.audio?.footstep?.(footSurface(game, entity.position), { speed, position: { ...entity.position } }); }
+      }
+      view.update(running ? Math.min(.1, Math.max(0, dt)) : 0, simulation.time, game.engine.camera, showHitboxes);
+    }
     for (const tracer of tracers) if (simulation.time >= tracer.until) tracer.line.visible = false;
     beacon.material.emissiveIntensity = objective.dead ? 0 : .4;
     beacon.material.color.setHex(objective.dead ? 0x444c54 : 0x55bbc9);
