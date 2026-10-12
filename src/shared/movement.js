@@ -1,3 +1,20 @@
+/** Resolve penetration while retaining the tangent so input can go around a body.
+ * A pre-existing overlap can escape without pushing an idle character each frame. */
+export function slideCharacterContacts(x, z, radius, feetY, actors, { from, exclude } = {}) {
+  for (const other of actors) {
+    if (other === exclude || other.dead || other.networkGhost || feetY >= other.position.y + 1.8 || feetY + 1.8 <= other.position.y) continue;
+    const dx = x - other.position.x, dz = z - other.position.z, distance = Math.hypot(dx, dz);
+    const limit = radius + other.radius;
+    const clearance = from ? Math.min(limit, Math.hypot(from.x - other.position.x, from.z - other.position.z)) : limit;
+    if (distance < clearance - 1e-7) {
+      const nx = distance ? dx / distance : from ? (from.x - other.position.x) / clearance : 1;
+      const nz = distance ? dz / distance : from ? (from.z - other.position.z) / clearance : 0;
+      x = other.position.x + nx * clearance; z = other.position.z + nz * clearance;
+    }
+  }
+  return [x, z];
+}
+
 /** Sweep short steps and converge all contacts together. Conflicting contacts
  * retain the last stable point rather than alternating pushes every frame. */
 export function moveWithContacts(from, to, radius, feetY, collide, options) {

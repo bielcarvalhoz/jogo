@@ -264,14 +264,6 @@ export function createUI(game) {
   });
   $('btn-fly').addEventListener('click', () => { if (player.active && game.mode !== 'training') player.toggleAutoFly(); });
   $('btn-jump').addEventListener('click', () => player.jump());
-  $('btn-orientation').addEventListener('click', async () => {
-    const desired = innerHeight > innerWidth ? 'landscape' : 'portrait';
-    try {
-      if (!screen.orientation?.lock) throw new Error('unsupported');
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
-      await screen.orientation.lock(desired);
-    } catch { toast(`Gire o celular para jogar ${desired === 'landscape' ? 'deitado' : 'em pé'}.`); }
-  });
 
   function openMap() {
     if (!game.mode || sessionMenu.paused) return;

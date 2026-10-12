@@ -11,7 +11,7 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
   tray.innerHTML = '<header><b>Mais ações</b><button id="actions-close" aria-label="Fechar mais ações"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header><div class="actions-grid"></div>';
   hud.append(trigger, tray);
   const grid = tray.querySelector('.actions-grid');
-  for (const [id, label] of [['btn-color', 'Trocar tinta'], ['btn-holster', 'Guardar / equipar'], ['btn-reactions', 'Interações'], ['btn-camera', 'Câmera'], ['btn-fly', 'Voar / pousar'], ['btn-orientation', 'Girar tela'], ['mp-ranking-button', 'Ranking']]) {
+  for (const [id, label] of [['btn-color', 'Trocar tinta'], ['btn-holster', 'Guardar / equipar'], ['btn-reactions', 'Interações'], ['btn-camera', 'Câmera'], ['btn-fly', 'Voar / pousar'], ['mp-ranking-button', 'Ranking']]) {
     const button = $(id); if (!button) continue;
     button.classList.remove('only-touch'); button.classList.add('action-tile');
     const caption = document.createElement('span'); caption.className = 'action-caption'; caption.textContent = label;
@@ -34,7 +34,10 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
   trigger.addEventListener('click', () => setActions(!actionsOpen));
   $('actions-close').addEventListener('click', () => { setActions(false); trigger.focus({ preventScroll: true }); });
   // Close before existing click handlers run, so the chosen action can execute.
-  grid.addEventListener('click', event => { if (event.target.closest('button')) setActions(false); }, true);
+  grid.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (button && button.id !== 'btn-color') setActions(false);
+  }, true);
   document.addEventListener('pointerdown', event => { if (actionsOpen && !tray.contains(event.target) && !trigger.contains(event.target)) setActions(false); });
 
   const dialog = document.createElement('dialog'); dialog.id = 'game-menu';

@@ -112,6 +112,28 @@ try {
   relocate(pa, field.x - 4, field.z + 5); relocate(pb, field.x - 4, field.z - 5);
   await a.waitForFunction(life => __cdd.game.multiplayer.self.life === life && Math.hypot(__cdd.player.feet.x - __cdd.game.multiplayer.self.x, __cdd.player.feet.z - __cdd.game.multiplayer.self.z) < .2, pa.life);
   await b.waitForFunction(life => __cdd.game.multiplayer.self.life === life, pb.life);
+  for (const page of [a, b]) await page.evaluate(() => {
+    window.__hitReactions = [];
+    const own = __cdd.player.avatar;
+    for (const avatar of [own, ...[...__cdd.game.multiplayer.views.values()].map(v => v.avatar)]) {
+      const play = avatar.playHit.bind(avatar);
+      avatar.playHit = region => {
+        const played = play(region); window.__hitReactions.push({ region, remote: avatar !== own, played, clip: avatar.animationState.hit }); return played;
+      };
+    }
+  });
+  for (const [kind, region] of [['firearm', 'thorax'], ['melee', 'limb']]) {
+    room.sim.sim.damage(pb.entity, { source: pa.entity, region, weapon: { id: kind === 'firearm' ? 'pistol' : 'fists', kind, damage: 5 } });
+    await a.waitForFunction(region => window.__hitReactions.some(h => h.region === region && h.remote && h.played && h.clip === 'Hit_Chest'), region);
+    await b.waitForFunction(region => window.__hitReactions.some(h => h.region === region && !h.remote && h.played && h.clip === 'Hit_Chest'), region);
+  }
+  const hitReactions = await Promise.all([a, b].map(page => page.evaluate(() => window.__hitReactions)));
+  const contact = await a.evaluate(() => {
+    const mp = __cdd.game.multiplayer, other = [...mp.views.values()][0].entity, p = other.position;
+    const from = { x: p.x - .7, z: p.z }, [x, z] = mp.collide(from.x + .04, from.z + .04, .35, p.y, { from });
+    return { separation: Math.hypot(x - p.x, z - p.z), sideways: z - from.z };
+  });
+  assert.ok(contact.separation >= .7 - 1e-6 && contact.sideways > .02, 'the real remote avatar collider must permit sliding and block penetration');
   await a.evaluate(id => {
     const target = __cdd.game.multiplayer.snapshot.players.find(p => p.id === id);
     __cdd.player.setCameraMode('first'); __cdd.game.engine.camera.lookAt(target.x, target.y + 1.15, target.z); __cdd.player.updateCamera();
@@ -145,10 +167,12 @@ try {
   const activities = { friendlyFire: { kills: pa.entity.stats.kills, deaths: pb.entity.stats.deaths }, football: [...room.sim.football.score], defense: { ...room.sim.defense } };
   assert.deepEqual(errors, []);
   assert.ok(reports.every(r => !r.overflow));
-  await b.locator('#btn-menu').click(); await a.evaluate(() => __cdd.game.ui.showMenu());
+  await b.locator('#btn-menu').click(); await b.locator('#game-menu-exit').click();
+  await a.waitForFunction(() => __cdd.game.multiplayer.snapshot.players.length === 1);
+  await a.evaluate(() => __cdd.game.ui.showMenu());
   await a.waitForFunction(() => __cdd.game.mode === null && !__cdd.game.multiplayer.network.session);
   assert.equal(app.hub.rooms.size, 0);
-  await fs.writeFile(path.join(directory, 'report.json'), JSON.stringify({ reports, errors, movement, activities }, null, 2));
+  await fs.writeFile(path.join(directory, 'report.json'), JSON.stringify({ reports, errors, movement, activities, hitReactions, contact }, null, 2));
   console.log(JSON.stringify({ ok: true, clients: reports.length, errors, screenshots: directory }));
 } catch (error) {
   const state = [];

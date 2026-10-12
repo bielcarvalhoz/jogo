@@ -52,3 +52,24 @@ test('skin and gender persist and legacy hairstyles migrate without discarding o
   const invalid = normalizeAppearance({ gender: 'constructor', skinColor: 'url(invalid)' });
   assert.equal(invalid.gender, DEFAULT_APPEARANCE.gender); assert.equal(invalid.skinColor, DEFAULT_APPEARANCE.skinColor);
 });
+
+test('actual v1 rosters keep IDs, selection and colors while old hairstyles survive edit, save and reload', () => {
+  const mapping = { original: 'original', crop: 'crop', long: 'long', sidecut: 'sidecut', bald: 'bald', curls: 'buns', dreads: 'long', spikes: 'original', mohawk: 'crop', afro: 'buns' };
+  const characters = Object.keys(mapping).map(hairStyle => ({ id: hairStyle, name: `Antigo ${hairStyle}`, appearance: { hairStyle, hairColor: '#abcdef', gender: 'female', skinColor: '#654321', headAccessory: 'headphones' } }));
+  let saved = JSON.stringify({ version: 1, selectedId: 'dreads', characters });
+  const storage = { getItem: () => saved, setItem: (_key, value) => { saved = value; } };
+  const store = createCharacterStore(storage);
+  assert.equal(store.selected.id, 'dreads'); assert.equal(store.selected.appearance.hairStyle, 'long');
+  assert.equal(JSON.parse(saved).characters.find(c => c.id === 'dreads').appearance.hairStyle, 'dreads', 'loading must preserve the stored source until an explicit save');
+  for (const character of store.characters) {
+    assert.equal(character.appearance.hairStyle, mapping[character.id]);
+    store.save({ ...character, name: character.name + ' novo' });
+  }
+  const restored = createCharacterStore(storage);
+  assert.equal(restored.selected.id, 'dreads'); assert.equal(restored.characters.length, characters.length);
+  for (const character of restored.characters) {
+    assert.equal(character.appearance.hairStyle, mapping[character.id]);
+    assert.equal(character.appearance.hairColor, '#abcdef'); assert.equal(character.appearance.skinColor, '#654321');
+    assert.equal(character.appearance.gender, 'female'); assert.equal(character.appearance.headAccessory, 'headphones');
+  }
+});

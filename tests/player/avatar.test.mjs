@@ -72,13 +72,39 @@ test('holstered weapon sizes select back or hip, follow the animated body and ar
     avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
     assert.equal(gun.userData.stowSlot, slot); assert.equal(gun.userData.stowedVisible, true);
     const local = avatar.root.worldToLocal(gun.position.clone());
-    assert.ok(slot === 'back' ? local.z > .1 : Math.abs(local.x) > .2, 'weapon must sit outside the body');
+    assert.ok(slot === 'back' ? local.z > .1 : Math.hypot(local.x, local.z) > .2, `weapon must sit outside the body: ${weapon} ${local.toArray()}`);
+    if (slot === 'hip') {
+      const hand = avatar.root.worldToLocal(avatar.bones['DEF-handR'].getWorldPosition(new THREE.Vector3()));
+      assert.ok(local.z > hand.z + .1, 'small weapons must sit behind the lowered hand');
+      const hips = avatar.root.worldToLocal(avatar.bones['DEF-hips'].getWorldPosition(new THREE.Vector3()));
+      assert.ok(Math.abs(local.y - hips.y) < .2, `the holster must remain at waist height: ${local.y} vs ${hips.y}`);
+    }
     const position = gun.position.clone(); player.feet.x += 2; player.eyePosition.x += 2; avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
     assert.ok(Math.abs(gun.position.x - position.x - 2) < .04);
     avatar.playGreeting(); avatar.update(.3); avatar.updateWeapon(gun, { weapon, holstered: true });
     assert.equal(gun.userData.characterEmote, false, 'a wave must leave the stowed weapon visible');
     avatar.stopEmote(); player.cameraMode = 'first'; avatar.update(.016); avatar.updateWeapon(gun, { weapon, holstered: true });
     assert.equal(gun.userData.stowedVisible, false);
+  }
+});
+
+test('authored hit reactions animate armed and relaxed avatars, retain locomotion and recover their guard', async () => {
+  for (const holstered of [false, true]) for (const region of ['head', 'thorax']) {
+    const { avatar, player, gun } = await fixture(), reference = await fixture();
+    avatar.setWeapon({ id: 'pistol', kind: 'firearm', holstered }); reference.avatar.setWeapon({ id: 'pistol', kind: 'firearm', holstered });
+    player.velocity.set(0, 0, -1.6); reference.player.velocity.copy(player.velocity);
+    avatar.update(.05); reference.avatar.update(.05);
+    avatar.playEmote('wave'); assert.equal(avatar.playHit(region), true);
+    for (let i = 0; i < 3; i++) { avatar.update(.05); reference.avatar.update(.05); avatar.updateWeapon(gun, { weapon: 'pistol', kind: 'firearm', holstered }); }
+    assert.equal(avatar.animationState.hit, region === 'head' ? 'Hit_Head' : 'Hit_Chest');
+    assert.equal(avatar.animationState.emote, null); assert.equal(avatar.animationState.motion, 'Walk_Loop');
+    const bone = region === 'head' ? 'DEF-head' : 'DEF-spine003';
+    assert.ok(avatar.bones[bone].quaternion.angleTo(reference.avatar.bones[bone].quaternion) > .02, 'a hit must visibly change the authored upper-body pose');
+    assert.ok(avatar.bones['DEF-thighR'].quaternion.angleTo(reference.avatar.bones['DEF-thighR'].quaternion) < 1e-5, 'taking a hit cannot freeze or replace the walking legs');
+    avatar.playHit(region); avatar.update(.05); assert.ok(avatar.animationState.hit, 'successive hits restart the reaction');
+    for (let i = 0; i < 12; i++) avatar.update(.05);
+    assert.equal(avatar.animationState.hit, null);
+    avatar.playHit(region); avatar.stopHit(); assert.equal(avatar.animationState.hit, null);
   }
 });
 

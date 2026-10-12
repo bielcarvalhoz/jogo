@@ -4,6 +4,7 @@ import { WEAPON_BY_ID } from '../src/gameplay/paintball/weapons.js';
 import { createAmmoStore } from '../src/gameplay/paintball/ammo.js';
 import { EMOTES, finitePoint, separatedSpawn, cleanName } from '../src/shared/multiplayer.js';
 import { ammoPosition, AMMO_RESPAWN_SECONDS } from '../src/shared/props.js';
+import { moveWithContacts, slideCharacterContacts } from '../src/shared/movement.js';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -65,6 +66,11 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
       const xOnly = { ...next, z: before.z }, zOnly = { ...next, x: before.x };
       next = world.segmentClear(before, xOnly) ? xOnly : world.segmentClear(before, zOnly) ? zOnly : before;
     }
+    const [x, z] = moveWithContacts(before, next, e.radius, next.y, (x, z, radius, feetY, options) => {
+      const contact = slideCharacterContacts(x, z, radius, feetY, sim.actors, { ...options, exclude: e });
+      return world.segmentClear({ ...before, ...options.from }, { x: contact[0], y: next.y, z: contact[1] }) ? contact : [options.from.x, options.from.z];
+    }, { push: false });
+    next = { ...next, x, z };
     p.budget = Math.max(0, p.budget - distance(before, next));
     const dt = Math.max(1 / 60, sim.time - p.lastPoseAt);
     e.position = next; e.yaw = Math.atan2(Math.sin(pose.yaw), Math.cos(pose.yaw)); e.crouched = !!pose.crouched; p.aiming = !!pose.aiming;

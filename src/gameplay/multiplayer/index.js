@@ -4,6 +4,7 @@ import { MultiplayerNetwork } from './network.js';
 import { PeerMesh } from './peers.js';
 import { footSurface } from '../../core/index.js';
 import { EV, NET, interpolatePose, multiplayerLandmarks } from '../../shared/multiplayer.js';
+import { slideCharacterContacts } from '../../shared/movement.js';
 
 export function createMultiplayerModule(game, { weaponModels } = {}) {
   const network = new MultiplayerNetwork(), views = new Map(), zombies = new Map(), roster = new Map();
@@ -24,7 +25,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   let mesh = null, latest = null, snapshots = [], seq = 0, pending = [], sendAccumulator = 0, meshTimer = 0, life = 0, nearby = null;
   const now = () => performance.now() / 1000;
   const worldEvents = event => game.events.emit('multiplayerevent', event);
-  const actor = pose => ({ id: pose.id, kind: pose.kind, position: { x: pose.x, y: pose.y, z: pose.z }, yaw: pose.yaw, velocity: { x: pose.vx || 0, y: 0, z: pose.vz || 0 }, health: { current: pose.health, max: pose.maxHealth, lastHitAt: -Infinity }, dead: pose.dead, deathImpulse: pose.deathImpulse, networkGhost: pose.kind === 'player' && !pose.connected, action: pose.action, actionSerial: pose.actionSerial, hitboxes: [] });
+  const actor = pose => ({ id: pose.id, kind: pose.kind, radius: .35, position: { x: pose.x, y: pose.y, z: pose.z }, yaw: pose.yaw, velocity: { x: pose.vx || 0, y: 0, z: pose.vz || 0 }, health: { current: pose.health, max: pose.maxHealth, lastHitAt: -Infinity }, dead: pose.dead, deathImpulse: pose.deathImpulse, networkGhost: pose.kind === 'player' && !pose.connected, action: pose.action, actionSerial: pose.actionSerial, hitboxes: [] });
   function remote(pose) {
     const state = { feet: new THREE.Vector3(), eyePosition: new THREE.Vector3(), velocity: new THREE.Vector3(), active: true, grounded: true, fly: false, crouched: false, cameraMode: 'third', yaw: 0 };
     const camera = new THREE.PerspectiveCamera(), avatar = game.player.avatar.cloneForPreview({ scene: root, camera, player: state });
@@ -32,7 +33,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     const entity = actor(pose), gun = new THREE.Group(); gun.userData.paintballIgnore = true; root.add(gun);
     const entry = { state, camera, avatar, entity, gun, weapon: null, update(p, dt) {
       if (p.dead && !entry.dead && entry.initialized) game.ragdolls?.capture(avatar.root, { impulse: p.deathImpulse });
-      if (entry.life !== p.life) { game.bodyPaint?.clear(avatar.root); entry.life = p.life; }
+      if (entry.life !== p.life) { game.bodyPaint?.clear(avatar.root); avatar.stopHit(); entry.life = p.life; }
       entry.dead = p.dead; entry.initialized = true;
       const displacement = state.feet.distanceTo(new THREE.Vector3(p.x, p.y, p.z));
       if (!p.dead && displacement < 1 && Math.abs(p.y - state.feet.y) < .05) {
@@ -122,8 +123,10 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     }
     if (event.type === 'damage') {
       const zombie = zombies.get(event.victim); if (zombie) { zombie.entity.health.lastHitAt = event.time; zombie.view.react(event.region, event.time); }
+      (event.victim === network.session?.selfId ? game.player.avatar : views.get(event.victim)?.avatar)?.playHit(event.region);
       if (event.victim === network.session?.selfId && event.remaining <= 0) game.paintball.resetInput();
     }
+    if (event.type === 'respawn' && event.player === network.session?.selfId) game.player.avatar.stopHit();
     if (event.type === 'death') {
       game.audio?.stopReload?.(`reload:${event.victim}`);
       if (event.victim === network.session?.selfId) { game.player.spawnCorpse?.(event.impulse); game.player.avatar.stopEmote(); }
@@ -203,6 +206,11 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       if (!api.active) return null;
       const actors = [...views.values()].map(v => v.entity).concat([...zombies.values()].map(z => z.entity));
       const hit = traceHitboxes(from, to, actors); return hit ? { ...hit, point: new THREE.Vector3().copy(hit.point), normal: new THREE.Vector3().copy(hit.normal) } : null;
+    },
+    collide(x, z, radius, feetY = 0, options) {
+      if (!api.active) return [x, z];
+      const actors = [...views.values()].map(v => v.entity).concat([...zombies.values()].map(z => z.entity));
+      return slideCharacterContacts(x, z, radius, feetY, actors, options);
     },
     leave() { network.close(); },
     dispose() { network.close(); markerGeometry.dispose(); for (const material of markerMaterials) material.dispose(); portalGeometry.dispose(); portalMaterial.dispose(); portalDisc.dispose(); discMaterial.dispose(); ballGeometry.dispose(); ballMaterial.dispose(); root.removeFromParent(); },
