@@ -93,6 +93,18 @@ Ainda diferente do local: a largura da boca (12 m de faixa de rolamento em 13,9 
 
 Diferente do local: o muro do jogo passa ~1,7 m mais perto da rua, então a portaria foi deslocada junto; atrás dela o jogo tem vias de serviço com calçadas onde no local é o pátio do estacionamento (a faixa zebrada real atravessa o pátio até o Balança); o interior além do percurso descrito é aproximado.
 
+## Portaria de pedestres Goiabinha (07) (10/2026)
+
+`src/campus/portaria-goiabinha.js`; dados no marco `portaria-goiabinha`. A fachada vem do Street View enviado pelo usuário; a vista 3D do Earth e o relato dele definem o interior:
+
+- na Av. Martin Luther King: muro com um portal branco revestido em placas (porta de 1,5 m, placa com o nome, arandela preta) sob uma testeira branca comprida (~9 m) apoiada no muro; a guarita do vigilante fica na ponta oeste, com o fundo vermelho;
+- percurso: entra-se pela porta, passa-se por uma das **duas catracas** de cartão (no nível da calçada) e vira-se à direita. Uma **rampa** ao longo do muro **desce para o leste** (7,3%, 38 cm) até um patamar na calçada da via interna. Entre a rampa e o muro fica o **canteiro alto** da cerca viva, no nível da rua, contido por um arrimo branco;
+- no jogo o muro passava ~5 m para dentro, rente à via interna; no trecho da portaria ele vai até a borda da calçada da avenida (`C.wallFills`) e volta ao traçado antigo em diagonal nas pontas. A base dele acompanha a calçada da avenida (`C.wallLevel`);
+- o lado de dentro fica abaixo da avenida. Um **platô tardio** (`late: true` em `C.plateaus`, ver `gradeCampusTerrain`) prende a via interna junto ao pé da rampa no nível do patamar depois da terraplenagem. O perfil das vias até 70 m dali se ajusta (até 12%), e os nós mais longe ficam presos ao perfil de antes. O relevo não é refeito: o marco o rebaixa só por baixo das vias rebaixadas, da portaria e da rampa (`gradeGoiabinha`). Assim a avenida e o entorno continuam como estavam;
+- a malha do relevo (~6 m) faz a beira da avenida ceder em frente à portaria. Ali a faixa junto ao meio-fio é recapeada no nível de antes, sem cobrir a faixa amarela. A calçada da avenida no trecho é refeita, com guia, em cima do relevo.
+
+Diferente do local: o desnível real entre a avenida e o pátio não foi medido (não há ponto de controle na avenida em frente). A queda da rampa é a mínima para "descer", e a via interna fica até ~1,5 m abaixo do perfil antigo entre a portaria e ~50 m a leste (ainda 0,6 m ali). A largura do canteiro varia com a curva da avenida; o interior da guarita é aproximado.
+
 ## Estacionamento do Balança (10/2026)
 
 `src/campus/estacionamento.js`; dados no marco `estacionamento`. No OSM os corredores do estacionamento são vias de serviço, e o jogo as desenhava como ruas com calçada; no local é **um pátio de asfalto único**. Medido numa vista de topo do Google Earth a 170 m (dobro da resolução), girada para o sistema do pátio (u ao longo da fachada do Balança, v da fachada para o muro) com grade de 1 m:
@@ -144,7 +156,7 @@ Muros usam um único sólido com quinas contínuas e tampa compartilhada, em vez
 
 `npm test` verifica relevo/malha, proteção da margem, seção de via plana, limite de rampa longitudinal, eixo de rua sem nome, plataformas/escadas, ligação entre fachadas opostas, formatos retificados, suporte físico dos pisos, catracas/MOVE/locomotiva, controle altimétrico e platôs (resíduo nos pontos, campo/portaria/lago no mesmo nível, estacionamento do Balança plano, laje rente à rua), convivência (pista por fora das quadras, quadras planas, arquibancada andável até o passeio alto, nada sobre vias), marcos de campo (corte do relevo sob escadas, percursos andáveis da escadaria, do beco e das entradas do Prata, guarda-corpos contínuos, posição da locomotiva), muros, natureza e disparos/impactos/pools de tinta. `npm run build` gera a versão de produção.
 
-Em desenvolvimento, `/?inspect=azul`, `amarelo`, `cinza`, `prata`, `vermelho`, `rubi`, `cti`, `conviver`, `campo`, `lago`, `passarela`, `move`, `trem`, `portaria`, `bussocaba`, `wenceslau`, `escadaria`, `beco`, `menos2`, `terreo`, `convivencia`, `piscina`, `quadras`, `lago2` ou `tinta` escolhe uma câmera de inspeção. O elemento oculto `#scene-inspection` fornece dados da cena real e falhas de shaders; `#paintball-inspection` registra disparos/cores no modo tinta. Esse módulo não entra na compilação de produção. O jogo normal continua em `/`.
+Em desenvolvimento, `/?inspect=azul`, `amarelo`, `cinza`, `prata`, `vermelho`, `rubi`, `cti`, `conviver`, `campo`, `lago`, `passarela`, `move`, `trem`, `portaria`, `bussocaba`, `wenceslau`, `goiabinha` (e `goiabinha-rampa`, `goiabinha-alto`), `escadaria`, `beco`, `menos2`, `terreo`, `convivencia`, `piscina`, `quadras`, `lago2` ou `tinta` escolhe uma câmera de inspeção. O elemento oculto `#scene-inspection` fornece dados da cena real e falhas de shaders; `#paintball-inspection` registra disparos/cores no modo tinta. Esse módulo não entra na compilação de produção. O jogo normal continua em `/`.
 
 As dimensões de marquises, escadas, mobiliário e jardins são aproximações baseadas nas fotos, sem levantamento métrico. O usuário confirmou as extremidades da passarela e o desenho da escadaria do Azul. Números e localização dos prédios são os da base anterior; a forma dos três envelopes retos foi corrigida conforme a referência.
 

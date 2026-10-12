@@ -33,6 +33,12 @@ export function inspectScene(app, view) {
     const mouth=(P.pistas[0][0]+P.pistas[1][1])/2,eye=P.at(mouth,back),look=P.at(mouth,-P.depth/2);
     camera.position.set(eye[0],terrain.heightAt(...eye)+2.3,eye[1]);
     camera.lookAt(look[0],terrain.heightAt(...look)+4.2,look[1]);
+  } else if(view.startsWith('goiabinha')&&campus.landmarks?.plan.goiabinha?.levels){
+    // portaria 07: da calçada de lá da avenida (Street View), por dentro ao longo da rampa e de cima (Earth)
+    const G=campus.landmarks.plan.goiabinha,F=G.levels.floor,look=(p,y,q,yq)=>{camera.position.set(p[0],y,p[1]);camera.lookAt(q[0],yq,q[1]);};
+    if(view==='goiabinha')look(G.at(1,-12),F+1.6,G.at(0,1),F+1.6);
+    else if(view==='goiabinha-rampa')look(G.at(-.5,(G.rampa[2]+G.rampa[3])/2+.1),F+1.65,G.at(G.patamar+3,(G.rampa[2]+G.rampa[3])/2),G.levels.low+1.1);
+    else look(G.at(-14,-14),F+16,G.at(4,3),F);
   } else if((view==='move'||view==='trem'||view==='portaria')&&campus.amenities){
     const plan=campus.amenities.plan;
     const p=view==='trem'?(campus.landmarks?.plan.locomotive||plan.train):view==='move'?plan.stops[0]:plan.gates.find(g=>g.gate.num===10)||plan.gates[0];

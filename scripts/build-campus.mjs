@@ -244,6 +244,17 @@ point({ kind: 'landmark', type: 'estacionamento', name: 'Estacionamento do Balan
   arvores: [[-6.4, 19.6], [6.9, 19.6], [15.8, 19.6], [24.6, 19.6], [31, 19.6], [37, 19.6], [42.6, 19.6], [50, 19.6], [2.5, 10.6], [23, 10.6], [47, 10.6], [88.6, 17.5]],
   // calçada reta rente à fachada [u0, u1, v0, v1], marquise da entrada e pátio de equipamentos murado (oeste)
   calcada: [-28.5, 67.4, .3, 4.4], marquise: [16.5, 33.5, .3, 4.8], equipamentos: [-37.5, -29.3, 5.3, 15.2], source: SRC_FIELD }, [-23.5480865, -46.7744382]);
+// Portaria de pedestres Goiabinha, na Av. Martin Luther King: ponto = eixo da porta, na linha do muro
+// (o portal é ancorado na borda da calçada da avenida); rumo do muro 76°. Em metros: s ao longo do muro
+// (leste +), v para dentro. Percurso descrito pelo usuário: duas catracas de cartão logo depois da porta;
+// do lado de dentro, uma rampa ao longo do muro DESCE para o leste até a calçada da via interna.
+// cobertura [s0, s1, profundidade] (testeira branca, Street View); portal = revestimento branco; porta;
+// catracas = s da linha delas (viradas para a rampa); guarita [s0, s1] na ponta oeste; rampa [topo, pé, v do canteiro, v de dentro]
+// e queda (m); patamar = fim do patamar no pé da rampa; muro [s0, s1, volta]: trecho em que o muro passa na
+// borda da calçada (no jogo ele passava ~5 m para dentro) e onde volta ao traçado antigo; interno [s0, s1]:
+// trecho da via interna no nível do patamar; rua = calçada da avenida refeita [s0, s1].
+point({ kind: 'landmark', type: 'portaria-goiabinha', gate: 7, name: 'Portaria Goiabinha (pedestres)', heading: 76, cobertura: [-5.3, 3.9, 3.8], portal: [-1.85, 1.85], porta: 1.5,
+  catracas: 1.3, guarita: [-5.1, -2.2], rampa: [3, 8.2, 2.35, 3.65], queda: .38, patamar: 9.4, muro: [-14, 14, 22], interno: [0, 11], rua: [-22, 56], source: SRC_FIELD }, [-23.5498934, -46.7739968]);
 // Locomotiva 801 ao lado do CTI: frente (limpa-trilhos) para ESE, trilho de exposição de 26 m.
 point({ kind: 'landmark', type: 'locomotiva', name: 'Locomotiva 801', source: SRC_FIELD, heading: 113 }, [-23.546803, -46.768288]);
 // Portaria Bussocaba: UMA cobertura comprida (duas lajes em linha, 35 x 12 m) paralela à rua, junto à
