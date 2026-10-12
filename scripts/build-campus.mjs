@@ -109,7 +109,6 @@ M('m1', { name: 'Espaço Saúde CdD — Clínica', num: 37 });
 
 // ---------------------------------------------------------------- estruturas medidas no satélite
 poly({ kind: 'helideck', source: SRC_SAT, height: 4.5 }, ringLL([[-23.5483252, -46.7693058], [-23.5481211, -46.7688739], [-23.5482244, -46.7686459], [-23.5485072, -46.7685843], [-23.54864, -46.7689544], [-23.5485834, -46.769236]]));
-poly({ kind: 'building', source: SRC_SAT, name: 'Portaria Wenceslau Braz', gateBuilding: true, levels: 1, height: 5, wall: '#f4f3ef', roof: '#dcdddd', windows: '#2b3f55', accent: 'quina', accentColor: RED }, rect([-23.5498915, -46.7711833], 17, 10, -4));
 poly({ kind: 'canopy', source: SRC_SAT, name: 'Cobertura tensionada', height: 4.2 }, rect([-23.5493284, -46.7709392], 49, 11.5, -2));
 point({ kind: 'totem', source: SRC_SAT, height: 26, radius: 1.1 }, [-23.5489104, -46.7739245]);
 point({ kind: 'dish', source: SRC_SAT, diameter: 8 }, [-23.5487703, -46.7738843]);
@@ -138,7 +137,10 @@ const park = (name, pts, extra = {}) => poly({ kind: 'parking', source: SRC_SAT,
 park('Estacionamento', [[-23.5494047, -46.7740345], [-23.5495448, -46.7729965], [-23.5499603, -46.772975], [-23.5499013, -46.7740345]]);
 park('Estacionamento', [[-23.549385, -46.7745548], [-23.549385, -46.7740774], [-23.5502185, -46.7740774], [-23.5502185, -46.7745548]]);
 park('Estacionamento', [[-23.5476417, -46.7748365], [-23.5475605, -46.7736241], [-23.5478974, -46.7736027], [-23.5482146, -46.7748123]]);
-park('Estacionamento', [[-23.5492768, -46.7712289], [-23.5492768, -46.7698395], [-23.5498694, -46.7698395], [-23.5498694, -46.7712289]], { palms: 'sul' });
+// Estacionamento logo depois da Portaria Wenceslau Brás: as vagas acompanham a Rua Venceslau Brás
+// (vista de topo do Google Earth), da cerca a leste da boca até o fim do pátio. O retângulo em
+// lat/lon da versão anterior ficava torto em relação à rua e atravessava o leito dela.
+park('Estacionamento', [[-23.5499069, -46.7710303], [-23.5495886, -46.7697430], [-23.5489771, -46.7699205], [-23.5492955, -46.7712078]], { palms: 'sul' });
 for (const [id, n] of [['b43', 14], ['b42', 15], ['b18', 16]]) poly({ kind: 'parking', source: SRC_PLAN, slab: true, name: `Estacionamento ${n} (antigo Prédio Branco)`, num: n }, plan.predios[id]);
 poly({ kind: 'parking', source: SRC_PLAN, name: 'Estacionamento Coberto', underPergola: true }, plan.predios.b15);
 
@@ -154,7 +156,7 @@ point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, rea
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, booth: false, reach: 8 }, [-23.5466081, -46.7720745]);
 point({ kind: 'gate', type: 'pedestre', name: 'Portaria Bussocaba (pedestres)', num: 6 }, [-23.547431, -46.773729]);
 point({ kind: 'gate', type: 'pedestre', name: 'Portaria Goiabinha (pedestres)', num: 7 }, [-23.5498934, -46.7739968]);
-point({ kind: 'gate', type: 'portaria', name: 'Portaria Wenceslau Braz', num: 8, building: true }, [-23.550003, -46.771147]);
+point({ kind: 'gate', type: 'portaria', name: 'Portaria Wenceslau Brás', num: 8, building: true, reach: 10 }, [-23.550003, -46.771147]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Vila Yara', num: 9 }, [-23.547399, -46.766712]);
 
 // ---------------------------------------------------------------- marcos levantados em campo
@@ -217,6 +219,63 @@ point({ kind: 'landmark', type: 'portaria', gate: 10, name: 'Portaria Bussocaba'
   calcadaAgencia: { esquerda: [[32.2, 6], [32.2, 13], [32.2, 20], [32.2, 27], [32.2, 'interna']], direita: [[37.3, 6], [37.3, 13], [37.2, 21.5], [36.7, 27], [36.5, 'interna']] },
   faixaInterna: [26.9, 30.5, 31.75], degraus: [[32.5, 36.3, 19.5, 27.5, 8]], covas: [[33, 9.5], [35.9, 11.5], [33, 15.5], [35.9, 17.5]],
   source: SRC_FIELD }, [-23.5466438, -46.7721344]);
+// Portaria Wenceslau Brás (Portaria 8): UMA laje comprida (23 x 11 m) paralela à Rua Venceslau Brás,
+// com a recepção sob a ponta OESTE — encostada no limite do terreno, que ali recua para as casas da
+// encosta —, o pilar-letreiro vermelho ao lado dela e o pórtico de duas lâminas vermelhas
+// inclinadas, abertas para fora, sobre o meio da boca. Diferente de Bussocaba, a boca é UMA pista
+// larga só (`pistaUnica`): entrada e saída ficam lado a lado, separadas apenas por cones laranja e
+// balizadores, e fechadas pelos dois portões de correr brancos.
+// Medidas nas fotos de rua e nas vistas 3D do Google Earth enviadas pelo usuário (10/2026); o rumo
+// vem da rua e os dois nós de ligação, do OSM. O eixo de 2 nós do OSM encosta na borda oeste da boca
+// (traçado grosseiro); `eixoEntrada` o leva ao meio dela, entre os mesmos nós.
+// Sistema igual ao de Bussocaba: s ao longo da cobertura a partir da ponta OESTE, v para DENTRO do
+// campus (norte); v = null é "no meio-fio da rua".
+point({ kind: 'landmark', type: 'portaria', id: 'wenceslau', gate: 8, name: 'Portaria Wenceslau Brás',
+  heading: 75, length: 23, depth: 11, entrada: 'way/826235184', pistaUnica: true, larguraEntrada: 12,
+  lajes: [[0, 23]], testeira: [2.6, 22.4], marcaFim: .4,
+  // dois pórticos inteiros: pernas vermelhas do chão até acima da laje, abrindo 1,9 m para fora, e
+  // a viga que as une por cima — um em cada ponta da boca, fora do leito das pistas
+  porticos: [{ s: 1.5, abertura: .85, largura: 1.5, espessura: .52, altura: 2.2, viga: .72 },
+    { s: 23.3, abertura: .85, largura: 1.5, espessura: .52, altura: 2.2, viga: .72 }],
+  // pilar-letreiro vermelho rente à recepção e as colunas brancas da laje, sempre nas divisórias
+  torre: [5, 2.6, 3.8, -2.2], torreEspessura: 1.3,
+  colunas: [[14.15, -4.6], [14.15, 4.6], [18.15, -4.6], [18.15, 4.6]],
+  // recepção sob a ponta oeste (pé-direito baixo, vitrine para a rua, platibanda vermelha por cima)
+  // e a passagem de pedestres com catraca entre ela e a boca dos carros, com a cabine do vigilante
+  recepcao: [.4, 6.2], recepcaoFundo: 9.4, recepcaoAltura: 4.1, recepcaoTopo: 4.85, vitrine: [.9, 5.7],
+  pedestres: [{ s: 7.6, w: 2.2, simples: true }], cabine: [9.6, -3.6, 1.4, 1.4],
+  calcadaPedestre: [[6.3, 8.9, -14.4, -5.6]],
+  // ---- boca: TRÊS faixas numa pista só, de oeste para leste — saída, entrada, entrada. Entre a
+  // saída e a primeira entrada vão os cones; entre as duas entradas, o portão branco.
+  pistas: [[9.1, 16.05], [16.05, 23]], guarita: false, muro: [[23.4, 0]],
+  // eixo da pista da rua para dentro (entre os nós de ligação do OSM), passando no meio da boca
+  eixoEntrada: [[12, -18], [14.2, -13], [15.7, -8], [16.05, -4], [16.05, 0], [16, 5], [15.3, 9], [13.6, 13], [11.4, 16]],
+  cancelas: [[10.5, 13.8, true], [14.5, 17.8], [18.5, 21.8]], cancelaV: 2.6,
+  divisorias: [[14.15, -13.6, -5.7], [18.15, -13.6, -5.7]],
+  // ---- lado da rua: portão de correr branco na divisória entre as duas entradas (folha recolhida
+  // AO LONGO da pista) e outro na borda leste da boca; cones e balizadores na divisória saída/entrada
+  portoes: [[18.15, -5, 4.6, 1, 'v'], [22.4, -5.2, 5, 1]],
+  cones: [[[14.15, -5.2], [14.15, 3.4]]], passoCones: 2.1,
+  // vigilante de plantão na divisória entre as duas faixas de entrada, de frente para quem chega
+  seguranca: [[18.15, .8, 14]],
+  balizadores: [[[14.15, -9.6], [14.15, -5.8]]], passoBalizadores: 1.5,
+  // legendas em pé para quem dirige, esticadas no sentido da marcha (só nas duas entradas)
+  textoPista: [[16.15, -10.6, 'REDUZA', 3.8, 2.1], [20.15, -10.6, 'REDUZA', 3.8, 2.1],
+    [16.15, -6.6, 'PARE', 2, 2.1], [20.15, -6.6, 'PARE', 2, 2.1]],
+  setas: [[16.15, -13.4, [0, 1]], [20.15, -13.4, [0, 1]], [12.15, -9.6, [0, -1]], [12.15, 1.6, [0, -1]]],
+  // guarda-corpo dos dois lados do caminho de pedestres (nunca atravessado nele)
+  gradil: [[[6.3, -13.6], [6.3, -1.4]], [[8.9, -13.6], [8.9, -1.4]]],
+  cerca: [[[-3.8, -4.6], [-3.8, -10.9]], [[25.6, -5.4], [25.6, -11]]],
+  // muro branco que segura a encosta oeste ao longo do passeio, com o totem da marca na frente
+  arrimo: [{ linha: [[-4.3, -12.6], [-11.1, -13.1], [-19.1, -13.6]], altura: 2.4 }],
+  // (giro: o painel fica de lado, paralelo à pista, para quem sobe a Rua Venceslau Brás vê-lo de frente)
+  totem: [-2.4, -12.2, 10.5, 3.4, -90],
+  palmeiras: [[.9, -7.6, 11], [-1.8, -8.8, 9.5], [3.2, -9.2, 10]],
+  // faixa de pedestres de ponta a ponta da boca, atravessada no meio-fio da rua
+  faixasBoca: [[8.2, 24]],
+  // ---- lado de dentro: pátio de asfalto da cobertura até a via interna do estacionamento
+  patio: [1, 23],
+  source: SRC_FIELD }, [-23.5498710, -46.7711878]);
 // Beco com escada na ponta leste do Balança (do estacionamento à rua do Prata).
 point({ kind: 'landmark', type: 'beco', building: 'b8', toward: 'b6', end: 'leste', offset: 5.2, width: 2.6, source: SRC_FIELD }, [-23.5479607, -46.7738679]);
 // Entradas do Prata: -2 ao pé da torre da fachada norte; fundos do andar zero na fachada sul.
@@ -249,6 +308,14 @@ plato('estacionamento-balanca', 'Estacionamento do Balança', 734, [
 // Agência: ali o SRTM subia 1,4 m por causa das copas e a rua ficava num aterro acima do pátio)
 plato('portaria-bussocaba', 'Portaria Bussocaba', 731, [[-23.5466684, -46.7723916], [-23.5464629, -46.7720464], [-23.546591, -46.7719557], [-23.5465863, -46.7719298], [-23.5469027, -46.7717056],
   [-23.5469266, -46.7717997], [-23.5468941, -46.7719162], [-23.5468687, -46.7719634], [-23.5468706, -46.7720205], [-23.5468771, -46.7721035], [-23.5469283, -46.7722074]], { band: 6, buildings: ['b34'] });   // a Agência fica no mesmo terraço
+// Portaria Wenceslau Brás: a cobertura, a boca e o pátio até a via interna do estacionamento num
+// nível só. Aqui não há leitura de altitude do Google Earth: a cota vem do próprio relevo corrigido
+// (737,1 m no eixo da pista, sob a cobertura) — o platô só APLAINA o que o SRTM deixa em rampa de
+// 1,9 m ao longo da laje. No local a plataforma é escavada na encosta oeste, que é contida pelo muro
+// branco visto na foto de rua; o apoio entre o meio-fio da rua (≈738 m) e o pátio fica na banda.
+plato('portaria-wenceslau', 'Portaria Wenceslau Brás', 0, [
+  [-23.5499985, -46.7713281], [-23.5499217, -46.7710157], [-23.5496354, -46.7710994], [-23.5497121, -46.7714118],
+], { band: 6, altitude: 737.1 });
 // Rua entre o Balança e o Prata, no nível da laje do Balança (que é estacionamento): 741 m.
 plato('rua-balanca-prata', 'Rua entre o Balança e o Prata', 741, [
   [-23.5479778, -46.7737846], [-23.5480030, -46.7738228], [-23.5480425, -46.7739610], [-23.5480731, -46.7740149], [-23.5480946, -46.7741109],

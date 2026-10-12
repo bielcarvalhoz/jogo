@@ -11,7 +11,8 @@ o centro do mapa, mais o entorno: Shopping União, Terminal Amador Aguiar (Vila 
 São Francisco Golf Club, Pátio Osasco e a Av. dos Autonomistas.
 
 O **núcleo Cidade de Deus (matriz do Bradesco)** é modelado à mão, em estilo cartoon/pixel:
-portarias (guarita, marquise, placa e cancela que abre quando você chega perto), muro na divisa,
+portarias (guarita, marquise, placa e cancela que abre quando você chega perto) — as de **Bussocaba**
+e **Wenceslau Brás** levantadas peça por peça nas fotos do local —, muro na divisa,
 Prédio Prata (com o obelisco), Prédio Rubi, prédio do heliponto, Prédio Azul, Verde, Cinza,
 Bradesco Prime, Agência, Fundação Bradesco, arena, tenda, galpão, pista de atletismo com
 arquibancada, quadras, piscinas, estacionamentos com carros e a mata do miolo do campus.

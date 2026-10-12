@@ -31,13 +31,16 @@ export function prepareLandmarks(C, world) {
   const alley = marks.find((m) => m.type === 'beco');
   if (alley) C.alley = prepareAlley(C, alley);
   for (const m of marks) if (m.type === 'entrada') { const b = C.buildings.find((q) => q.planId === m.building); if (b) b.referenceAccess = true; }
-  // portaria dupla: uma cobertura só para as duas pistas (os cruzamentos de muro não ganham marquise própria)
-  const gate = marks.find((m) => m.type === 'portaria');
-  if (gate) {
-    C.portaria = planPortaria(gate, (x, z) => pointInPolygon(x, z, C.quarter));
-    if (world) fitPortariaRoads(C.portaria, world, C);
-    for (const g of C.gates || []) if (g.num === gate.gate && g.type === 'portaria') g.combined = true;
+  // portarias de cobertura única (Bussocaba, Wenceslau Brás): a marquise cobre todas as pistas da
+  // boca, então os cruzamentos de muro daquela portaria não ganham marquise própria
+  C.portarias = [];
+  for (const gate of marks.filter((m) => m.type === 'portaria')) {
+    const P = planPortaria(gate, (x, z) => pointInPolygon(x, z, C.quarter));
+    if (world) fitPortariaRoads(P, world, C);
+    C.portarias.push(P);
+    for (const g of C.gates || []) if (g.num === gate.gate && g.type === 'portaria') { g.combined = true; g.portaria = P; }
   }
+  C.portaria = C.portarias[0] || null;
   const locomotive = marks.find((m) => m.type === 'locomotiva');
   if (locomotive) C.locomotive = planLocomotive(locomotive);
 }
@@ -200,10 +203,10 @@ function groveAround(S, C, roads) {
 /** Malhas, pisos, colisão e áreas sem árvores/carros dos marcos. */
 /** `rendered(road)`: se a via ganha malha 3D (sem o entorno, as ruas de fora são só pintura no relevo) */
 export function buildLandmarks(C, { renderer, terrain, world, roads, rendered }) {
-  const kit = createKit(renderer), solids = [], surfaces = [], exclusions = [], entrances = [], trees = [];
+  const kit = createKit(renderer), solids = [], surfaces = [], exclusions = [], entrances = [], trees = [], palms = [];
   const ground = (x, z) => terrain.heightAt(x, z), sidewalkAt = roads?.sidewalkHeightAt, surfaceAt = roads?.surfaceHeightAt;
-  const take = (part) => { solids.push(...part.solids); surfaces.push(...part.surfaces); exclusions.push(...part.exclusions); if (part.entrances) entrances.push(...part.entrances); if (part.trees) trees.push(...part.trees.map((t) => ({ ...t, fixed: true }))); return part; };
-  const plan = { stairways: [], locomotive: C.locomotive || null, alley: C.alley || null };
+  const take = (part) => { solids.push(...part.solids); surfaces.push(...part.surfaces); exclusions.push(...part.exclusions); if (part.entrances) entrances.push(...part.entrances); if (part.trees) trees.push(...part.trees.map((t) => ({ ...t, fixed: true }))); if (part.palms) palms.push(...part.palms); return part; };
+  const plan = { stairways: [], portarias: [], locomotive: C.locomotive || null, alley: C.alley || null };
 
   for (const planned of C.stairways || []) {
     // cota real da calçada (a terraplenagem usou a estimativa do perfil da via)
@@ -218,7 +221,8 @@ export function buildLandmarks(C, { renderer, terrain, world, roads, rendered })
   }
   const roadClearance = (x, z) => { const s = nearestStreet(world.roads, x, z, 20); return s ? s.d - s.road.w / 2 : Infinity; };
   if (C.locomotive) plan.locomotive = { ...C.locomotive, ...take(buildLocomotive(kit, C.locomotive, { ground, clearance: roadClearance })) };
-  if (C.portaria) plan.portaria = { ...C.portaria, ...take(buildPortaria(kit, C.portaria, { ground, clearance: roadClearance, surfaceAt, streetMesh: !rendered || !C.portaria.rua || rendered(C.portaria.rua) })) };
+  plan.portarias = (C.portarias || []).map((P) => ({ ...P, ...take(buildPortaria(kit, P, { ground, clearance: roadClearance, surfaceAt, streetMesh: !rendered || !P.rua || rendered(P.rua) })) }));
+  plan.portaria = plan.portarias[0] || null;
   const access = take(buildPrataAccess(kit, C, { ground, roads: world.roads, surfaceAt, sidewalkAt }));
   plan.access = access.notes;
 
@@ -243,5 +247,5 @@ export function buildLandmarks(C, { renderer, terrain, world, roads, rendered })
   for (let i = trees.length - 1; i >= 0; i--) if (!trees[i].fixed && onFloor(trees[i].x, trees[i].z)) trees.splice(i, 1);
   const stats = { ...root.userData.stats, stairways: plan.stairways.length, risers: plan.stairways.reduce((sum, S) => sum + S.risers, 0), locomotive: !!C.locomotive, alley: !!C.alley?.stair, surfaces: surfaces.length, solids: solids.length, groveTrees: trees.length };
   root.userData.landmarks = stats;
-  return { root, plan, stats, solids, surfaces, exclusions, entrances, trees, surfaceHeightAt };
+  return { root, plan, stats, solids, surfaces, exclusions, entrances, trees, palms, surfaceHeightAt };
 }

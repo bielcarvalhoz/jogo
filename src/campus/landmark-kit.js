@@ -116,12 +116,13 @@ export function createKit(renderer) {
       g.translate(x, y, z); g.applyMatrix4(matrixOf(frame));
       signs.get(key).geometries.push(g);
     },
-    /** placa texturizada em 4 cantos do mundo [x, y, z]: inf-esq, inf-dir, sup-dir, sup-esq */
-    signCorners(key, paint, [a, b, c, d], { size = [512, 256], lit = false } = {}) {
+    /** placa texturizada em 4 cantos do mundo [x, y, z]: inf-esq, inf-dir, sup-dir, sup-esq;
+     * `uv = [u0, v0, u1, v1]` recorta uma célula de um atlas (várias marcas numa textura só) */
+    signCorners(key, paint, [a, b, c, d], { size = [512, 256], lit = false, uv = [0, 0, 1, 1] } = {}) {
       if (!signs.has(key)) signs.set(key, { paint, size, lit, geometries: [] });
-      const g = new THREE.BufferGeometry();
+      const [u0, v0, u1, v1] = uv, g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...d], 3));
-      g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute([u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1], 2));
       signs.get(key).geometries.push(g);
     },
     finish(name) {
@@ -173,7 +174,7 @@ export function createKit(renderer) {
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geometry.computeVertexNormals();
         // `lit`: pintura de piso (quadras), iluminada e recebendo sombra como o chão
-        const material = lit ? new THREE.MeshStandardMaterial({ map, roughness: .92, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })
+        const material = lit ? new THREE.MeshStandardMaterial({ map, roughness: .92, side: THREE.DoubleSide, transparent: true, alphaTest: .22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })
           : new THREE.MeshBasicMaterial({ map, color: 0xffffff, side: THREE.DoubleSide });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.name = `${name}-placa-${key}`; mesh.receiveShadow = lit; root.add(mesh);

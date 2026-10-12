@@ -941,7 +941,7 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
     // t aponta para dentro do campus
     if (!pointInPolygon(px + tx * 10, pz + tz * 10, C.quarter)) { tx = -tx; tz = -tz; }
     // portaria de cobertura única: as cancelas ficam sob ela, onde a pista a atravessa
-    const lane = g.combined && C.portaria?.lanes.find((l) => l.road === r);
+    const lane = g.combined && (g.portaria || C.portaria)?.lanes.find((l) => l.road === r);
     if (lane) { tx = lane.tx; tz = lane.tz; px = lane.gx - tx * 3; pz = lane.gz - tz * 3; }
     const nx = -tz, nz = tx;
     const w = lane?.gateWidth ?? r.w, gy = H(px, pz);
@@ -991,12 +991,15 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
       }
     }
     }
-    // cancelas (uma por sentido), um pouco para dentro — sobem quando o jogador chega perto
-    for (const s of [1, -1]) {
+    // cancelas — sobem quando o jogador chega perto. Por padrão uma por sentido, cada uma cobrindo
+    // meia boca; uma portaria pode declarar a posição e o alcance de cada faixa (portaria.js).
+    const bars = lane?.cancelas?.length ? lane.cancelas
+      : [1, -1].map((s) => ({ x: px + nx * s * (w / 2 + 0.25) + tx * (3 + s * 1.5), z: pz + nz * s * (w / 2 + 0.25) + tz * (3 + s * 1.5), hx: -nx * s, hz: -nz * s, len: w / 2 + 0.2 }));
+    for (const bar of bars) {
       const pivot = new THREE.Object3D();
-      pivot.position.set(px + nx * s * (w / 2 + 0.25) + tx * (3 + s * 1.5), gy + 1.0, pz + nz * s * (w / 2 + 0.25) + tz * (3 + s * 1.5));
-      pivot.rotation.y = Math.atan2(nz * s, -nx * s);
-      const armLen = w / 2 + 0.2;
+      pivot.position.set(bar.x, H(bar.x, bar.z) + 1.0, bar.z);
+      pivot.rotation.y = Math.atan2(-bar.hz, bar.hx);
+      const armLen = bar.len;
       const geo = new THREE.BoxGeometry(armLen, 0.12, 0.12);
       geo.translate(armLen / 2, 0, 0);
       const uv = geo.attributes.uv;
@@ -1043,6 +1046,7 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
   C.monkeys=C.monkeys.filter(m=>!C.detailOccupied(m.x,m.z)&&(!m.onTree||C.trees.includes(m.tree)));
   // mata em volta das escadarias de referência (não entra no sorteio que reduz as copas)
   C.trees.push(...landmarks.trees.filter(t=>!C.detailOccupied(t.x,t.z)));
+  C.palms.push(...landmarks.palms.filter(t=>!C.detailOccupied(t.x,t.z)));
   C.streetTreeCount=C.trees.filter(t=>t.sidewalk).length;
   function pedestrianGate(g) {
     // guarita de pedestres junto ao vão do muro (lado de dentro)

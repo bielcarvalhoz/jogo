@@ -26,6 +26,13 @@ export function inspectScene(app, view) {
     else if(view==='beco'&&A.alley)eye(A.alley.path[0].map((v,i)=>v-(A.alley.path[1][i]-A.alley.path[0][i])*.35),A.alley.path[1]);
     else if(view==='menos2'&&A.lower&&A.alley)eye(A.alley.path[1],[A.lower.x,A.lower.z],1);
     else if(view==='terreo'&&A.ground0)eye(A.ground0.path[0].map((v,i)=>v+(A.ground0.path[0][i]-A.ground0.path[1][i])*2.2),A.ground0.path[1],1);
+  } else if((view==='wenceslau'||view==='bussocaba')&&campus.landmarks?.plan.portarias?.length){
+    // mesma vista das fotos de rua: na pista pública, de frente para a boca da portaria
+    const P=campus.landmarks.plan.portarias.find(q=>q.id===view)||campus.landmarks.plan.portarias[0];
+    const back=P.frente?Math.min(...P.frente.map(([,v])=>v))-6:-P.depth/2-18;
+    const mouth=(P.pistas[0][0]+P.pistas[1][1])/2,eye=P.at(mouth,back),look=P.at(mouth,-P.depth/2);
+    camera.position.set(eye[0],terrain.heightAt(...eye)+2.3,eye[1]);
+    camera.lookAt(look[0],terrain.heightAt(...look)+4.2,look[1]);
   } else if((view==='move'||view==='trem'||view==='portaria')&&campus.amenities){
     const plan=campus.amenities.plan;
     const p=view==='trem'?(campus.landmarks?.plan.locomotive||plan.train):view==='move'?plan.stops[0]:plan.gates.find(g=>g.gate.num===10)||plan.gates[0];

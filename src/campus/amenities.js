@@ -85,7 +85,7 @@ export function planCampusAmenities(C, world) {
     if (seen.has(key)) continue;
     seen.add(key);
     // portaria de cobertura única: catracas nas passagens de pedestres levantadas em campo
-    const peds = gate.combined ? C.portaria?.pedestrians : null, vehicle = gate.type !== 'pedestre';
+    const peds = gate.combined ? (gate.portaria || C.portaria)?.pedestrians : null, vehicle = gate.type !== 'pedestre';
     const frames = peds?.length ? peds.map((p) => ({ x: p.x, z: p.z, tx: p.tx, tz: p.tz, yaw: Math.atan2(p.tx, p.tz), single: p.simples, lift: p.lift })) : [gatePedestrianFrame(gate, C)];
     const frame = frames[0], width = gate.crossing?.r?.w ?? 7, along = peds?.length ? 0 : vehicle ? 2 : 1.1;
     const lanes = frames.flatMap((at) => {
