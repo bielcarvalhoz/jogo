@@ -26,7 +26,7 @@ test('training adapter supports physical controls, player death/respawn and comp
     const checkpoint = game.player.feet.clone();
     game.mode = 'training'; game.training.start(); game.events.emit('modechange', 'training'); combat.update(1 / 60);
     assert.equal(city.visible, false); assert.equal(combat.root.visible, true);
-    assert.ok(bindings.some(([key]) => key === 'KeyE')); assert.ok(bindings.some(([key]) => key === 'KeyG'));
+    assert.ok(bindings.some(([key]) => key === 'KeyE')); assert.ok(bindings.some(([key]) => key === 'KeyY'));
     assert.equal(combat.trainingLab.buttons.length, 16);
     const button = combat.trainingLab.buttons.find(b => b.id === 'zombie');
     const aim = button.mesh.getWorldPosition(new THREE.Vector3());
@@ -56,6 +56,12 @@ test('training adapter supports physical controls, player death/respawn and comp
     combat.scenario('duel', 'hard');
     for (let i = 0; i < 300; i++) combat.update(1 / 60);
     assert.ok(duelDamage > 0, 'the duel bot must acquire and attack the player with both training crates present');
+    combat.reset();
+    const from = { x: game.player.feet.x, z: game.player.feet.z };
+    combat.simulation.spawn({ kind: 'human', stationary: true, position: { x: from.x + .4, y: 0, z: from.z } });
+    for (let i = 0; i < 120; i++) assert.deepEqual(combat.collide(from.x, from.z, .35, 0, { from }), [from.x, from.z], 'an overlapping character cannot push an idle player every frame');
+    assert.deepEqual(combat.collide(from.x + .1, from.z, .35, 0, { from }), [from.x, from.z]);
+    assert.deepEqual(combat.collide(from.x - .1, from.z, .35, 0, { from }), [from.x - .1, from.z], 'movement away from contact remains controllable');
     game.mode = null; game.training.stop(); game.events.emit('modechange', null); combat.update(.1);
     assert.deepEqual(game.player.feet, checkpoint); assert.equal(city.visible, true);
     assert.equal(combat.root.visible, false); assert.equal(combat.views.size, 0); assert.equal([...combat.simulation.actors].length, 2);

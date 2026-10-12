@@ -13,7 +13,7 @@ export function createWeaponWheel(game) {
   const cursor = $('weapon-wheel-cursor');
   let owner = null, choices = [], pending = null, virtualX = 0, virtualY = 0;
   let signature = '', pickupSignature = '', pointerId = null, lastGesture = -Infinity;
-  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && game.mode !== 'tour';
+  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.reactions?.opened && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && game.mode !== 'tour';
   const icon = weapon => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
@@ -21,16 +21,13 @@ export function createWeaponWheel(game) {
     use.setAttribute('href', `./icons/controls.svg#${weapon.icon || weapon.id}`); svg.appendChild(use);
     return svg;
   };
-  const describe = weapon => weapon.kind === 'firearm'
-    ? `${weapon.automatic ? 'AUTOMÁTICA' : 'SEMIAUTOMÁTICA'} · ${weapon.damage} DANO`
-    : weapon.kind === 'unarmed' ? 'SEQUÊNCIA DE SOCOS · SEMPRE DISPONÍVEL' : 'CORPO A CORPO · SEM TINTA';
   const selection = () => pending === null ? choices.findIndex(w => w.id === paint.weapon.id) : pending;
   function highlight() {
     const selected = selection(), weapon = choices[selected] || paint.weapon;
     ring.dataset.selected = String(Math.max(0, selected));
     Array.from(options.children).forEach((el, i) => el.setAttribute('aria-selected', String(i === selected)));
     $('weapon-wheel-title').textContent = weapon.label;
-    $('weapon-wheel-detail').textContent = describe(weapon);
+    $('weapon-wheel-detail').textContent = '';
   }
   function move(x, y, deadZone = 18) {
     if (!owner) return;
@@ -66,9 +63,7 @@ export function createWeaponWheel(game) {
       const option = document.createElement('div'); option.className = 'weapon-wheel-option';
       option.setAttribute('role', 'option'); option.dataset.index = String(i);
       const label = document.createElement('b'); label.textContent = weapon.label;
-      const category = document.createElement('small');
-      category.textContent = i < 2 ? `SLOT ${i + 1} · FOGO` : i === 2 ? 'SLOT 3 · MELEE' : 'SOCOS · LIVRE';
-      option.append(icon(weapon), label, category); options.appendChild(option);
+      option.append(icon(weapon), label); options.appendChild(option);
     });
     panel.hidden = false; document.body.classList.toggle('weapon-wheel-open', true);
     button.setAttribute('aria-expanded', 'true');
@@ -94,7 +89,7 @@ export function createWeaponWheel(game) {
     signature = next;
     $('weapon-icon').setAttribute('href', `./icons/controls.svg#${paint.holstered ? 'holster' : paint.weapon.icon || paint.weapon.id}`);
     $('weapon-label').textContent = paint.holstered ? 'DESARMADO' : paint.weapon.label.toUpperCase();
-    $('weapon-mode').textContent = paint.holstered ? 'Z · EQUIPAR NOVAMENTE' : 'SEGURE Q · ESCOLHA · SOLTE';
+    $('weapon-mode').textContent = '';
     button.setAttribute('aria-label', `${paint.holstered ? 'Desarmado' : `Arma: ${paint.weapon.label}`}. Segure para abrir a roda: 2 armas de fogo, 1 melee e socos`);
     $('btn-holster').setAttribute('aria-pressed', String(!!paint.holstered));
     $('btn-holster').setAttribute('aria-label', paint.holstered ? `Equipar novamente: ${paint.weapon.label}` : 'Desarmar');
@@ -108,7 +103,7 @@ export function createWeaponWheel(game) {
     document.body.classList.toggle('melee-equipped', paint.weapon.kind !== 'firearm');
   }
   function syncPickup() {
-    const nearby = canUse() && !owner && !player.fly ? game.weaponPickups?.nearby : null;
+    const nearby = canUse() && !owner && !player.fly && !game.multiplayer?.nearby ? game.weaponPickups?.nearby : null;
     pickupButton.hidden = !nearby;
     if (!nearby) { pickupSignature = ''; return; }
     const definition = paint.weapons.find(w => w.id === nearby.weaponId);
@@ -123,6 +118,7 @@ export function createWeaponWheel(game) {
     pickupButton.setAttribute('aria-label', `${$('pickup-label').textContent}. ${$('pickup-detail').textContent}`);
   }
   function pickup() {
+    if (game.multiplayer?.nearby) return;
     if (game.combat?.trainingLab?.probe()) return;
     if (!canUse() || owner || player.fly) return;
     const result = game.weaponPickups?.pickup(); if (!result) return;
@@ -168,6 +164,14 @@ export function createWeaponWheel(game) {
     else open({ type: 'button', code: e.code });
   });
   game.input.bind('KeyQ', e => { e.preventDefault(); open({ type: 'key' }); }, { label: 'segurar roda de armas' });
+  for (let slot = 0; slot < 4; slot++) {
+    const select = () => {
+      if (!canUse()) return;
+      close(); paint.setWeapon(slot === 3 ? 'fists' : paint.inventory.slots[slot]); syncWeaponButton();
+    };
+    game.input.bind(`Digit${slot + 1}`, select, { label: ['arma principal', 'arma secundária', 'arma branca', 'soco'][slot] });
+    game.input.bind(`Numpad${slot + 1}`, select);
+  }
   game.input.bind('KeyE', pickup, { label: 'pegar arma do chão' });
   pickupButton.addEventListener('click', pickup);
   window.addEventListener('keyup', e => {

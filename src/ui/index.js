@@ -1,3 +1,4 @@
+import { bindCollapsiblePanels } from './collapsible.js';
 import * as THREE from 'three';
 import { IS_TOUCH } from '../core/index.js';
 import { createHud } from './hud.js';
@@ -8,6 +9,8 @@ import { createSniperScope } from './sniper-scope.js';
 import { createTrainingPosePanel } from './training-pose.js';
 import { createCombatHUD } from './combat-hud.js';
 import { createCharacterMenu } from './character-menu.js';
+import { createMultiplayerUI } from './multiplayer.js';
+import { createReactions } from './reactions.js';
 import './style.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
@@ -31,6 +34,8 @@ export function createUI(game) {
   const posePanel = game.debug.trainingOnly ? createTrainingPosePanel(game) : null;
   const combatHUD = createCombatHUD(game);
   const characters = createCharacterMenu(game);
+  const multiplayerUI = createMultiplayerUI(game);
+  const reactions = createReactions(game);
 
   const toast = msg => {
     const el = $('toast'); el.textContent = msg; el.classList.add('show');
@@ -38,7 +43,7 @@ export function createUI(game) {
   };
   game.events.on('toast', toast);
 
-  const walkingMode = () => game.mode === 'campaign' || game.mode === 'training';
+  const walkingMode = () => ['campaign', 'training', 'multiplayer'].includes(game.mode);
   function startWalking(mode, touch = touchSession) {
     game.audio?.setMenu(false);
     touchSession = touch; tour.stop();
@@ -46,24 +51,26 @@ export function createUI(game) {
     game.mode = mode;
     document.body.classList.remove('menu-open', 'tour-active');
     document.body.classList.toggle('training-active', mode === 'training');
+    document.body.classList.toggle('multiplayer-active', mode === 'multiplayer');
     $('tour-panel').classList.add('hidden'); $('tour-markers').classList.add('hidden');
     overlay.classList.add('hidden'); mapPanel.classList.remove('open'); $('hud').classList.remove('hidden');
     if (touch) document.body.classList.add('touch');
     document.body.classList.toggle('flying', player.fly);
     $('btn-fly').setAttribute('aria-pressed', String(player.fly));
-    help.textContent = `WASD andar · Shift correr · Espaço pular · C agachar · Z desarmar · Segurar: atacar · Segure Q: armas · E pegar / acionar · V tinta · X câmera${mode === 'training' ? ' · J laboratório · G marcar ponto' : ' · F voar · M mapa'} · H esconder`;
+    help.querySelector('.collapse-inner').textContent = `WASD mover · R recarregar · 1–4 armas · Q armas · G reações · E pegar · X câmera · M mapa${mode === 'multiplayer' ? ' · Tab ranking' : mode === 'training' ? ' · J laboratório' : ''}`;
     game.events.emit('modechange', mode);
-    player.start(touch);
+    player.start(touch, { pointerLock: mode !== 'multiplayer' || game.multiplayer.snapshot?.phase === 'running' });
   }
 
   function startCampaign(touch = touchSession) { startWalking('campaign', touch); }
 
   function startMode(mode, touch = IS_TOUCH, characterChosen = false) {
     if (game.debug.trainingOnly) mode = 'training';
+    if (mode === 'multiplayer' && !game.multiplayer.network.session) { void multiplayerUI.open(touch); return; }
     if (!game.debug.trainingOnly && !characterChosen) {
       characters.open({ mode, onConfirm: () => startMode(mode, touch, true) }); return;
     }
-    if (mode === 'campaign' || mode === 'training') { startWalking(mode, touch); return; }
+    if (['campaign', 'training', 'multiplayer'].includes(mode)) { startWalking(mode, touch); return; }
     game.audio?.setMenu(false);
     game.mode = 'tour'; player.stop(); training.stop(); tour.start(); touchSession = touch;
     game.events.emit('modechange', 'tour');
@@ -75,10 +82,11 @@ export function createUI(game) {
   }
 
   function showMenu() {
+    multiplayerUI.close();
     game.audio?.setMenu(true);
     game.mode = null; player.stop(); tour.stop(); training.stop();
     game.events.emit('modechange', null);
-    document.body.classList.add('menu-open'); document.body.classList.remove('tour-active', 'training-active', 'flying');
+    document.body.classList.add('menu-open'); document.body.classList.remove('tour-active', 'training-active', 'multiplayer-active', 'flying');
     mapPanel.classList.remove('open'); overlay.classList.remove('hidden'); $('hud').classList.add('hidden');
     $('tour-panel').classList.add('hidden'); $('tour-markers').classList.add('hidden');
     game.events.emit('menuopen');
@@ -86,6 +94,7 @@ export function createUI(game) {
 
   function selectPoint(point, world) {
     if (game.mode === 'training') return;
+    if (game.mode === 'multiplayer') { toast('Na sala, vá a pé até o destino.'); closeMap(true); return; }
     if (game.mode === 'tour') {
       if (!point && world) {
         point = points.reduce((best, p) => !best || Math.hypot(p.x - world[0], p.z - world[1]) < Math.hypot(best.x - world[0], best.z - world[1]) ? p : best, null);
@@ -253,14 +262,14 @@ export function createUI(game) {
     game.audio?.setMenu(true);
     mapPanel.classList.add('open'); overlay.classList.add('hidden'); player.stop();
     tour.controls.enabled = false;
-    $('map-mode-label').textContent = game.mode === 'tour' ? 'MAPA DO TOUR' : 'MAPA DA TRETA';
-    $('map-help').textContent = game.mode === 'tour' ? 'Arraste · Roda ou dois dedos para zoom · Selecione um ponto para visitar · M para voltar' : 'Arraste · Roda ou dois dedos para zoom · Clique num ponto ou local para teleportar · M para voltar';
+    $('map-mode-label').textContent = game.mode === 'tour' ? 'MAPA DO TOUR' : game.mode === 'multiplayer' ? 'MAPA DA SALA' : 'MAPA DA TRETA';
+    $('map-help').textContent = game.mode === 'tour' ? 'Arraste · Roda ou dois dedos para zoom · Selecione um ponto para visitar · M para voltar' : game.mode === 'multiplayer' ? 'Arraste · Roda ou dois dedos para zoom · Prata: defender o prédio · Campo: futebol de caixa · M para voltar' : 'Arraste · Roda ou dois dedos para zoom · Clique num ponto ou local para teleportar · M para voltar';
     hud.drawBigMap(tour.active ? engine.camera.position.x : player.feet.x, tour.active ? engine.camera.position.z : player.feet.z, player.yaw);
   }
   function closeMap(resume = true) {
     mapPanel.classList.remove('open');
     if (game.mode === 'tour') { tour.controls.enabled = true; game.audio?.setMenu(false); }
-    else if (resume) startCampaign(touchSession);
+    else if (resume) startWalking(game.mode === 'multiplayer' ? 'multiplayer' : 'campaign', touchSession);
     else showMenu();
   }
   $('tour-map').addEventListener('click', openMap);
@@ -269,23 +278,12 @@ export function createUI(game) {
   $('minimap').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMap(); } });
   $('map-close').addEventListener('click', () => closeMap());
   game.input.bind('KeyM', () => mapPanel.classList.contains('open') ? closeMap() : openMap(), { when: 'always', label: 'mapa' });
-  game.input.bind('Escape', () => { if (weaponWheel.open) weaponWheel.cancel(); else if (game.mode) showMenu(); }, { when: 'always' });
-  game.input.bind('KeyH', () => help.classList.toggle('hidden'), { label: 'esconder ajuda' });
-  for (let n = 1; n <= 9; n++) {
-    const go = () => {
-      if (!game.mode || game.mode === 'training' || mapPanel.classList.contains('open')) return;
-      if (game.mode === 'tour') tour.focus(points.find(p => p.number === n));
-      else {
-        const p = places[n - 1]; if (!p) return;
-        player.placeAt(p.x, p.z, p.yaw); toast(`Teletransportado: ${p.name}`);
-      }
-    };
-    game.input.bind(`Digit${n}`, go, { when: 'always', label: n === 1 ? 'destinos (1–9)' : '' });
-    game.input.bind(`Numpad${n}`, go, { when: 'always' });
-  }
+  game.input.bind('Escape', event => { if (reactions.opened) { event.preventDefault(); reactions.close(); } else if (weaponWheel.open) { event.preventDefault(); weaponWheel.cancel(); } else if (game.mode) showMenu(); }, { when: 'always' });
+  bindCollapsiblePanels();
+  game.input.bind('KeyH', () => $('help-toggle').click(), { label: 'esconder ajuda' });
   addEventListener('resize', () => {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);
   });
-  return { toast, hud, posePanel, combatHUD, characters, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); }, get weaponWheelOpen() { return weaponWheel.open; } };
+  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, reactions, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); }, get weaponWheelOpen() { return weaponWheel.open || reactions.opened; } };
 }

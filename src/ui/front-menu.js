@@ -21,7 +21,7 @@ export const loading = {
     paintProgress(value);
     await new Promise(resolve => { requestAnimationFrame(() => setTimeout(resolve, 0)); setTimeout(resolve, 50); });
   },
-  complete() { paintProgress(100); $('loading-text').textContent = 'Cidade pronta. Escolha seu caminho.'; $('loading').querySelector('small').textContent = 'Pronto para explorar a Cidade de Deus.'; },
+  complete() { paintProgress(100); $('loading-text').textContent = 'Cidade pronta.'; },
   error(err) {
     failed = true;
     console.error(err);
@@ -42,11 +42,10 @@ export function createFrontMenu({ trainingOnly = false } = {}) {
     $('places-list').hidden = true;
     const placesTitle = document.querySelector('.places-title'); if (placesTitle) placesTitle.hidden = true;
     $('training').querySelector('b').textContent = 'Retomar treino com debug';
-    $('loading').querySelector('small').textContent = 'O treino com debug abre quando o carregamento terminar.';
   }
   const settings = loadSettings();
   const characters = createCharacterStore();
-  const audio = createAudio(settings);
+  const audio = createAudio({ ...settings, base: import.meta.env?.BASE_URL || '/' });
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
   for (const key of ['music','effects']) {
     $(key).checked = settings[key];
@@ -73,7 +72,7 @@ export function createFrontMenu({ trainingOnly = false } = {}) {
     if (e.target.matches?.('#overlay button, #tour-panel button, #map-panel button') && !e.target.disabled) audio.ui();
   });
   let game = null;
-  const modeButtons = [$('play'), $('training'), $('tour'), $('characters-open')];
+  const modeButtons = [$('play'), $('training'), $('tour'), $('characters-open'), $('treta-multi')];
   for (const button of modeButtons) { button.disabled = true; button.setAttribute('aria-describedby', 'loading-text'); }
   const settingsPanel = $('settings-panel'), options = document.querySelector('.menu-options'), tretaMenu = $('treta-menu');
   const showTreta = on => {
@@ -111,7 +110,7 @@ export function createFrontMenu({ trainingOnly = false } = {}) {
   document.addEventListener?.('keydown', event => {
     if (event.code === 'Escape' && !tretaMenu.classList.contains('hidden') && !game?.ui?.characters.openState) showTreta(false);
   });
-  for (const [id, mode] of [['play', 'treta'], ['treta-single', 'campaign'], ['training', 'training'], ['tour', 'tour']]) {
+  for (const [id, mode] of [['play', 'treta'], ['treta-single', 'campaign'], ['treta-multi', 'multiplayer'], ['training', 'training'], ['tour', 'tour']]) {
     if (trainingOnly && mode !== 'training') continue;
     let pointerType = '';
     $(id).addEventListener('pointerdown', e => { pointerType = e.pointerType; });
@@ -131,7 +130,6 @@ export function createFrontMenu({ trainingOnly = false } = {}) {
       game.events?.on('menuopen', () => { showTreta(false); showSettings(false); });
       if (trainingOnly) {
         $('loading-text').textContent = 'Treino com debug pronto.';
-        $('loading').querySelector('small').textContent = 'Retome o treino ou ajuste as configurações.';
       }
       for (const button of modeButtons) { button.disabled = trainingOnly && button !== $('training'); button.removeAttribute('aria-describedby'); }
       if (trainingOnly) selectMode('training', IS_TOUCH);

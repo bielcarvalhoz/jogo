@@ -112,6 +112,7 @@ export async function createDynamicProps(game) {
     sync();
   }
   function impact(hit, info) {
+    if (game.mode === 'multiplayer') return true;
     const crate = hit.object?.userData.crate;
     if (!crate || !crate.mesh.visible || disposed) return false;
     const direction = new THREE.Vector3().copy(info.direction || { x: 0, y: 0, z: -1 }).normalize();
@@ -120,7 +121,7 @@ export async function createDynamicProps(game) {
     if (info.kind !== 'firearm') direction.y += impulse * .13;
     crate.body.applyImpulseAtPoint(direction, hit.point, true);
     crate.damage += Math.max(0, info.damage || 0); crate.hits++;
-    game.audio?.impact?.(crate.type, impulse);
+    // The projectile/melee impact owner plays the positional material sound.
     return true;
   }
   function collide(x, z, radius = .35, feetY = 0, { push = true } = {}) {
@@ -138,7 +139,7 @@ export async function createDynamicProps(game) {
         x = dx < 0 ? b.min.x - radius : dx > 0 ? b.max.x + radius : x;
         z = dz < 0 ? b.min.z - radius : dz > 0 ? b.max.z + radius : z;
       } else { x += dx / length * (radius - length); z += dz / length * (radius - length); }
-      if (push && game.player?.active) crate.body.applyImpulse({ x: -dx / length * .3, y: 0, z: -dz / length * .3 }, true);
+      if (push && game.player?.active && game.mode !== 'multiplayer') crate.body.applyImpulse({ x: -dx / length * .3, y: 0, z: -dz / length * .3 }, true);
     }
     return [x, z];
   }
@@ -159,6 +160,14 @@ export async function createDynamicProps(game) {
   sync(); game.events.on('modechange', sync);
   game.engine.addSystem(update, 'early');
   return { root, crates, world, campaign, training, update, impact, collide, surfaceHeightAt,
+    applyNetworkState(states) {
+      for (const state of states) {
+        const crate = crates.find(c => c.mode === 'campaign' && c.type === state.id); if (!crate) continue;
+        crate.body.setTranslation(state.position, false); crate.body.setRotation(state.rotation, false);
+        crate.body.setLinvel({ x: 0, y: 0, z: 0 }, false); crate.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+      }
+      sync();
+    },
     roofAt: (x, z, y) => surfaceHeightAt(x, z, y + .05),
     dispose() { if (disposed) return; disposed = true; root.removeFromParent(); for (const { geometry, material } of Object.values(resources)) { geometry.dispose(); material.dispose(); } texture.dispose(); world.free(); },
   };

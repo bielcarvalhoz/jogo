@@ -57,7 +57,10 @@ test('new paint draws over old paint even after recycling every pooled geometry'
   const wall = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial()); wall.position.z = -2; scene.add(wall);
   const paint = createPaintball({ scene, camera, colliderRoots: [wall] });
   const pool = paint.root.children.filter(o => o.name === 'marca-tinta'), geometries = pool.map(o => o.geometry);
-  for (let i = 0; i < PAINTBALL_LIMITS.marks + 2; i++) { paint.setColor(i % paint.palette.length); paint.shoot(); paint.update(.1); paint.update(.1); }
+  for (let i = 0; i < PAINTBALL_LIMITS.marks + 2; i++) {
+    if (!paint.ammo.loaded) { paint.reload(); for (let frame = 0; frame < 24; frame++) paint.update(.1); }
+    paint.setColor(i % paint.palette.length); paint.shoot(); paint.update(.1); paint.update(.1);
+  }
   const sorted = [...pool].sort((a, b) => a.renderOrder - b.renderOrder);
   assert.equal(sorted.at(-1), pool[1]); assert.equal(sorted.at(-1).renderOrder, 3 + PAINTBALL_LIMITS.marks + 2);
   assert.ok(sorted.every(m => m.material.depthTest && !m.material.depthWrite && m.material.polygonOffset));

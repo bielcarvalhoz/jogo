@@ -8,11 +8,12 @@ quebrar o trabalho de quem cuida de outro módulo.
 
 | Pasta | Módulo | Responsabilidade | Exemplos de tarefa |
 |---|---|---|---|
-| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, espaço de treino, visual cartoon/pixel, perfil gráfico, câmera de tour, configurações persistentes, lotes de instâncias, áudio procedural | pós-processamento, ciclo dia/noite, otimização de desempenho |
+| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, espaço de treino, visual cartoon/pixel, perfil gráfico, câmera de tour, configurações persistentes, lotes de instâncias, áudio espacial gravado e ragdolls | pós-processamento, ciclo dia/noite, otimização de desempenho |
 | `src/map/` | Mapa (mundo real) | relevo SRTM, vias, prédios do OSM, prédios procedurais, vegetação, água, muros, semáforos, placas, destinos do entorno | melhorar ruas, novos tipos de prédio, mais vegetação |
 | `src/campus/` | Campus Cidade de Deus | núcleo do Bradesco: prédios da planta oficial, muros, portarias, estacionamentos, terraplenagem, detalhes, marcos levantados em campo (`landmarks.js`: escadaria, beco, acessos, locomotiva) | novo prédio, fachada, mobiliário do campus |
 | `src/player/` | Personagem | avatar Sato, animações e encaixe de armas; controle em primeira/terceira pessoa, teclado, mouse, toque, colisão, pulo, voo | modelo/avatar, animação, corrida, agachar |
-| `src/gameplay/<mecânica>/` | Jogabilidade | `paintball/`: catálogo, inventário, armas e impactos; `combat/`: ECS Miniplex, hitboxes, dano, kills, IA Yuka/BFS e laboratório de treino | missões, carros, coletáveis, multiplayer |
+| `src/gameplay/<mecânica>/` | Jogabilidade | `paintball/`: catálogo, inventário, armas e impactos; `combat/`: ECS Miniplex, hitboxes, dano, kills, IA Yuka/BFS e laboratório; `multiplayer/`: Socket.IO, reconciliação, WebRTC e vistas remotas | missões, carros, coletáveis, multiplayer |
+| `server/` | Autoridade multiplayer | HTTP/Socket.IO, salas, simulação, colisões, Rapier, waves e gols no Node | publicação no Render, regras de sala |
 | `src/ui/` | Interface | tela de carregamento, menu, HUD, minimapa, mapa grande, avisos, gestos mobile, CSS | novas telas, configurações, acessibilidade |
 | `src/debug/` | Depuração | `window.__cdd`, vistas de inspeção `?inspect=` | ferramentas de QA |
 | `src/shared/` | Utilitários | funções puras: geometria 2D, aleatoriedade, geometria de vias, texturas procedurais, download de JSON com parsing adiado | — |
@@ -24,7 +25,7 @@ quebrar o trabalho de quem cuida de outro módulo.
 `src/main.js` só **monta** o jogo, nesta ordem:
 
 ```
-menu + intro + downloads → fim da intro apresentado → JSON (map + campus) → core (game) → mapa (+ plugin campus) → lotes → treino → caixas/Rapier → personagem + GLB pronto → tour → modelos de armas → combate/Miniplex/Yuka + GLBs + laboratório → paintball/BVH → armas no chão → UI → visual → materiais → debug → menu pronto
+menu + intro + downloads → fim da intro apresentado → JSON (map + campus) → core (game) → mapa (+ plugin campus) → lotes → treino → caixas/Rapier → personagem + GLB pronto → tour → modelos de armas → combate/Miniplex/Yuka + GLBs + laboratório → paintball/BVH → armas no chão → multiplayer → UI → visual → materiais → debug → menu pronto
 ```
 
 `createFrontMenu()` expõe `introFinished`, que resolve após a abertura (ou pular/configurações/movimento reduzido) e dois `requestAnimationFrame`, garantindo que a capa final seja apresentada antes do trabalho pesado. `loadMapData(base, { beforeParse })` e `loadCampusData(base, { beforeParse })` baixam o corpo durante a intro e aguardam essa promessa antes de fazer JSON.parse. `main.js` também aguarda explicitamente antes de criar WebGL/PMREM e montar o mundo. Animações CSS não protegem o texto de tarefas longas na thread principal. Depois de carregar, o motor mantém sistemas leves a 15 Hz no menu opaco e pula o desenho da cidade oculta; a renderização normal volta ao iniciar campanha/tour.
@@ -60,9 +61,9 @@ nomes/cores/opções e expõe `createCharacterStore()`, `normalizeAppearance`,
 `DEFAULT_APPEARANCE` e `APPEARANCE_OPTIONS` pela API pública do núcleo. `main.js`
 injeta o store criado pelo menu em `game.characters`. `ui/character-menu.js` gerencia
 seleção explícita, rascunho, salvar/cancelar e a prévia; `ui.startMode()` exige essa
-confirmação nos três modos. A rota técnica `/debug` mantém a entrada direta no treino.
+confirmação em todos os modos. A rota técnica `/debug` mantém a entrada direta no treino.
 O submenu **Modo treta** chama o modo interno `campaign` para **Um jogador** e mantém
-**Multijogador** desabilitado; não altera a simulação nem adiciona rede nesta etapa.
+o modo `multiplayer` para **Multijogador**, passando pelo lobby público e pela escolha de personagem.
 
 `player.applyCharacter(character)` aplica o nome e o visual a `avatar.appearance`.
 `player/appearance.js` usa materiais e geometrias privados, preserva pesos/índices
@@ -96,6 +97,8 @@ os botões de desarmar/agachar ficam ao lado da tinta no toque.
 
 `weapons.js` mantém o catálogo e a regra de dois slots de fogo, um melee e socos
 sempre disponíveis. `paintball.inventory` retorna `{slots, selected, lastFirearmSlot}`;
+slots 0/1/2 representam principal/secundária/melee. `1`/`2`/`3` selecionam esses
+slots e `4` seleciona socos (incluindo Numpad); números não teleportam.
 `availableWeapons` contém os três equipamentos e socos. `pickupWeapon(id)` retorna
 `{picked, dropped, slot}`; armas de fogo substituem o slot de fogo selecionado ou o
 último usado, e melee substitui apenas o slot 3. `pickups.js` cria as cópias no chão,
@@ -113,8 +116,9 @@ aplica o recuo do clipe original de disparo sobre a pose de mira atual; a Nova u
 maior amplitude e recuperação mais lenta. A arma acompanha a mão direita, e a primeira
 pessoa enquadra o conjunto de braços/arma sem reescrever rotações das articulações.
 Clipes preservados no GLB podem ser inspecionados com
-`avatar.setPreviewAnimation(name, time)`; a presença de `Pistol_Reload` no arquivo
-não representa uma mecânica de recarga no jogo. `public/models/sato.glb` é uma cópia
+`avatar.setPreviewAnimation(name, time)`. `playReload(duration)` usa `Pistol_Reload`
+na camada superior, preserva a locomoção e evita recentrar a arma durante a recarga.
+`stopReload()` cancela essa camada. `public/models/sato.glb` é uma cópia
 sem alterações do `sato (4).glb` fornecido pelo usuário. A orientação dos punhos e
 a articulação dos dedos vêm da pose de pistola original, sem reescrever o asset.
 
@@ -134,7 +138,7 @@ um balanço sutil durante a corrida, movendo a cadeia inteira de braços.
 A intensidade do analógico escolhe continuamente caminhada, trote ou corrida em
 qualquer direção. `Walk_Loop`, `Jog_Fwd_Loop` e `Sprint_Loop` acompanham a velocidade
 real e a fase compartilhada `player.locomotion`. Eventos `footstep`, `jump` e `land`
-disparam sons de grama/concreto por `core/locomotion-audio.js`, sem passos parado,
+disparam gravações de grama/terra/concreto por `core/locomotion-audio.js`, sem passos parado,
 contra obstáculos ou durante o voo. `avatar.playAttack(def, {sequence})` usa
 `Sword_Attack` para melee e alterna `Punch_Jab`/`Punch_Cross` para socos.
 `Crouch_Idle_Loop` e `Crouch_Fwd_Loop` animam o agachamento parado/em movimento.
@@ -147,10 +151,10 @@ e o movimento aditivo dos braços de espada, com amplitude reduzida e ombros
 fora do enquadramento. A guarda fica mais à direita/abaixo, com braços e arma
 reduzidos juntos nessa vista; todas as lâminas e cabos inclinam para frente.
 A terceira pessoa conserva a pose e o golpe de espada completos.
-Os socos em primeira pessoa usam a mesma guarda de soco e os clipes completos
-Jab/Cross da terceira pessoa. `player/first-person-fists.js` adapta os dois ossos
-de cada braço aos pulsos animados, preservando a orientação das mãos e reforçando
-a curvatura dos dedos nessa vista, com o início dos braços fora da tela. A pose original é restaurada antes
+Os socos em primeira pessoa partem de uma guarda dobrada. `player/first-person-fists.js`
+avança ombro, cotovelo e punho, estende o braço e recupera a guarda durante Jab/Cross.
+Preserva a orientação das mãos do clipe e reforça a curvatura dos dedos,
+com o início dos braços fora da tela e largura adaptada ao celular. A pose original é restaurada antes
 de cada avaliação, inclusive ao trocar câmera/arma ou atualizar o mesmo quadro.
 Melee e socos compensam a rotação herdada do quadril e mantêm a cabeça na orientação
 ereta de repouso em terceira pessoa. O encaixe reavalia o rig sem avançar o tempo
@@ -177,6 +181,45 @@ aplica impulso no ponto atingido e registra dano; marcas de tinta acompanham a c
 Golpes de melee e socos usam um alcance curto a partir dos olhos e nunca criam tinta.
 Consultas de piso rejeitam explicitamente o `-1` que Rapier retorna quando um raio
 não acerta a caixa. Não há alteração de geometria, altura ou visual do mapa.
+
+`paintball.reload()` inicia a recarga antecipada por R ou pelo botão de toque;
+`ammo` expõe munição carregada/reserva, capacidade e progresso/tempo restante.
+`gameplay/paintball/ammo.js` é a regra única, usada também pelo servidor:
+Glock 20, M4/MP5 30, R8/Nova 8 e AWP 5. Pentes vazios iniciam recarga automática;
+a Nova insere cartuchos individualmente e pode interromper a recarga para atirar.
+Troca, guarda, menus e morte cancelam recarga; voltar do mapa preserva munição.
+`resetAmmo()` reinicia por partida, laboratório ou respawn. Humanos controlados
+pela IA também recarregam a cada 30 tiros. A UI mostra contagem, tempo e barra.
+`muzzle-paint.js` mantém 96 gotas instanciadas recicladas, dez por disparo, sem
+criar geometrias por tiro.
+
+`game.ragdolls`, criado por `core/ragdolls.js`, oferece `capture(root, options)`,
+`clear()` e `dispose()`. Humanos, zumbis, jogador local e jogadores remotos deixam
+uma cópia de corpo inteiro com 11 cápsulas e juntas esféricas em um mundo Rapier
+cosmético. O corpo permanece físico por 10 s; depois libera a física e afunda
+suavemente por 2,5 s, com profundidade suficiente para esconder o corpo inteiro.
+`core/ragdoll-colliders.js` amostra terreno e recorta triângulos reais de paredes,
+escadas, arquibancadas e pisos próximos, aproveitando BVHs existentes. A região
+de 16 × 16 m acompanha corpos arremessados; caixas usam proxies cinemáticos
+que seguem suas poses. CCD e iterações adicionais estabilizam juntas/contatos.
+Há limite de 16 corpos com grupos de colisão separados; não há contato entre
+corpos ou com os vivos. Sair da partida/reset limpa tudo; voltar do mapa ao mesmo
+modo preserva corpos. O efeito não altera dano e o original deixa as hitboxes.
+
+`core/recorded-audio.js` reproduz samples de passos por superfície, seis disparos,
+recargas, movimento/impacto de golpes, impactos por material e passagem próxima
+de balas. `game.audio` oferece `setListener`, `setAmbience`, `preload`, `reload`,
+`stopReload(tag)`, `hit` e `whiz`, além dos efeitos existentes. HRTF segue a câmera,
+a distância atenua continuamente e reduz agudos, exceto passos de concreto/terra,
+que usam gravações limpas sem passa-baixas. A grama mantém seu timbre anterior.
+A Glock usa WAV editado com ataque curto e filtro mais aberto. Natureza fica ativa dentro do
+polígono Cidade de Deus nos modos treta/campaign e multiplayer. Arquivos, origem,
+direitos e filtros de paintball estão em `public/audio/README.md`.
+
+`ui/collapsible.js` conecta painéis `data-collapsible` a botões com `aria-controls`.
+Abertura/fechamento anima altura por CSS grid e opacidade; `inert` retira o conteúdo
+fechado da navegação. Localização, minimapa, ajuda, detalhes do tour e placar
+começam recolhidos; nomes e SVGs compõem os itens de arma. `H` alterna a ajuda.
 
 `gameplay/paintball/surface-paint.js` recorta triângulos de superfícies próximas com
 um pincel volumétrico. A máscara de tinta usa coordenadas 3D para atravessar quinas
@@ -248,7 +291,8 @@ O mapa é construído por um pipeline. Quem precisa alterar o mundo (como o camp
 | `map` | `core`, `shared` |
 | `campus` | `map`, `core`, `shared` |
 | `player` | `core`, `shared` |
-| `gameplay/*` | `player`, `map`, `core`, `shared` |
+| `gameplay/paintball`, `gameplay/combat` | `player`, `map`, `core`, `shared` |
+| `gameplay/multiplayer` | `gameplay/combat`, `core`, `shared` |
 | `ui` | `core`, `shared` |
 | `debug` | todos |
 | `main.js` | todos (só os `index.js`) |
@@ -256,7 +300,7 @@ O mapa é construído por um pipeline. Quem precisa alterar o mundo (como o camp
 Precisa de uma dependência nova? Altere a tabela `DEPENDENCIAS` em
 `scripts/check-modules.mjs` **e** esta página no mesmo PR, para a mudança ficar visível na revisão.
 
-`gameplay/combat` está registrado explicitamente no verificador, com as dependências da linha `gameplay/*`. App e debug podem importá-lo pela API pública; paintball, player e UI o acessam por `game.combat`. Veja [configuração, eventos e limites do combate](COMBAT-TRAINING.md). O sistema de combate roda na fase `world`, antes dos projéteis; a UI de combate roda em `late`.
+`gameplay/combat` e `gameplay/multiplayer` estão registrados explicitamente no verificador. Multiplayer importa as APIs públicas `createActorView`, `traceHitboxes` e `updateHumanoidHitboxes` do combate; paintball, player e UI o acessam por `game.combat` e `game.multiplayer`. Veja [configuração, eventos e limites do combate](COMBAT-TRAINING.md). O combate roda na fase `world`, antes dos projéteis; a UI de combate roda em `late`.
 
 3. Testes de um módulo ficam em `tests/<módulo>/` e podem importar o interior do módulo.
 4. Mudou a API pública (`index.js`) de um módulo? Descreva no PR e peça revisão de quem usa.
@@ -286,6 +330,85 @@ O personagem passa a respeitá-lo sem mudança nenhuma em `src/player/`.
 **Nova tecla:** `game.input.bind('KeyX', () => ..., { label: 'o que faz' })` no seu módulo.
 
 **Aviso na tela:** `game.toast('mensagem')`.
+
+## Rede e autoridade das salas
+
+`server/index.js` expõe HTTP `/health` e Socket.IO no mesmo `PORT`. `server/hub.js`
+gerencia diretório público, limite de 10, tokens de reconexão por 20 segundos,
+isolamento de mensagens e simulação de cada sala. O loop usa passos de 60 Hz e
+snapshots a aproximadamente 18 Hz. `server/simulation.js` adapta o combate existente
+e Rapier para friendly fire, respawn, waves do Prata e gols com a caixa.
+
+`map.createHeadlessMap()` e a fábrica de canvas injetável de `campus` permitem
+aplicar os mesmos dados e alterações do relevo no Node. `server/world.js` usa
+polígonos de prédios, segmentos de muros e terreno para validar movimentos e tiros.
+O flow field aceita consultas de geometria física e uma guarda de células; linhas
+longas de navegação ficam em cache, enquanto cada movimento mantém sua varredura.
+
+`game.multiplayer` expõe `network`, `self`, `snapshot`, `roster`, `canAct`, `nearby`,
+`attack`, `interact`, `emote`, `raycast` e `leave`. A conexão só começa ao abrir o
+lobby. O cliente prevê seu movimento, reconcilia poses pela sequência aceita e
+interpola atores/caixas. Os avatars remotos clonam o rig e o visual selecionado;
+zumbis reutilizam `combat.createActorView`. O modo desativa voo e teletransporte.
+
+`multiplayer/peers.js` negocia WebRTC pelo mesmo socket. O menor ID inicia o link;
+os datachannels enviam a própria pose a 30 Hz, sem ordem/retransmissão. Poses
+antigas, inválidas ou distantes da autoridade são ignoradas. O servidor continua
+enviando snapshots durante toda a sessão e controla dano, caixas e minigames.
+`ui/multiplayer.js` desenha lobby, status, placares, emojis e interações.
+
+Configuração e operação: [Multiplayer no Render](MULTIPLAYER-RENDER.md).
+`npm run test:multiplayer` testa salas e regras; `npm run qa:multiplayer` executa
+dois navegadores reais, desktop/mobile, com Socket.IO e Rapier reais.
+
+### Aprovação, ranking e reações
+
+Salas novas ficam em `snapshot.phase = waiting`. Cada membro envia a ação
+`ready` com um booleano; a autoridade só muda para `running` quando todos os
+membros estão conectados e aprovaram. Desconectar revoga a aprovação durante a
+espera, e reconectar exige aprovar novamente. Sair remove o voto da sala. A
+partida inicia uma vez por sala; entrar em uma partida já iniciada mantém o
+fluxo de entrada e a proteção inicial. Movimento, ataques e minigames ficam
+bloqueados na espera. `game.multiplayer.ready(bool)` é usado por `ui`.
+
+`stats.assists` credita uma assistência por morte a cada participante que
+causou dano nos últimos 10 segundos, excluindo quem matou; a lista é limpa na
+morte/respawn. `shared.rankPlayers` ordena kills decrescentes, assistências
+decrescentes e mortes crescentes. Tab mostra o ranking enquanto pressionado;
+o botão permite alternar no celular. O protocolo passa a **2**: publicar
+cliente e servidor juntos; versões antigas recebem o pedido de atualização.
+
+`game.ui.reactions` expõe `react(id)`, `open()`, `close()` e `opened`. G abre a
+roda com emojis, aceno e dança; Esc cancela, soltar G confirma, e toque permite
+escolher um item. Reações de rede usam o evento autoritativo `emote` com posição.
+`avatar.playEmote(id)` reutiliza `Dance_Loop` e o aceno do rig; `stopEmote()`
+encerra a reação em morte/saída. Movimento,
+ataque, recarga e morte encerram a dança. `ui/reactions` renderiza um pool
+limitado a 24 CSS3DSprites, flutuando e desaparecendo em 2,6 s, com consultas
+de oclusão ao terreno e às colisões estáticas. `audio.notification(position)`
+gera um aviso curto em HRTF com atenuação contínua; passos/armas continuam
+usando exclusivamente os samples gravados.
+O marcador de objetivo dos zumbis no treino passa a Y, liberando G para reações.
+
+### Personalização e contatos
+
+O catálogo de aparência inclui camisa social/terno, com ou sem gravata,
+calça/sapato social e tênis. Mangas reutilizam pesos do skin original;
+colarinho, lapelas e gravata acompanham o tórax. Cabelos usam uma base contínua
+até a nuca, com curto penteado, fade, enroladinho baixo, comprido, dreads,
+black power, espetado e moicano. Boné/touca preservam a faixa de cabelo na
+nuca e sua cor, exceto no estilo raspado. O GLB original permanece intacto.
+O personagem inicial é Bancário; dados antigos do personagem inicial são
+atualizados preservando o ID e a seleção, sem renomear personagens criados.
+
+`shared.moveWithContacts` subdivide o percurso e resolve contatos, mantendo o
+último ponto estável em conflitos. NPCs bloqueiam aproximação em vez de
+empurrar o controlador continuamente e sua navegação evita invadir atores.
+`shared.standVolumes` fornece os mesmos degraus/passeio para cliente e servidor;
+`builder.addSolid(..., stepable)` permite subir degraus até 70 cm e bloqueia
+entrada pelas laterais altas. A autoridade mede o limite de salto a partir
+do piso pisável da arquibancada. `player.start(touch, { pointerLock })` permite
+entrar na espera com cursor livre para aprovar a partida.
 
 ## Responsáveis
 

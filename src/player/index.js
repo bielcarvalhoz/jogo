@@ -22,11 +22,11 @@ export function createPlayerModule(game) {
     collide: (x, z, r, feetY, options) => {
       const [nx, nz] = (training() || physics).collide(x, z, r, feetY, options);
       const [dx, dz] = game.dynamicProps?.collide(nx, nz, r, feetY, options) || [nx, nz];
-      return game.combat?.collide(dx, dz, r, feetY) || [dx, dz];
+      return game.combat?.collide(dx, dz, r, feetY, options) || [dx, dz];
     },
     roofAt: (x, z, y) => Math.max((training() || physics).roofAt(x, z, y), game.dynamicProps?.roofAt(x, z, y) ?? -Infinity),
-    allowFlight: () => !training(),
-    canAct: () => (game.combat?.canPlayerAct ?? true) && !game.ui?.combatHUD?.panelOpen,
+    allowFlight: () => !training() && game.mode !== 'multiplayer',
+    canAct: () => (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && !game.ui?.combatHUD?.panelOpen,
   });
   const spawn = game.places[0] || { x: 0, z: 0, yaw: 0 };
   player.placeAt(spawn.x, spawn.z, spawn.yaw);
@@ -51,6 +51,11 @@ export function createPlayerModule(game) {
     player.avatar.appearance.apply(character.appearance); player.avatar.update(0);
   };
   player.createCharacterPreview = container => createCharacterPreview(player.avatar, container);
+  player.spawnCorpse = impulse => {
+    if (!game.ragdolls) return null;
+    const corpse = player.avatar.createCorpse();
+    return game.ragdolls.capture(corpse.root, { owned: true, cleanup: corpse.cleanup, impulse });
+  };
 
   game.input.bind('KeyF', () => setTimeout(() => game.toast(player.fly ? 'Voo livre (E sobe, Control desce, Shift acelera)' : 'Andando'), 0), { label: 'voo livre' });
   return player;

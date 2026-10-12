@@ -46,12 +46,15 @@ const point = (props, latlon) => add(props, { type: 'Point', coordinates: ll(lat
 const line = (props, pts) => add(props, { type: 'LineString', coordinates: pts.map(ll) });
 
 // ---------------------------------------------------------------- prédios (planta oficial)
-const B = (id, props) => poly({ kind: 'building', source: SRC_PLAN, planId: id, ...props }, plan.predios[id]);
+const B = (id, props, ring = plan.predios[id]) => poly({ kind: 'building', source: SRC_PLAN, planId: id, ...props }, ring);
 const M = (id, props) => poly({ kind: 'building', source: SRC_PLAN, planId: id, style: 'pavilion', roofShape: 'green', levels: 1, height: 5, wall: '#e9e6df', roof: '#6f8f3e', windows: '#28404f', ...props }, plan.modulos[id]);
 
 B('b1', { name: 'Prédio Cinza', num: 1, levels: 4, height: 16, wall: '#c4c9cd', roof: '#8e949a', windows: '#26323f', roofItems: 'skylights' });
 // Balança: laje plana de concreto bege (não é telhado marrom); semienterrado do lado da rua do Prata.
-B('b8', { name: 'Prédio Balança', num: 2, levels: 2, height: 7, wall: '#e6ded1', roof: '#d6cab4', windows: '#2b3f55' });
+// Balança: fachada RETA para o estacionamento (a planta oficial vinha serrilhada). Retângulo medido no
+// Earth: 126,5 m de fachada, com a ponta leste incluindo o bloco de arrimo do beco.
+B('b8', { name: 'Prédio Balança', num: 2, levels: 2, height: 7, wall: '#e6ded1', roof: '#d6cab4', windows: '#2b3f55', source: 'vista de topo do Google Earth (10/2026)' },
+  ringLL([[-23.5482507, -46.7749153], [-23.5478568, -46.7737902], [-23.5479684, -46.7737438], [-23.5483623, -46.7748688]]));
 // Prata: 6 andares acima do andar zero (rua de trás); o banner fica a ~2/3 da fachada sul a partir da ponta leste.
 B('b6', { name: 'Prédio Prata', num: 4, levels: 6, height: 22, wall: '#eceae4', roof: '#c4c8cb', windows: '#2b3f55', accent: 'banner', accentColor: RED, bannerEast: 0.68, towerBox: { at: 0.32 } });
 B('b3', {
@@ -136,11 +139,19 @@ for (const g of plan.gramados) {
 const park = (name, pts, extra = {}) => poly({ kind: 'parking', source: SRC_SAT, name, ...extra }, ringLL(pts));
 park('Estacionamento', [[-23.5494047, -46.7740345], [-23.5495448, -46.7729965], [-23.5499603, -46.772975], [-23.5499013, -46.7740345]]);
 park('Estacionamento', [[-23.549385, -46.7745548], [-23.549385, -46.7740774], [-23.5502185, -46.7740774], [-23.5502185, -46.7745548]]);
-park('Estacionamento', [[-23.5476417, -46.7748365], [-23.5475605, -46.7736241], [-23.5478974, -46.7736027], [-23.5482146, -46.7748123]]);
+// (o estacionamento do Balança é o marco 'estacionamento', com as vagas medidas)
 // Estacionamento logo depois da Portaria Wenceslau Brás: as vagas acompanham a Rua Venceslau Brás
 // (vista de topo do Google Earth), da cerca a leste da boca até o fim do pátio. O retângulo em
-// lat/lon da versão anterior ficava torto em relação à rua e atravessava o leito dela.
-park('Estacionamento', [[-23.5499069, -46.7710303], [-23.5495886, -46.7697430], [-23.5489771, -46.7699205], [-23.5492955, -46.7712078]], { palms: 'sul' });
+// lat/lon de antes ficava torto em relação à rua e atravessava o leito dela; e, levado até o
+// passeio, virava um lençol de asfalto vazio ao longo de toda a calçada, porque as vagas só nascem
+// ao lado dos corredores (a via interna, 16 m adentro). Agora o lote começa onde as vagas começam e
+// a frente, entre o muro do campus e ele, é o gramado arborizado que se vê no Earth.
+// Dois lotes: o da FRENTE, entre o gramado e a via interna, e o de TRÁS, do outro lado dela. Essa
+// divisão é o que faz as vagas chegarem perto da rua — as vagas nascem ao lado de corredores, e o
+// lote da frente, sem nenhuma via dentro, ganha o corredor sintético de campus.js.
+park('Estacionamento', [[-23.5498938, -46.7710341], [-23.5496507, -46.7700090], [-23.5494794, -46.7700587], [-23.5497322, -46.7710810]], { palms: 'sul', palmsOffset: -2.6 });
+park('Estacionamento', [[-23.5497322, -46.7710810], [-23.5494139, -46.7697937], [-23.5489771, -46.7699205], [-23.5492955, -46.7712078]]);
+poly({ kind: 'lawn', source: SRC_SAT }, ringLL([[-23.5499483, -46.7710385], [-23.5496999, -46.7699846], [-23.5496466, -46.7700001], [-23.5498985, -46.7710530]]));
 for (const [id, n] of [['b43', 14], ['b42', 15], ['b18', 16]]) poly({ kind: 'parking', source: SRC_PLAN, slab: true, name: `Estacionamento ${n} (antigo Prédio Branco)`, num: n }, plan.predios[id]);
 poly({ kind: 'parking', source: SRC_PLAN, name: 'Estacionamento Coberto', underPergola: true }, plan.predios.b15);
 
@@ -154,7 +165,8 @@ poly({ kind: 'monkeyPark', source: SRC_PLAN, name: 'Parque dos Macacos', num: 12
 // (reach: o vão do muro fica só sob a cobertura; o pátio da frente é aberto para a rua)
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, reach: 8 }, [-23.5466816, -46.7721977]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Bussocaba', num: 10, booth: false, reach: 8 }, [-23.5466081, -46.7720745]);
-point({ kind: 'gate', type: 'pedestre', name: 'Portaria Bussocaba (pedestres)', num: 6 }, [-23.547431, -46.773729]);
+// (o ponto fica no portal do muro, medido no Earth; a cobertura vem do marco 'portaria-pedestres')
+point({ kind: 'gate', type: 'pedestre', name: 'Portaria Bussocaba (pedestres)', num: 6 }, [-23.5474105, -46.7736409]);
 point({ kind: 'gate', type: 'pedestre', name: 'Portaria Goiabinha (pedestres)', num: 7 }, [-23.5498934, -46.7739968]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Wenceslau Brás', num: 8, building: true, reach: 10 }, [-23.550003, -46.771147]);
 point({ kind: 'gate', type: 'portaria', name: 'Portaria Vila Yara', num: 9 }, [-23.547399, -46.766712]);
@@ -173,6 +185,65 @@ line({ kind: 'stairway', id: 'escadaria-mata', name: 'Escadaria da mata', source
 // Passarela de grades verdes do pé da escada até a via da Portaria Bussocaba.
 // (termina na calçada bege do lado de dentro da Portaria Bussocaba, rente à Agência)
 line({ kind: 'walkway', id: 'passarela-agencia', from: 'escadaria-mata', source: SRC_FIELD, width: 2.2, endLift: .41 }, [[-23.5466627, -46.7717288], [-23.5467057, -46.7718605]]);
+// Portaria de pedestres da Bussocaba: ponto = ponta oeste da cobertura, na linha do muro; rumo do muro 72°.
+// Em metros: s ao longo do muro a partir dali, v para dentro. Percurso descrito pelo usuário: entra-se
+// pelo portal, vira-se à direita e sobe-se uma escada de ponta a ponta; no topo, as três catracas; em frente,
+// a guarita do guarda; depois das catracas vira-se à esquerda e entra-se no campus.
+// cobertura [comprimento, profundidade]; portal = vão do portão; escada [pé, topo] e nº de espelhos (o
+// estacionamento fica ~1 m acima da calçada no Earth); catracas = s da linha delas; guarita [s0, s1,
+// meia largura]; saida = vão dos fundos para o campus (e a faixa de pedestres); piso [s0, s1];
+// rua = calçada da rua em frente [s0, s1, largura]. Cobertura medida no Earth (30 m) e no Street View de jun/2023.
+point({ kind: 'landmark', type: 'portaria-pedestres', gate: 6, name: 'Portaria Bussocaba (pedestres)', heading: 72, cobertura: [10.9, 5.4], portal: [6.9, 9.5],
+  escada: [6.5, 5], espelhos: 6, catracas: 3.6, quantidade: 3, guarita: [-2.9, -1.2, 1.5], saida: [-.6, 2.2], piso: [-3.3, 10.8], rua: [-14, 24, 5.2], source: SRC_FIELD }, [-23.5474332, -46.7737173]);
+// Estacionamento do Balança: pátio de asfalto único com as vagas como no local. Ponto = origem na fachada
+// do Balança; rumo da fachada 69,1°. Em metros: u ao longo da fachada, v da fachada para o muro.
+// partes = polígonos CONVEXOS do asfalto. fileiras: u = 1ª divisória (no fundo da vaga), passo entre
+// divisórias, nº de vagas, v = [fundo, entrada], inclina = deslocamento em u do fundo à entrada (vaga
+// em diagonal), cor, simbolo (quadrado/losango branco na entrada). Medido no Earth (170 m, grade de 1 m).
+point({ kind: 'landmark', type: 'estacionamento', name: 'Estacionamento do Balança', heading: 69.1, ocupacao: .35,
+  partes: [[[-28.5, 4.4], [90, 4.4], [90, 40.6], [-28.5, 45.2]], [[71.1, -13.2], [78, -12.7], [78, 4.4], [71.1, 4.4]], [[78, -12.7], [91.5, -9.1], [91.5, 4.4], [78, 4.4]], [[91.5, -9.1], [98, -6.7], [98, 4.4], [91.5, 4.4]],
+    [[90, 4.4], [115, 4.4], [115, 12], [90, 12]], [[98, -6.7], [110.6, -3.4], [110.6, 4.4], [98, 4.4]], [[90, 12], [108, 12], [108, 28.3], [96.2, 33.5], [90, 36.2]],
+    [[67.4, .4], [71.1, .4], [71.1, 4.4], [67.4, 4.4]], [[68, -1.9], [70.6, -1.9], [70.6, .4], [68, .4]]],   // (o último: em frente ao beco, onde a faixa zebrada continua a calçada)
+  // rua rente ao muro (do OSM): continua sendo rua, da portaria de pedestres até sair atrás do Balança (usuário);
+  // semCalcada = trecho dela sem calçada (ao longo do muro; atrás da portaria de pedestres a calçada fica)
+  vias: ['way/965541335'], semCalcada: [[[-30, 37.5], [91, 33.5], [91, 46], [-30, 51]]],
+  fileiras: [
+    { id: 'A', u: -18, passo: 3.4, vagas: 22, v: [10.6, 6.4], inclina: 4.2 },                       // diagonal, junto à pista da fachada
+    { id: 'B', u: -17, passo: 2.4, vagas: 33, v: [10.6, 15.2] },                                     // reta, de costas para a A
+    { id: 'C', u: -20.1, passo: 2.215, vagas: 21, v: [20.2, 24.8], cor: 'branca', simbolo: 'quadrado' },
+    { id: 'C2', u: 31, passo: 2.4, vagas: 13, v: [20.2, 24.8] },
+    { id: 'D', u: -22.6, passo: 2.25, vagas: 21, v: [32.6, 28.2], cor: 'branca', simbolo: 'quadrado' },
+    { id: 'E', u: -19, passo: 2.77, vagas: 15, v: [32.6, 37.4], inclina: 2.77, cor: 'branca', simbolo: 'losango', fundo: false },   // diagonal, junto ao muro
+    { id: 'F', u: 64.5, passo: 2.2, vagas: 4, v: [14, 7], inclina: 2.6 },
+    // (canto leste, medido em vistas de topo a 30 m:) 7 vagas penduradas na guia ao sul da faixa zebrada; 2 junto à casa de máquinas
+    { id: 'G', u: 78.6, passo: 2.17, vagas: 7, v: [1.25, -2.15], inclina: 1.05, sobe: .34, fundo: false },
+    { id: 'J', u: 89.2, passo: 2.6, vagas: 2, v: [-3.6, -8.2], inclina: 1.6, fundo: false },
+    { id: 'H', u: 85.5, passo: 2.25, vagas: 4, v: [19.3, 14.5] },
+  ],
+  // faixa zebrada única: da calçada do Balança, pela frente da casa de máquinas, até a travessia da portaria de pedestres
+  // duas faixas zebradas: (1) da portaria de pedestres até a quina nordeste da casa de máquinas, onde começa o
+  // caminho da escadinha; (2) dela, pela frente da casa de máquinas, até a calçada do Balança
+  zebras: [{ eixo: [[95.6, 29], [97.6, 22], [102, 17], [108.3, 10.8]], largura: 3 }, { eixo: [[104, 12.7], [95, 9.3], [85, 5.75], [73.5, 1.85], [66.5, 1.85]], largura: 1.9 }],
+  // guia clara ao longo do lado sul da faixa (as vagas saem dela) e passeio rente ao muro da escada [u0, u1, v0, v1]
+  guia: [[75.2, .25], [94, 6.65]], passeios: [[71.05, 73.2, -9, .4]], caixaAmarela: [[77.9, -9.2], [81.7, -7.1], [83.3, -10], [79.5, -12]],
+  // ao sul da faixa zebrada o pátio continua livre (sem grade) até o muro do fundo, na mesma profundidade da
+  // casa de máquinas (usuário); fundo = [u0, u1, v do muro, v até onde vai o aterro atrás dele]
+  // muro de arrimo do fundo (linha medida: enviesado, acompanha a casa de máquinas); atrás dele, de u = 70,9 a 98,
+  // fica o passeio da rua do Prata, ~7 m acima (terraço até v = -17,2). zebrado = área hachurada atrás da casa de máquinas.
+  muroFundo: [[70.9, -13.4], [78, -12.9], [91.5, -9.3], [98.3, -6.9], [111.6, -3.4]], terraco: [70.9, 98.3, -17.2], arvoreGrande: [87, -14.5],
+  // largo da rua de cima: asfalto aberto pelos meios-fios MEDIDOS no Earth (170 m, grade de 1 m) — a rua do Prata
+  // chegando do oeste, o braço norte ao lado do zebrado, a saída leste com a faixa de pedestres e a rua que desce
+  // ao sul entre a calçada curva do Prata e a ilha. Pedaços convexos, sem calçada nem eixo pintado dentro.
+  largo: [[[100, -29.5], [100, -18.2], [106.6, -11.8], [113, -20], [113, -29.5]], [[106.6, -11.8], [110, -5.5], [113, -5.5], [113, -20]],
+    [[113, -20], [118, -25.5], [118, -42], [113, -42]], [[118, -25.5], [125, -27.5], [125, -40.5], [122.5, -41.5], [118, -42]],
+    [[100, -29.5], [113, -29.5], [113, -42]], [[113, -42], [122.5, -42], [122.5, -48], [115.5, -48]]],
+  faixaLargo: [[123.4, -28.6], [124.2, -39.8], 4.6],
+  zebrado: [[95.5, -10.2], [110, -5.4], [106.6, -11.6], [104, -14.2], [99.6, -17.9], [95.5, -18.1]], escadaPara: [112.7, -6.8],
+  // casa de máquinas (resfriadores) [cantos A, B, C, D]; do lado leste dela, caminho com a escadinha que sobe para a rua de cima (usuário)
+  maquinas: [[94.3, 6], [107.9, 9.5], [110.9, -2.8], [97.9, -6.2]],
+  arvores: [[-6.4, 19.6], [6.9, 19.6], [15.8, 19.6], [24.6, 19.6], [31, 19.6], [37, 19.6], [42.6, 19.6], [50, 19.6], [2.5, 10.6], [23, 10.6], [47, 10.6], [88.6, 17.5]],
+  // calçada reta rente à fachada [u0, u1, v0, v1], marquise da entrada e pátio de equipamentos murado (oeste)
+  calcada: [-28.5, 67.4, .3, 4.4], marquise: [16.5, 33.5, .3, 4.8], equipamentos: [-37.5, -29.3, 5.3, 15.2], source: SRC_FIELD }, [-23.5480865, -46.7744382]);
 // Locomotiva 801 ao lado do CTI: frente (limpa-trilhos) para ESE, trilho de exposição de 26 m.
 point({ kind: 'landmark', type: 'locomotiva', name: 'Locomotiva 801', source: SRC_FIELD, heading: 113 }, [-23.546803, -46.768288]);
 // Portaria Bussocaba: UMA cobertura comprida (duas lajes em linha, 35 x 12 m) paralela à rua, junto à
@@ -277,7 +348,7 @@ point({ kind: 'landmark', type: 'portaria', id: 'wenceslau', gate: 8, name: 'Por
   patio: [1, 23],
   source: SRC_FIELD }, [-23.5498710, -46.7711878]);
 // Beco com escada na ponta leste do Balança (do estacionamento à rua do Prata).
-point({ kind: 'landmark', type: 'beco', building: 'b8', toward: 'b6', end: 'leste', offset: 5.2, width: 2.6, source: SRC_FIELD }, [-23.5479607, -46.7738679]);
+point({ kind: 'landmark', type: 'beco', building: 'b8', toward: 'b6', end: 'leste', offset: 1.6, width: 2.6, source: SRC_FIELD }, [-23.5479607, -46.7738679]);
 // Entradas do Prata: -2 ao pé da torre da fachada norte; fundos do andar zero na fachada sul.
 point({ kind: 'landmark', type: 'entrada', id: 'prata-menos2', building: 'b6', source: SRC_FIELD }, [-23.5482144, -46.7739443]);
 point({ kind: 'landmark', type: 'entrada', id: 'prata-terreo', building: 'b6', source: SRC_FIELD }, [-23.5484477, -46.773697]);
@@ -298,8 +369,10 @@ add({ kind: 'groundControl', source: controle.fonte, offset: controle.ajuste }, 
 const plato = (id, name, earth, pts, extra = {}) => poly({ kind: 'plateau', id, name, altitude: earth + controle.ajuste, source: SRC_FIELD, ...extra }, ringLL(pts));
 // Estacionamento em frente ao Balança (térreo do prédio, onde fica o refeitório): 734 m.
 plato('estacionamento-balanca', 'Estacionamento do Balança', 734, [
-  [-23.5480542, -46.7748233], [-23.5478835, -46.7748086], [-23.5478395, -46.7747586], [-23.5475835, -46.7738640], [-23.5475646, -46.7737454],
-  [-23.5475511, -46.7736082], [-23.5476949, -46.7735788], [-23.5478745, -46.7735886], [-23.5479060, -46.7737062], [-23.5479194, -46.7738140],
+  // (lado norte até o muro e ponta leste até a portaria de pedestres: todo o pátio num nível só)
+  [-23.5480542, -46.7748233], [-23.5477974, -46.7748839], [-23.5473946, -46.7735935], [-23.5475727, -46.7735195],
+  // (ponta leste: vagas ao sul da faixa zebrada e a casa de máquinas, no nível do pátio; a rua de cima fica ~3 m acima)
+  [-23.5475973, -46.7734253], [-23.5477332, -46.7733686], [-23.5477599, -46.7734036], [-23.5478325, -46.7735119], [-23.5479323, -46.7734703], [-23.5480153, -46.7737074], [-23.5479843, -46.7737203], [-23.5480019, -46.7737707]   /* (inclui o pé da escada do beco: as vagas encostam na parede fina) */,
   [-23.5479419, -46.7738336], [-23.5480003, -46.7740100], [-23.5480632, -46.7741962], [-23.5481261, -46.7743922], [-23.5481979, -46.7745881],
   [-23.5482698, -46.7747841], [-23.5482922, -46.7748576], [-23.5482249, -46.7748772],
 ], { band: 10 });

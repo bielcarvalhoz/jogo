@@ -1,0 +1,14 @@
+.reaction-scene { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+.reaction-bubble { width: 64px; height: 64px; display: grid; place-items: center; font: 48px/1 "Segoe UI Emoji", sans-serif; border-radius: 22px; background: #132831b8; border: 1px solid #ffffff80; box-shadow: 0 5px 20px #0003; backface-visibility: hidden; }
+#btn-reactions { position: absolute; right: 18px; top: 126px; pointer-events: auto; width: 42px; height: 42px; border: 1px solid #fff5; border-radius: 50%; color: #f2eedf; background: #142127dd; font-size: 27px; cursor: pointer; }
+#reaction-wheel { position: fixed; inset: 0; z-index: 25; pointer-events: auto; background: #08151c55; }
+.reaction-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, #142127f5 28%, #142127d9 29%, #27404ad9 67%, transparent 68%); animation: reaction-open .16s ease-out; }
+.reaction-ring > b { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #e5dcc7; pointer-events: none; font: 700 13px system-ui; }
+.reaction-ring > b small { opacity: .6; padding-top: 6px; }
+.reaction-ring button { position: absolute; left: calc(50% + var(--x)); top: calc(50% + var(--y)); transform: translate(-50%, -50%); display: grid; place-items: center; gap: 3px; width: 78px; height: 72px; border: 1px solid transparent; border-radius: 18px; color: #f2eedf; background: transparent; cursor: pointer; touch-action: manipulation; transition: background .12s, border-color .12s; }
+.reaction-ring button span { font-size: 30px; }
+.reaction-ring button small { font: 600 11px system-ui; }
+.reaction-ring button:is(:hover, :focus-visible, .selected) { background: #f2ce7333; border-color: #f2ce73; outline: none; }
+@keyframes reaction-open { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+@media (max-width: 700px) { #btn-reactions { top: 110px; right: 12px; } }
+@media (prefers-reduced-motion: reduce) { .reaction-ring { animation: none; } }

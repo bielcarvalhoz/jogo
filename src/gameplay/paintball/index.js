@@ -11,19 +11,36 @@ export function createPaintballModule(game) {
   const { scene, camera, renderer } = game.engine;
   const $ = (id) => document.getElementById(id);
   const player = game.player;
-  const paintEnabled = () => (player.active || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen && !game.ui?.weaponWheelOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true);
+  const paintEnabled = () => (player.active || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen && !game.ui?.weaponWheelOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true);
   const paintball = createPaintball({
     scene, camera, getActive: paintEnabled,
     getCameraMode: () => player.cameraMode,
     colliderRoots: () => game.training?.active ? [game.training.floor, game.training.root, game.dynamicProps?.root].filter(Boolean) : [scene],
-    traceActors: (from, to) => game.combat?.raycast(from, to),
+    traceActors: (from, to) => game.multiplayer?.active ? game.multiplayer.raycast(from, to) : game.combat?.raycast(from, to),
     updateWeaponPose: (gun, state) => player.updateWeapon?.(gun, state),
     getShotOrigin: target => player.getShotOrigin ? player.getShotOrigin(target) : camera.getWorldPosition(target),
-    onShot: (weapon, recoil) => { game.audio?.shot(weapon); player.avatar?.playShot(recoil?.recoilStrength); },
-    onAttack: (weapon, state) => { game.audio?.melee?.(weapon); player.avatar?.playAttack?.(weapon, state); },
-    onImpact: (hit, info) => { if (!game.combat?.impact(hit, info)) game.dynamicProps?.impact(hit, info); },
+    onShot: (weapon, recoil) => { game.audio?.shot(weapon, { position: recoil.origin }); player.avatar?.playShot(recoil?.recoilStrength); game.multiplayer?.attack(weapon, recoil); },
+    onReload: (weapon, state) => {
+      if (state.active) { player.avatar?.playReload?.(state.duration); game.audio?.reload?.(weapon, { ...state, position: () => player.eyePosition }); }
+      else { player.avatar?.stopReload?.(); game.audio?.stopReload?.(); }
+      if (state.active || state.cancelled) game.multiplayer?.reload?.(weapon.id, state.active);
+    },
+    onAttack: (weapon, state) => { game.audio?.melee?.(weapon, { position: player.eyePosition }); player.avatar?.playAttack?.(weapon, state); },
+    onStrike: (weapon, info) => game.multiplayer?.attack(weapon, info),
+    onImpact: (hit, info) => {
+      if (game.multiplayer?.active) return;
+      game.audio?.hit?.(hit, info);
+      if (!game.combat?.impact(hit, info)) game.dynamicProps?.impact(hit, info);
+    },
   });
-  game.events.on('modechange', () => { paintball.resetInput(); paintball.clearEffects(); });
+  let ammoMode = null;
+  game.events.on('modechange', mode => {
+    paintball.resetInput(); paintball.clearEffects();
+    if (mode !== ammoMode) paintball.resetAmmo();
+    ammoMode = mode;
+  });
+  game.events.on('combatreset', () => paintball.resetAmmo());
+  game.events.on('multiplayerevent', event => { if (event.type === 'respawn' && event.player === game.multiplayer?.self?.id) paintball.resetAmmo(); });
 
   // cor da tinta (menu inicial + botão do HUD)
   const colorChoice = $('paint-color');
@@ -60,6 +77,21 @@ export function createPaintballModule(game) {
     $('btn-aim').setAttribute('aria-pressed', String(paintball.aiming));
   };
   $('btn-aim').addEventListener('click', () => setAiming(!paintball.aiming));
+  const reload = () => { if (paintEnabled()) { paintball.reload(); setAiming(false); } };
+  game.input.bind('KeyR', reload, { label: 'recarregar' });
+  $('btn-reload').addEventListener('click', reload);
+  game.engine.addSystem(() => {
+    const ammo = paintball.ammo, button = $('btn-reload');
+    $('ammo-hud').hidden = !ammo || paintball.holstered;
+    button.hidden = !ammo; button.disabled = !ammo || ammo.reloading || ammo.loaded === ammo.capacity || ammo.reserve === 0 || paintball.holstered;
+    if (!ammo) return;
+    $('ammo-loaded').textContent = ammo.loaded; $('ammo-reserve').textContent = ammo.reserve;
+    $('reload-status').textContent = ammo.reloading ? `${ammo.remaining.toFixed(1)}s` : '';
+    $('reload-progress').style.setProperty('--reload-progress', ammo.progress);
+    $('ammo-hud').classList.toggle('reloading', ammo.reloading);
+    $('ammo-hud').classList.toggle('low-ammo', ammo.loaded <= Math.ceil(ammo.capacity * .2));
+    button.setAttribute('aria-label', ammo.reloading ? 'Recarregando' : 'Recarregar · R');
+  }, 'late');
   game.input.bind('KeyV', () => { nextPaintColor(); game.toast(`Tinta: ${paintball.color.label}`); }, { label: 'cor da tinta' });
 
   // Pistola: clique sem arrastar no fallback. Metralhadora: segurar também

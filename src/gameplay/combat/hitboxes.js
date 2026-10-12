@@ -35,7 +35,7 @@ export function traceHitboxes(from, to, entities, { exclude = null } = {}) {
   const direction = at({ x: 0, y: 0, z: 0 }, delta, 1 / length);
   let closest = null;
   for (const entity of entities) {
-    if (entity === exclude || entity.dead || entity.health.current <= 0) continue;
+    if (entity === exclude || entity.dead || entity.networkGhost || entity.health.current <= 0) continue;
     for (const capsule of entity.hitboxes) {
       const distance = capsuleEntry(from, direction, capsule);
       if (distance > length || !Number.isFinite(distance) || (closest && distance >= closest.distance)) continue;

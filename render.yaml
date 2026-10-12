@@ -1,0 +1,19 @@
+# Create a separate service for jogo. The dtc-server belongs to Defend the Crystal.
+# Render -> New -> Blueprint -> bielcarvalhoz/jogo.
+services:
+  - type: web
+    name: jogo-server
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_ORIGINS
+        value: ""

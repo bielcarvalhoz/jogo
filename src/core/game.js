@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { pointInPolygon } from '../shared/geo.js';
 import { createEngine } from './engine.js';
 import { createEvents } from './events.js';
 import { createInput } from './input.js';
@@ -38,5 +40,13 @@ export function createGame({ quality, debug, status, container, settings, audio 
     styler: null,
   };
   game.input = createInput(game);
+  const ear = new THREE.Vector3(), forward = new THREE.Vector3(), up = new THREE.Vector3();
+  game.engine.addSystem(() => {
+    const camera = game.engine.camera;
+    game.audio?.setListener?.(camera.getWorldPosition(ear), camera.getWorldDirection(forward), up.set(0, 1, 0).applyQuaternion(camera.quaternion));
+    const quarter = game.campus?.data?.quarter;
+    const inCity = !!game.player && !!quarter && pointInPolygon(game.player.feet.x, game.player.feet.z, quarter);
+    game.audio?.setAmbience?.(inCity && game.player.active && ['campaign', 'multiplayer'].includes(game.mode));
+  }, 'world');
   return game;
 }

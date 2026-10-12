@@ -77,11 +77,56 @@ Refeita pelas fotos de rua e pelas vistas 3D do Google Earth enviadas pelo usuá
 - **pintura de solo**: “REDUZA” e, mais perto das cancelas, “PARE” nas duas faixas de entrada, setas finas de sentido nas três faixas, linha branca nas divisórias e a faixa de pedestres de ponta a ponta da boca, atravessada no meio-fio da rua. As legendas ficam **em pé para quem dirige** — leem-se da esquerda para a direita atravessando a faixa, esticadas no sentido da marcha — e saem de um atlas só (`pista-texto`); as setas são polígonos no piso `paint`, sem textura própria;
 - **lado da rua**: a **calçada do caminho de pedestres** vai do passeio da rua até a cobertura, com guarda-corpo tubular dos dois lados e sem nada atravessada nela (nem portão, nem cerca); cerca branca de barras com sebe nas duas bordas do pátio, palmeiras no canteiro ao lado da recepção, o **muro branco de arrimo** da encosta oeste (com corrimão no topo) e o **totem vermelho da marca** na frente dele. O painel do totem fica **de lado, paralelo à pista** (não de frente para o pátio): quem sobe a Rua Venceslau Brás, que é de mão única, o vê de frente, como no Street View. O símbolo é a copa em fita larga, aberta embaixo à esquerda, sobre os dois montantes do tronco — desenho simplificado em canvas, não a arte original;
 - **vigilante de plantão** na divisória entre as duas faixas de entrada, de braços cruzados e de frente para quem chega: figura fixa de peças lisas nas proporções dos personagens (1,75 m), com uniforme escuro e boné. É cenário, sem IA nem animação — não usa o modelo nem o rig de `sato.glb`;
-- **estacionamento logo depois da boca**: as vagas a leste acompanham a Rua Venceslau Brás (vista de topo do Google Earth). O retângulo em lat/lon da versão anterior ficava torto em relação à rua e atravessava o leito dela;
+- **estacionamento logo depois da boca** (vista de topo do Google Earth): o lote a leste acompanha a Rua Venceslau Brás e é **dividido em dois** — o da frente, entre o gramado e a via interna, e o de trás, do outro lado dela. A divisão é o que faz as vagas chegarem perto da rua: as vagas nascem ao lado de corredores, e o lote da frente, sem nenhuma via dentro, ganha o corredor sintético de `campus.js` com uma fileira de cada lado. Entre o muro do campus e as vagas corre um **gramado** com a fileira de palmeiras (`palmsOffset` negativo: a fileira fica fora do lote). O retângulo em lat/lon de antes ficava torto em relação à rua, atravessava o leito dela e, sem a divisão, deixava um lençol de asfalto vazio ao longo de toda a calçada;
 - **limite do terreno**: a oeste da portaria o quarteirão do campus recua para os lotes das casas da encosta (vértices do OSM). A cobertura encosta nesse limite: a recepção fica logo a leste dele, como nas fotos. O eixo de 2 nós do OSM (`way/826235184`) é um traçado grosseiro que encosta na borda oeste da boca; `eixoEntrada` o leva ao meio dela, sem mexer nos dois nós de ligação;
 - **um nível só**: o platô `portaria-wenceslau` aplaina a cobertura, a boca e o pátio até a via interna do estacionamento. Aqui **não** há leitura de altitude do Google Earth — a cota (737,1 m) é a do próprio relevo corrigido no eixo da pista, sob a laje; o platô só tira a rampa de 1,9 m que o SRTM deixava ao longo da laje. No local a plataforma é escavada na encosta oeste, contida pelo muro branco da foto; o apoio entre o meio-fio da rua (≈738 m) e o pátio fica na banda de transição.
 
 Ainda diferente do local: a largura da boca (12 m de faixa de rolamento em 13,9 m de vão), a largura das três faixas e o comprimento da laje são estimativas das fotos — não há levantamento; e o desenho do símbolo no totem é uma simplificação.
+
+## Portaria de pedestres da Bussocaba (06) (10/2026)
+
+`src/campus/portaria-pedestres.js`; dados no marco `portaria-pedestres`. Medida em vista de topo do Google Earth (30 m, com a grade do jogo) e no Street View de jun/2023 indicado pelo usuário; o interior segue a descrição dele:
+
+- na rua: muro de concreto com um portal branco e portão de correr cinza; atrás, cobertura branca alta (~11 × 5,4 m) sobre pilares finos, faixa de vidro acima do muro e pórtico vermelho na ponta oeste;
+- percurso: entra-se pelo portal, vira-se à **direita** e sobe-se uma **escada de ponta a ponta** (6 espelhos; o estacionamento fica ~1 m acima da calçada no Earth); no topo, as **três catracas**; em frente a elas, a **guarita** do guarda; depois das catracas vira-se à **esquerda** e sai-se para o campus pela faixa de pedestres;
+- o relevo é rebaixado na calçada da rua e sob o saguão (`terrain.gradeProfile`); a calçada da via interna é recortada na planta da portaria (`world.sidewalkVoids`) e os fundos do saguão são muro de arrimo com vidro.
+
+Diferente do local: o muro do jogo passa ~1,7 m mais perto da rua, então a portaria foi deslocada junto; atrás dela o jogo tem vias de serviço com calçadas onde no local é o pátio do estacionamento (a faixa zebrada real atravessa o pátio até o Balança); o interior além do percurso descrito é aproximado.
+
+## Estacionamento do Balança (10/2026)
+
+`src/campus/estacionamento.js`; dados no marco `estacionamento`. No OSM os corredores do estacionamento são vias de serviço, e o jogo as desenhava como ruas com calçada; no local é **um pátio de asfalto único**. Medido numa vista de topo do Google Earth a 170 m (dobro da resolução), girada para o sistema do pátio (u ao longo da fachada do Balança, v da fachada para o muro) com grade de 1 m:
+
+- as vias do OSM por dentro do pátio são retiradas do mundo (`fitLot`); o asfalto usa a textura das vias internas e emenda nas ruas que chegam; o platô vai até o muro e até a portaria de pedestres;
+- fileiras: A em diagonal (45°) junto à pista da fachada e B reta, de costas para ela (amarelas); C e D retas, brancas, com o quadrado do símbolo na entrada da vaga; E em diagonal (60°) junto ao muro, com o losango; mais C2, F, G e H na metade leste; carros só nas vagas;
+- faixas zebradas da ponta leste do Balança até a portaria de pedestres 06 (que agora sai direto no pátio); árvores em canteiros entre as vagas; pátio de equipamentos murado na ponta oeste;
+- **Balança**: planta trocada por um retângulo medido (fachada reta de 126,5 m; a planta oficial vinha serrilhada), com a calçada reta rente à fachada e a marquise da entrada.
+
+Correções do usuário (2ª rodada):
+
+- a **rua rente ao muro** (via do OSM `way/965541335`) é rua de verdade e continua inteira: vem da bifurcação da Portaria Bussocaba, passa atrás da portaria de pedestres, segue ao longo do muro e contorna a ponta oeste até sair atrás do Balança (`vias` do marco; sem calçada ao longo do pátio);
+- a **escada do beco** fica como era (2,6 m); só o muro a leste dela é fino (30 cm), e o espaço ganho é pátio, com vagas logo ao lado;
+- ponta leste: ao sul da faixa zebrada o pátio continua **livre e plano** (sem grade) até o **muro do fundo**, na mesma profundidade da casa de máquinas, com vagas junto à faixa e junto ao muro; **casa de máquinas** (galpão envidraçado e duas torres de resfriamento) e, do lado leste dela, o caminho com a **escadinha** que sobe para a rua de cima (~2,3 m, degraus acompanhando o talude);
+- **uma faixa zebrada só**, contínua, da calçada do Balança até a travessia da portaria de pedestres (a faixa antiga de `prata-access.js` deixou de ser desenhada: ficava por cima da nova);
+- relevo: platô estendido até a casa de máquinas e o pé do beco; o muro do fundo tem o terreno de cima por trás (aterro), e nenhum muro é criado automaticamente nas bordas — um deles fechava a entrada da escada do beco (altitudes do Earth: pátio 734 m, rua de cima 737 m).
+
+Canto leste refeito (3ª rodada), medido em dez vistas de topo do Earth a 30 m com grade de 1 m (`tools/lotgrid2.mjs`) e conferido contra a captura do usuário na mesma orientação:
+
+- o pátio entre o muro da escada do beco e a casa de máquinas vai até um **muro de arrimo enviesado** (de v = -13,4 junto à escada a -6,9 junto às máquinas); atrás dele fica o passeio da rua do Prata, ~7 m acima (terraço);
+- **duas faixas zebradas**: da portaria de pedestres até a quina nordeste da casa de máquinas (3 m de largura), e dali pela frente das máquinas até a calçada do Balança (1,9 m); guia clara no lado sul desta, de onde saem 7 vagas; 2 vagas junto às máquinas; caixa amarela; passeio rente ao muro da escada;
+- zebrado em diagonal atrás da casa de máquinas, no nível de cima, e a escadinha do lado leste dela até ali;
+- a escada do beco não foi alterada (2,6 m, 43 espelhos).
+
+Não refeito: o encontro das ruas de cima (continua em “X”, como no OSM), as vagas a leste da casa de máquinas, a cobertura de vidro rente ao muro do fundo, e a posição da portaria de pedestres (o muro do jogo passa ~9 m ao norte do muro real nessa ponta, então sobra pátio entre a portaria e as vagas).
+
+Limites: o pictograma das vagas brancas não é legível nas imagens (o jogo pinta um traço neutro); as fileiras C2, F, G e H e as árvores foram lidas sob sombra e são aproximadas; o lado sul do Balança ficou onde estava (a rua de trás foi deslocada antes); as vistas do Earth a 60–120 m saíram fora de escala nesta área e não foram usadas para medir.
+
+## Vagas e carros dos estacionamentos
+
+Cada lote (`kind: 'parking'`) ganha vagas ao longo de **corredores**: as vias internas que passam por dentro dele ou, quando não há nenhuma, corredores sintéticos. Dois defeitos desse gerador apareceram ao refazer o lote da Portaria Wenceslau Brás e foram corrigidos — valem para o campus inteiro:
+
+- **corredores sintéticos descentrados**: o primeiro saía a 7,6 m de uma das bordas, mas do eixo do corredor até a borda externa da vaga vão 7,9 m (meia largura do corredor + comprimento do carro + folga). A fileira de fora caía 30 cm para fora do lote e era descartada inteira. E qual borda servia de origem dependia do sentido da aresta mais longa do polígono, então a fileira perdida mudava de lado conforme o desenho. Agora os corredores são **centrados** no lote e as duas fileiras de cada um cabem sempre;
+- **fileira de palmeiras na aresta errada**: `palms: 'sul'` escolhia a aresta de maior z médio. Num lote comprido e enviesado em relação ao norte, a ponta curta de oeste ganhava da fachada sul inteira, porque a outra ponta do lote fica mais ao norte. Agora a escolha pesa o quanto a normal da aresta aponta para o sul **pelo comprimento dela**, e `palmsOffset` permite jogar a fileira para fora do lote (no gramado da frente).
 
 ## Relevo e navegação
 

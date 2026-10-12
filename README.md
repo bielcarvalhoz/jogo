@@ -24,7 +24,9 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:5173 e escolha **Modo treta**, **Modo treino** ou **Modo tour**. O modo Treta abre um submenu: **Um jogador** mantém a campanha atual; **Multijogador** está marcado como em breve. Antes de entrar em qualquer modo, escolha e confirme um personagem. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon com recortes diagonais e revela o logo letra por letra enquanto os dados da cidade são baixados. A montagem 3D começa depois da abertura (ou ao pulá-la), para não travar as imagens nem a escrita do título.
+Abra http://localhost:5173 e escolha **Modo treta**, **Modo treino** ou **Modo tour**. O modo Treta abre um submenu: **Um jogador** mantém a campanha atual; **Multijogador** lista salas públicas de até 10 jogadores, com criação e entrada por código. Antes de entrar em qualquer modo, escolha e confirme um personagem. A capa **Grand Treta Auto: City of God** monta um mosaico cartoon com recortes diagonais e revela o logo letra por letra enquanto os dados da cidade são baixados. A montagem 3D começa depois da abertura (ou ao pulá-la), para não travar as imagens nem a escrita do título.
+
+Para jogar em sala, rode também **`npm run dev:server`** em outro terminal. O multiplayer tem friendly fire, spawns separados na Bussocaba, emojis/cumprimento, defesa do Prata contra waves e futebol com a caixa de madeira. Use `E` nos círculos de início, `T` para acenar e `G` para emojis. O servidor Socket.IO mantém a autoridade e os snapshots; WebRTC opcional transmite poses entre jogadores. Veja o **[passo a passo do Render e da Vercel](docs/MULTIPLAYER-RENDER.md)** para publicar o `jogo-server` e configurar `VITE_SERVER_URL`.
 
 Em **Personagens**, use Sato ou crie vários personagens com nome, cabelo (original, fade, espetado, moicano, afro ou raspado), olhos, barba, cores e estilos de camiseta, calça e tênis, além de óculos, máscara, boné, touca ou fones. A prévia 3D usa o mesmo modelo e rig do jogo, com órbita e zoom. Salve o visual e confirme a escolha. Personagens e a última seleção ficam neste navegador; cancelar uma edição mantém o visual salvo. Não há contas ou sincronização entre aparelhos nesta etapa.
 
@@ -51,18 +53,19 @@ A música original dos menus e os efeitos de navegação/paintball usam Web Audi
 | `Z` | desarmar / equipar novamente |
 | `C` | agachar / levantar, inclusive andando |
 | `V` | trocar cor da tinta |
-| `F` | voo livre (`E`/`Control` sobe/desce) |
+| `F` | voo livre fora do multiplayer (`E`/`Control` sobe/desce) |
 | Segurar `Q` | abrir roda; apontar e soltar para equipar |
-| `E` | pegar arma próxima e soltar a anterior do slot |
+| `E` | iniciar minigame próximo na sala ou pegar arma e soltar a anterior do slot |
 | `X` | alternar primeira/terceira pessoa |
 | `B` | abrir/fechar ajustes de armas e braços (somente em `/debug`) |
 | Scroll ↑ / ↓ | desarmado: aproximar / afastar; no escopo da AWP: ampliar / reduzir; demais casos: primeira / terceira pessoa |
 | Botão direito | segurar mira focada |
-| `M` | mapa — clique para se teletransportar |
-| `1`–`7` | teletransporte (as 3 portarias do campus e outros lugares) |
+| `M` | mapa — teletransporte disponível fora do multiplayer |
+| `1`–`7` | teletransporte fora do multiplayer (as 3 portarias do campus e outros lugares) |
 | `P` | liga/desliga os prédios procedurais |
 | `B` / `L` | limite do bairro / placas |
-| `T` | visual cartoon (padrão) / realista |
+| `T` | acenar na sala; fora dela, visual cartoon (padrão) / realista |
+| `G` | abrir emojis na sala; no treino, marcar destino dos zumbis |
 | `V` | modo pixel (baixa resolução, estilo retrô) |
 
 ## Como funciona (GeoJSON → 3D)

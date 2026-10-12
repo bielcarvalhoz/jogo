@@ -10,23 +10,24 @@ export function footSurface(game, position) {
   if (Number.isFinite(paved) && Math.abs(paved - y) < .3) return 'concrete';
   for (const road of map.world.roads || []) {
     for (let i = 1; i < road.pts.length; i++) {
-      if (distToSegment(x, z, ...road.pts[i - 1], ...road.pts[i]).d < road.w / 2) return 'concrete';
+      if (distToSegment(x, z, ...road.pts[i - 1], ...road.pts[i]).d < road.w / 2) return /dirt|earth|ground|unpaved|gravel|sand/.test(road.surface || road.tags?.surface || '') ? 'dirt' : 'concrete';
     }
   }
   for (let i = map.world.areas.length - 1; i >= 0; i--) {
     const area = map.world.areas[i];
     if (!pointInPolygon(x, z, area.rings)) continue;
     if (['pitch', 'lawn', 'grass', 'forest', 'wood', 'park', 'meadow'].includes(area.kind)) return 'grass';
+    if (['dirt', 'bare', 'sand', 'construction', 'scrub', 'farmland'].includes(area.kind)) return 'dirt';
     if (['deck', 'parking', 'court', 'tennis', 'track', 'pedestrian', 'residential', 'industrial'].includes(area.kind)) return 'concrete';
   }
-  return 'grass';
+  return 'dirt';
 }
 
 export function bindLocomotionAudio(game) {
   const events = game.player.events;
-  const footstep = ({ detail }) => game.audio?.footstep(footSurface(game, detail.position || game.player.feet), detail);
-  const jump = ({ detail }) => game.audio?.jump(footSurface(game, detail?.position || game.player.feet));
-  const land = ({ detail }) => game.audio?.land(footSurface(game, detail.position || game.player.feet), detail.speed);
+  const footstep = ({ detail }) => game.audio?.footstep(footSurface(game, detail.position || game.player.feet), { ...detail, position: detail.position || game.player.feet });
+  const jump = ({ detail }) => game.audio?.jump(footSurface(game, detail?.position || game.player.feet), detail?.position || game.player.feet);
+  const land = ({ detail }) => game.audio?.land(footSurface(game, detail.position || game.player.feet), detail.speed, detail.position || game.player.feet);
   events.addEventListener('footstep', footstep);
   events.addEventListener('jump', jump);
   events.addEventListener('land', land);

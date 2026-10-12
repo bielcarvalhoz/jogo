@@ -56,6 +56,13 @@ export function projectionFor(geojson) {
   return createProjection(lon0, lat0);
 }
 
+/** The exact world and terrain preparation without a renderer or browser. */
+export function createHeadlessMap({ geojson, terrainData }) {
+  const proj = projectionFor(geojson), terrain = createTerrain(terrainData, proj), world = parseWorld(geojson, proj);
+  world.bounds = terrain.bounds;
+  return { proj, terrain, world, reserved: [], reserve(rings) { this.reserved.push(rings); } };
+}
+
 export async function buildMap(game, { data, plugins = [] }) {
   const { engine, quality, physics, status } = game;
   const { scene, renderer, camera } = engine;

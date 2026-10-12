@@ -2,9 +2,9 @@ import { APPEARANCE_OPTIONS, DEFAULT_APPEARANCE } from '../core/index.js';
 
 const $ = id => document.getElementById(id);
 const labels = { hairStyle: 'Cabelo', hairColor: 'Cor do cabelo', eyeStyle: 'Olhos', eyeColor: 'Cor dos olhos', beard: 'Barba',
-  shirtStyle: 'Camiseta', shirtColor: 'Cor da camiseta', pantsStyle: 'Calça', pantsColor: 'Cor da calça',
-  shoeStyle: 'Tênis', shoeColor: 'Cor do tênis', faceAccessory: 'No rosto', headAccessory: 'Na cabeça', accessoryColor: 'Cor dos acessórios' };
-const modeNames = { campaign: 'treta · um jogador', training: 'treino', tour: 'tour' };
+  shirtStyle: 'Roupa', shirtColor: 'Cor da roupa', pantsStyle: 'Calça', pantsColor: 'Cor da calça',
+  shoeStyle: 'Calçado', shoeColor: 'Cor do calçado', faceAccessory: 'No rosto', headAccessory: 'Na cabeça', accessoryColor: 'Cor dos acessórios' };
+const modeNames = { campaign: 'treta · um jogador', multiplayer: 'treta · multijogador', training: 'treino', tour: 'tour' };
 
 export function createCharacterMenu(game) {
   const store = game.characters, dialog = $('character-panel'), editor = $('character-editor');

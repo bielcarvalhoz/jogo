@@ -84,7 +84,7 @@ export function createTrainingLab(game, combat) {
     }
   }
   game.input.bind('KeyE', interact, { label: 'acionar botão de treino sob a mira' });
-  game.input.bind('KeyG', () => combat.markAimPoint(), { label: 'marcar objetivo dos zumbis no chão' });
+  game.input.bind('KeyY', () => combat.markAimPoint(), { label: 'marcar objetivo dos zumbis no chão' });
   return { root, buttons, probe, execute, interact, refresh, get focused() { return focused; }, get difficulty() { return difficulty; },
     dispose() { root.removeFromParent(); for (const resource of resources) resource.dispose(); game.training.obstacles.splice(game.training.obstacles.indexOf(obstacle), 1); },
   };

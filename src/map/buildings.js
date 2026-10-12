@@ -352,7 +352,7 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
   }
 
   /** colisão (e planta no minimapa) para um volume qualquer feito fora do builder */
-  function addSolid(rings, top, footprintStyle = null) {
+  function addSolid(rings, top, footprintStyle = null, stepable = false) {
     const segs = [];
     for (const ring of rings)
       for (let i = 0; i < ring.length; i++) {
@@ -361,7 +361,7 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
       }
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const [x, z] of rings[0]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
-    colliders.insertBox({ segs, top, rings, minX, minZ, maxX, maxZ }, minX, minZ, maxX, maxZ);
+    colliders.insertBox({ segs, top, stepable, rings, minX, minZ, maxX, maxZ }, minX, minZ, maxX, maxZ);
     if (footprintStyle) footprints.push({ rings, procedural: false, color: footprintStyle });
   }
 
@@ -439,23 +439,26 @@ export function createBuildingBuilder(renderer, terrain, options = {}) {
     for (let iter = 0; iter < 3; iter++) {
       let moved = false;
       for (const c of colliders.query(x, z, radius + 1)) {
+        if (c.stepable && feetY + .7 >= c.top) continue;
         if (feetY > c.top - 0.3) continue; // em cima do telhado
         if (x < c.minX - radius || x > c.maxX + radius || z < c.minZ - radius || z > c.maxZ + radius) continue;
         // dentro da planta (ex.: nasceu lá dentro) -> empurra pela parede mais próxima
         const inside = c.rings ? pointInPolygon(x, z, c.rings) : false;
-        let bestD = Infinity, bx = 0, bz = 0;
+        let bestD = Infinity, bx = 0, bz = 0, edgeX = 1, edgeZ = 0;
         for (const [ax, az, ex, ez] of c.segs) {
           const dx = ex - ax, dz = ez - az, l2 = dx * dx + dz * dz || 1;
           const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
           const px = ax + dx * t, pz = az + dz * t;
           const d = Math.hypot(x - px, z - pz);
-          if (d < bestD) { bestD = d; bx = px; bz = pz; }
+          if (d < bestD) { bestD = d; bx = px; bz = pz; edgeX = dx; edgeZ = dz; }
         }
         if (inside || bestD < radius) {
           let nx = x - bx, nz = z - bz;
-          const l = Math.hypot(nx, nz) || 1;
-          nx /= l; nz /= l;
-          if (inside) { nx = -nx; nz = -nz; }
+          const l = Math.hypot(nx, nz);
+          if (l < 1e-8) {
+            const edgeLength = Math.hypot(edgeX, edgeZ) || 1; nx = -edgeZ / edgeLength; nz = edgeX / edgeLength;
+            if (c.rings && pointInPolygon(bx + nx * .01, bz + nz * .01, c.rings)) { nx = -nx; nz = -nz; }
+          } else { nx /= l; nz /= l; if (inside) { nx = -nx; nz = -nz; } }
           const push = inside ? bestD + radius : radius - bestD;
           x += nx * push; z += nz * push;
           moved = true;

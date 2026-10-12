@@ -89,7 +89,7 @@ export function planCampusAmenities(C, world) {
     const frames = peds?.length ? peds.map((p) => ({ x: p.x, z: p.z, tx: p.tx, tz: p.tz, yaw: Math.atan2(p.tx, p.tz), single: p.simples, lift: p.lift })) : [gatePedestrianFrame(gate, C)];
     const frame = frames[0], width = gate.crossing?.r?.w ?? 7, along = peds?.length ? 0 : vehicle ? 2 : 1.1;
     const lanes = frames.flatMap((at) => {
-      const offsets = peds?.length ? (at.single ? [0] : [-.85, .85]) : vehicle ? [-(width / 2 + 1.3), width / 2 + 1.3] : [-.85, .85];
+      const offsets = gate.turnstiles > 2 ? Array.from({ length: gate.turnstiles }, (_, k) => (k - (gate.turnstiles - 1) / 2) * 1.5) : peds?.length ? (at.single ? [0] : [-.85, .85]) : vehicle ? [-(width / 2 + 1.3), width / 2 + 1.3] : [-.85, .85];
       return offsets.map((offset, i) => {
         const [x, z] = localPoint(at, offset, along);
         return { x, z, yaw: at.yaw, direction: i ? 'saída' : 'entrada', gate: gate.name, num: gate.num, lift: at.lift, ring: rect({ x, z, yaw: at.yaw }, 1.25, 2.5) };
@@ -202,7 +202,9 @@ export function buildCampusAmenities(C, { renderer, terrain, world, sidewalkHeig
 
   for (const gate of plan.gates) {
     let pedestrianHeight;
-    if (!gate.vehicle) {
+    // (gate.built: portaria levantada em campo — as catracas ficam no piso dela, sem abrigo próprio)
+    const level = gate.gate.built ? C.pedestrianGate?.levels?.up : undefined;
+    if (!gate.vehicle && !Number.isFinite(level)) {
       const [x, z] = localPoint(gate, 0, 1.1), place = { ...gate, x, z };
       pedestrianHeight = pad(place, 3.5, 3.6, .025);
       box('#edede8', place, 0, 2.76, 0, 3.5, .16, 3.0);
@@ -210,7 +212,8 @@ export function buildCampusAmenities(C, { renderer, terrain, world, sidewalkHeig
     }
     for (const lane of gate.lanes) {
       const place = { ...lane };
-      if (Number.isFinite(pedestrianHeight)) place.y = pedestrianHeight;
+      if (Number.isFinite(level)) place.y = level;
+      else if (Number.isFinite(pedestrianHeight)) place.y = pedestrianHeight;
       else pad(place, 1.25, 2.5, lane.lift ?? .025);   // (lift: piso da passagem de pedestres da portaria)
       box(STEEL, place, -.44, .55, 0, .31, 1.10, 1.02);
       box('#30373b', place, -.44, 1.13, 0, .34, .095, 1.08);

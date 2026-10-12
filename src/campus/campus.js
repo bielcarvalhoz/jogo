@@ -125,7 +125,7 @@ function roadIndex(roads) {
 }
 
 // ================================================================ 1) preparar
-export function prepareCampus(geo, world, proj) {
+export function prepareCampus(geo, world, proj, { createCanvas = () => document.createElement('canvas') } = {}) {
   if (!world.quarter) return null;
   const quarter = world.quarter;
   const toLocal = (ring) => openRing(ring.map(([lon, lat]) => proj.toLocal(lon, lat)));
@@ -238,7 +238,7 @@ export function prepareCampus(geo, world, proj) {
   C.insideSolid = insideSolid;
 
   // -- muro + portarias
-  computeWalls(C, quarter[0], carRoads, RI, insideSolid);
+  computeWalls(C, quarter[0], carRoads, RI, insideSolid, createCanvas);
 
   // -- árvores reais (copas do satélite), sem tronco em rua, prédio, muro, água...
   const noTree = [];
@@ -272,21 +272,33 @@ export function prepareCampus(geo, world, proj) {
   const stallSegs = [];
   computeParking(C, carRoads, RI, insideSolid, nearWall, treeGrid, stallSegs, rnd);
   world.paintExtras = [{ color: 'rgba(240,240,232,0.9)', width: 0.14, segments: stallSegs }];
+  if (C.lot?.cars) C.cars.push(...C.lot.cars);   // pátio levantado: carros nas vagas medidas (estacionamento.js)
 
   // -- palmeiras ao longo do estacionamento sul (vistas nas imagens 3D)
   for (const p of C.parkings) {
     if (p.palms !== 'sul') continue;
     const ring = p.rings[0];
-    // aresta mais ao sul (maior z médio)
+    // aresta da frente sul: a que mais "olha" para o sul, pesada pelo comprimento. Pelo z médio só,
+    // num lote comprido e enviesado a ponta curta de oeste ganhava da fachada sul inteira, porque a
+    // outra ponta do lote fica mais ao norte.
+    const [ccx, ccz] = centroidOf(ring);
     let best = -Infinity, ei = 0;
-    for (let i = 0; i < ring.length; i++) { const zm = (ring[i][1] + ring[(i + 1) % ring.length][1]) / 2; if (zm > best) { best = zm; ei = i; } }
+    for (let i = 0; i < ring.length; i++) {
+      const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % ring.length], L = Math.hypot(bx - ax, bz - az);
+      if (!L) continue;
+      let ox = (az - bz) / L, oz = (bx - ax) / L;   // normal da aresta, virada para fora
+      if (((ax + bx) / 2 - ccx) * ox + ((az + bz) / 2 - ccz) * oz < 0) { ox = -ox; oz = -oz; }
+      const score = L * oz;   // +z do mundo é o sul
+      if (score > best) { best = score; ei = i; }
+    }
     const [ax, az] = ring[ei], [bx, bz] = ring[(ei + 1) % ring.length];
     const L = Math.hypot(bx - ax, bz - az), tx = (bx - ax) / L, tz = (bz - az) / L;
     const [cx, cz] = centroidOf(ring);
     let nx = -tz, nz = tx;
     if ((cx - ax) * nx + (cz - az) * nz < 0) { nx = -nx; nz = -nz; } // aponta para dentro
+    const inset = p.palmsOffset ?? 1.6;   // negativo: a fileira fica fora do lote (no gramado da frente)
     for (let s = 4; s < L - 3; s += 9) {
-      const x = ax + tx * s + nx * 1.6, z = az + tz * s + nz * 1.6;
+      const x = ax + tx * s + nx * inset, z = az + tz * s + nz * inset;
       if (insideSolid(x, z, 1) || RI.clearance(x, z).d < 0.8 || nearWall(x, z, 0.9) || !C.inRegion(x, z, 1)) continue;
       if (C.cars.some((c) => Math.hypot(c.x - x, c.z - z) < 2.6)) continue;
       C.palms.push({ x, z, h: 11 + rnd() * 3, r: rnd() * 6 });
@@ -376,7 +388,7 @@ function makeTrack(field) {
 // rasterizada (0,5 m) e o contorno é extraído com marching squares: os laços saem sempre
 // FECHADOS (inclusive dos dois lados de ruas públicas que atravessam o terreno). Depois
 // abrem-se vãos só onde passam vias de acesso (portarias/portões) e portarias de pedestres.
-function computeWalls(C, ring, carRoads, RI, insideSolid) {
+function computeWalls(C, ring, carRoads, RI, insideSolid, createCanvas) {
   const SIDEWALK = 2.2, RES = 0.5;
   const isAccessType = (r) => r.highway === 'service' || r.internal || INTERNAL_NAME.test(r.name || '');
   // vias de acesso: cruzam o limite do bairro e são de serviço / internas
@@ -391,7 +403,7 @@ function computeWalls(C, ring, carRoads, RI, insideSolid) {
   // 1) raster da região murada
   const bb = bboxOf(ring, 30);
   const W = Math.ceil((bb.maxX - bb.minX) / RES), H = Math.ceil((bb.maxZ - bb.minZ) / RES);
-  const cv = document.createElement('canvas');
+  const cv = createCanvas();
   cv.width = W; cv.height = H;
   const g2 = cv.getContext('2d', { willReadFrequently: true });
   const P = ([x, z]) => [(x - bb.minX) / RES, (z - bb.minZ) / RES];
@@ -620,7 +632,14 @@ function computeParking(C, carRoads, RI, insideSolid, nearWall, treeGrid, stallS
     }
     if (!aisles.length) {
       const ax = principalAxis(ring);
-      for (let v = ax.vMin + 7.6; v < ax.vMax - 2; v += 15.6) aisles.push({ a: ax.at(ax.uMin - 2, v), b: ax.at(ax.uMax + 2, v), hw: 3, synthetic: true });
+      // Corredores centrados no lote. Cada um precisa caber uma fileira de cada lado: do eixo até a
+      // borda externa da vaga vão `hw + comprimento do carro + folga`. A margem fixa de antes (7,6 m
+      // a partir de uma das bordas) deixava a fileira de fora 30 cm para fora do lote — e qual das
+      // duas bordas era o começo dependia do sentido da aresta mais longa, então metade das vagas
+      // sumia de um lado ou do outro. Centrando, as duas fileiras de cada corredor cabem sempre.
+      const AISLE_HW = 3, edge = AISLE_HW + CAR.len + .8, span = ax.vMax - ax.vMin, STEP = 15.6;
+      const count = Math.max(1, Math.floor((span - 2 * edge) / STEP) + 1), first = (span - (count - 1) * STEP) / 2;
+      for (let k = 0; k < count; k++) { const v = ax.vMin + first + k * STEP; aisles.push({ a: ax.at(ax.uMin - 2, v), b: ax.at(ax.uMax + 2, v), hw: AISLE_HW, synthetic: true }); }
     }
     for (const A of aisles) {
       const L = Math.hypot(A.b[0] - A.a[0], A.b[1] - A.a[1]);
@@ -1035,7 +1054,7 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
   for(const solid of landmarks.solids)builder.addSolid(solid.rings,solid.top,null);
   details.entrances.push(...landmarks.entrances);
   const leisure=buildLeisure(C,{renderer,terrain});
-  if(leisure){root.add(leisure.root);for(const solid of leisure.solids)builder.addSolid(solid.rings,solid.top,null);}
+  if(leisure){root.add(leisure.root);for(const solid of leisure.solids)builder.addSolid(solid.rings,solid.top,null,solid.stepable);}
   const exclusions=[...details.exclusions,...foundations.exclusions,...amenities.exclusions,...landmarks.exclusions,...(leisure?.exclusions||[])];
   C.detailOccupied=createRegionTest(exclusions);
   const allowedTrees=C.trees.filter(t=>!C.detailOccupied(t.x,t.z));
@@ -1050,6 +1069,8 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
   C.streetTreeCount=C.trees.filter(t=>t.sidewalk).length;
   function pedestrianGate(g) {
     // guarita de pedestres junto ao vão do muro (lado de dentro)
+    // (g.built: portaria levantada em campo, construída em portaria-pedestres.js — aqui só o rótulo)
+    if (g.built) { label(`${g.num ? String(g.num).padStart(2, '0') + ' · ' : ''}${g.name}`, g.center.x + g.center.tx * 3, H(g.center.x, g.center.z) + 7, g.center.z + g.center.tz * 3, '🚶'); return; }
     const ends = [];
     for (const w of C.walls) for (const p of [w[0], w[w.length - 1]]) if (Math.hypot(p[0] - g.x, p[1] - g.z) < 14) ends.push(p);
     ends.sort((a, b) => Math.hypot(a[0] - g.x, a[1] - g.z) - Math.hypot(b[0] - g.x, b[1] - g.z));

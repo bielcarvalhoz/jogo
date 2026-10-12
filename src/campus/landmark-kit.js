@@ -136,7 +136,9 @@ export function createKit(renderer) {
         if (spec.tile) { const uv = new Float32Array(list.length / 3 * 2); for (let i = 0, k = 0; i < list.length; i += 3) { uv[k++] = list[i] / spec.tile[0]; uv[k++] = list[i + 2] / spec.tile[1]; } m.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }
       };
       const special = { glass: () => new THREE.MeshStandardMaterial({ color: '#27404a', roughness: .2, metalness: .25 }),
-        canopy: () => new THREE.MeshStandardMaterial({ color: '#f1f1ea', roughness: .5, transparent: true, opacity: .78, side: THREE.DoubleSide }) };
+        canopy: () => new THREE.MeshStandardMaterial({ color: '#f1f1ea', roughness: .5, transparent: true, opacity: .78, side: THREE.DoubleSide }),
+        // vidro transparente (fechamentos por onde se vê o outro lado)
+        'glass-clear': () => new THREE.MeshStandardMaterial({ color: '#a9cdd6', roughness: .15, metalness: .1, transparent: true, opacity: .28, depthWrite: false, side: THREE.DoubleSide }) };
       const mesh = (name, positions, material, colors) => {
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -149,7 +151,7 @@ export function createKit(renderer) {
       for (const [color, list] of solids) {
         if (!list.length) continue;
         if (FLOORS[color]) { floor(color, list); continue; }
-        if (special[color]) { mesh(`${name}-${color}`, list, special[color]()).castShadow = color !== 'canopy'; continue; }
+        if (special[color]) { mesh(`${name}-${color}`, list, special[color]()).castShadow = color === 'glass'; continue; }
         tint.set(color);
         for (let i = 0; i < list.length; i += 3) { positions.push(list[i], list[i + 1], list[i + 2]); colors.push(tint.r, tint.g, tint.b); }
       }

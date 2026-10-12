@@ -7,6 +7,6 @@ export function setupVisualStyle(game) {
   const styler = createStyler(scene, renderer, hemi);
   styler.collect();
   styler.setCartoon(true);
-  game.input.bind('KeyT', () => { styler.setCartoon(!styler.cartoon); game.toast(styler.cartoon ? 'Visual: CARTOON' : 'Visual: realista'); }, { label: 'cartoon / realista' });
+  game.input.bind('KeyT', () => { if (game.mode === 'multiplayer') return; styler.setCartoon(!styler.cartoon); game.toast(styler.cartoon ? 'Visual: CARTOON' : 'Visual: realista'); }, { label: 'cartoon / realista (fora da sala)' });
   return styler;
 }

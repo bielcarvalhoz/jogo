@@ -16,7 +16,7 @@ export async function loadCampusData(base, { beforeParse } = {}) {
   return loadJSON(`${base}data/campus-cidade-de-deus.geojson`, { beforeParse, optional: true });
 }
 
-export function createCampusPlugin(game, campusGeo) {
+export function createCampusPlugin(game, campusGeo, preparationOptions) {
   const plugin = {
     name: 'campus',
     /** resultado de prepareCampus (planta, muros, vagas, árvores...) — null sem dados */
@@ -28,7 +28,7 @@ export function createCampusPlugin(game, campusGeo) {
 
     prepareWorld(map) {
       if (!campusGeo) return;
-      plugin.data = prepareCampus(campusGeo, map.world, map.proj);
+      plugin.data = prepareCampus(campusGeo, map.world, map.proj, preparationOptions);
       if (plugin.data) map.reserve(map.world.quarter);
     },
 

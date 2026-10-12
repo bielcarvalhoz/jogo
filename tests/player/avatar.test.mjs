@@ -34,8 +34,20 @@ test('neutral idle stays standing and both views reuse the same skinned arm mesh
   assert.equal(meshes.filter(mesh => mesh.visible).length, 2);
   assert.ok(meshes.filter(mesh => mesh.visible).every(mesh => /Sato_arm_hand_[LR]/.test(mesh.name)));
   player.cameraMode = 'third'; avatar.update(.016);
-  assert.ok(meshes.every(mesh => mesh.visible));
+  assert.ok(meshes.every(mesh => mesh.visible === !mesh.userData.characterHidden));
   assert.deepEqual(avatar.meshes, meshes); assert.deepEqual(meshes.map(mesh => mesh.material), materials);
+});
+
+test('greeting survives repeated socket evaluations without accumulating arm rotation and returns to idle', async () => {
+  const { avatar, gun } = await fixture(), baseline = await fixture();
+  avatar.playGreeting();
+  for (let frame = 0; frame < 180; frame++) {
+    avatar.update(1 / 60); baseline.avatar.update(1 / 60);
+    const before = avatar.bones['DEF-upper_armR'].quaternion.clone();
+    for (let i = 0; i < 4; i++) { avatar.update(0); avatar.updateWeapon(gun, { weapon: 'pistol', kind: 'firearm' }); }
+    assert.ok(before.normalize().angleTo(avatar.bones['DEF-upper_armR'].quaternion.clone().normalize()) < 1e-5, 'zero-time evaluations cannot compound a gesture');
+  }
+  for (const name of ['DEF-upper_armR', 'DEF-forearmR']) assert.ok(avatar.bones[name].quaternion.clone().normalize().angleTo(baseline.avatar.bones[name].quaternion.clone().normalize()) < 1e-5, 'the gesture must leave no residual pose');
 });
 
 test('thumb web fills only the hand base without rewriting original vertices or adding meshes', async () => {
@@ -277,7 +289,7 @@ test('scope hides only first-person arms and restores both camera views on exit'
   player.cameraMode = 'first'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: true });
   assert.equal(avatar.meshes.filter(mesh => mesh.visible).length, 0);
   player.cameraMode = 'third'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: true });
-  assert.ok(avatar.meshes.every(mesh => mesh.visible));
+  assert.ok(avatar.meshes.every(mesh => mesh.visible === !mesh.userData.characterHidden));
   player.cameraMode = 'first'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: false });
   assert.equal(avatar.meshes.filter(mesh => mesh.visible).length, 2);
   assert.ok(avatar.weaponDiagnostics.gripError < .003);
@@ -363,45 +375,53 @@ test('first-person boxing keeps both closed fists visible through jab/cross and 
   }
 });
 
-test('first-person jab and cross preserve the third-person trajectories, elbow extension and recovery timing', async () => {
-  for (const aspect of [390 / 844, 844 / 390]) {
-    const views = await Promise.all([fixture(), fixture()]);
+test('first-person jab and cross extend the whole arm toward the target and recover the guard', async () => {
+  for (const aspect of [16 / 9, 390 / 844]) {
+    const { avatar, player, camera, gun } = await fixture();
+    player.cameraMode = 'first'; camera.aspect = aspect; camera.position.copy(player.eyePosition);
+    camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     const weapon = { id: 'fists', kind: 'unarmed', interval: .42 };
-    function sample({ avatar }) {
-      return Object.fromEntries(['L', 'R'].map(side => {
-        const point = name => avatar.root.worldToLocal(avatar.bones[`DEF-${name}${side}`].getWorldPosition(new THREE.Vector3()));
-        const shoulder = point('upper_arm'), elbow = point('forearm'), wrist = point('hand');
-        return [side, { wrist, bend: elbow.clone().sub(shoulder).angleTo(wrist.clone().sub(elbow)) }];
-      }));
-    }
-    views.forEach(({ avatar, player, camera, gun }, i) => {
-      player.cameraMode = i ? 'first' : 'third'; camera.aspect = aspect;
-      camera.position.copy(player.eyePosition); camera.rotation.set(.6, .7, 0, 'YXZ');
-      camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      avatar.setWeapon(weapon); avatar.update(0); avatar.updateWeapon(gun, { weapon: 'fists', kind: 'unarmed' });
-    });
+    avatar.setWeapon(weapon); avatar.update(0); avatar.updateWeapon(gun, { weapon: 'fists', kind: 'unarmed' });
     for (const sequence of [0, 1]) {
-      const samples = views.map(view => [sample(view)]);
-      views.forEach(({ avatar }) => avatar.playAttack(weapon, { sequence }));
-      for (let frame = 0; frame < 28; frame++) views.forEach((view, i) => {
-        view.avatar.update(.015); view.avatar.updateWeapon(view.gun, { weapon: 'fists', kind: 'unarmed' });
-        samples[i].push(sample(view));
-      });
-      for (const side of ['L', 'R']) for (const axis of ['x', 'y', 'z']) {
-        const deltas = samples.map(frames => frames.map(frame => frame[side].wrist[axis] - frames[0][side].wrist[axis]));
-        const peak = deltas[0].reduce((best, value, i, values) => Math.abs(value) > Math.abs(values[best]) ? i : best, 0);
-        const scale = deltas[1][peak] / deltas[0][peak];
-        assert.ok(scale > .2 && scale <= 1, `${sequence}/${side}/${axis}: authored motion lost or reversed`);
-        deltas[0].forEach((value, frame) => assert.ok(Math.abs(deltas[1][frame] - value * scale) < 1e-5,
-          `${sequence}/${side}/${axis}/${frame}: first-person framing clips or changes the punch trajectory`));
+      const side = sequence ? 'R' : 'L', frames = [];
+      const sample = () => {
+        const point = name => camera.worldToLocal(avatar.bones['DEF-' + name + side].getWorldPosition(new THREE.Vector3()));
+        const shoulder = point('upper_arm'), elbow = point('forearm'), wrist = point('hand');
+        return { shoulder, elbow, wrist, bend: elbow.clone().sub(shoulder).angleTo(wrist.clone().sub(elbow)) };
+      };
+      const idle = sample(); avatar.playAttack(weapon, { sequence });
+      for (let frame = 0; frame < 28; frame++) {
+        avatar.update(.015); avatar.updateWeapon(gun, { weapon: 'fists', kind: 'unarmed' }); frames.push(sample());
       }
-      const strikingSide = sequence ? 'R' : 'L';
-      const bends = samples.map(frames => frames.map(frame => frame[strikingSide].bend));
-      const peaks = bends.map(values => values.indexOf(Math.min(...values)));
-      assert.ok(bends[1][0] - Math.min(...bends[1]) > THREE.MathUtils.degToRad(35), 'striking elbow must unfold, rather than slide with a locked bend');
-      assert.ok(Math.abs(peaks[0] - peaks[1]) <= 2, 'first-person impact must follow the authored extension timing');
-      assert.ok(Math.abs(bends[1].at(-1) - bends[1][0]) < .02, 'striking elbow must return to its guard');
+      const impact = frames.reduce((best, frame) => frame.wrist.z < best.wrist.z ? frame : best);
+      assert.ok(idle.wrist.z - impact.wrist.z > .20, 'fist must travel forward visibly');
+      assert.ok(idle.shoulder.z - impact.shoulder.z > .15, 'shoulder must drive the strike');
+      assert.ok(idle.elbow.distanceTo(impact.elbow) > .15, 'elbow must travel with the forearm');
+      assert.ok(idle.bend - impact.bend > .5, 'elbow must unfold');
+      assert.ok(frames.at(-1).wrist.distanceTo(idle.wrist) < .025, 'guard must recover');
+      for (const frame of frames) {
+        const projected = frame.wrist.clone().applyMatrix4(camera.projectionMatrix);
+        assert.ok(Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1, 'striking fist stays visible');
+        assert.ok(frame.shoulder.z > -camera.near || Math.abs(frame.shoulder.clone().applyMatrix4(camera.projectionMatrix).y) > 1, 'arm start stays offscreen');
+      }
     }
+  }
+});
+
+test('authored reload moves the arm, keeps the weapon socket and completes at the ammo duration at 10 fps', async () => {
+  for (const mode of ['first', 'third']) {
+    const { avatar, player, camera, gun } = await fixture(); player.cameraMode = mode;
+    camera.position.copy(player.eyePosition); camera.updateMatrixWorld(true);
+    avatar.update(0); avatar.updateWeapon(gun); const original = avatar.bones['DEF-handL'].getWorldPosition(new THREE.Vector3());
+    assert.equal(avatar.playReload(2.2), true); let travel = 0;
+    for (let frame = 0; frame < 23; frame++) {
+      avatar.update(.1); avatar.updateWeapon(gun);
+      travel = Math.max(travel, original.distanceTo(avatar.bones['DEF-handL'].getWorldPosition(new THREE.Vector3())));
+      assert.ok(avatar.weaponDiagnostics.gripError < .003);
+      if (frame === 10) assert.equal(avatar.animationState.reload, 'Pistol_Reload');
+    }
+    assert.ok(travel > .08); assert.equal(avatar.animationState.reload, null);
+    avatar.playReload(); avatar.setWeapon({ id: 'fists', kind: 'unarmed' }); assert.equal(avatar.animationState.reload, null);
   }
 });
 

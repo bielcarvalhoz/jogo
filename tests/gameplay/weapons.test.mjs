@@ -15,18 +15,18 @@ function tick(paint, duration, dt = .02) { for (let time = 0; time < duration - 
 
 test('inventory replaces selected firearms first, preserves two firearm slots and swaps melee directly', () => {
   const inventory = createWeaponInventory();
-  assert.deepEqual(inventory.state.slots, ['pistol', 'automatic', 'knife']);
-  assert.deepEqual(inventory.available.map(w => w.id), ['pistol', 'automatic', 'knife', 'fists']);
+  assert.deepEqual(inventory.state.slots, ['automatic', 'pistol', 'knife']);
+  assert.deepEqual(inventory.available.map(w => w.id), ['automatic', 'pistol', 'knife', 'fists']);
   assert.throws(() => inventory.select('sniper'), RangeError);
   inventory.select('automatic');
-  assert.deepEqual(inventory.pickup('shotgun'), { picked: 'shotgun', dropped: 'automatic', slot: 1 });
+  assert.deepEqual(inventory.pickup('shotgun'), { picked: 'shotgun', dropped: 'automatic', slot: 0 });
   inventory.select('fists');
-  assert.deepEqual(inventory.pickup('sniper'), { picked: 'sniper', dropped: 'shotgun', slot: 1 });
+  assert.deepEqual(inventory.pickup('sniper'), { picked: 'sniper', dropped: 'shotgun', slot: 0 });
   inventory.select('pistol');
   assert.deepEqual(inventory.pickup('axe'), { picked: 'axe', dropped: 'knife', slot: 2 });
-  assert.deepEqual(inventory.pickup('smg'), { picked: 'smg', dropped: 'pistol', slot: 0 });
+  assert.deepEqual(inventory.pickup('smg'), { picked: 'smg', dropped: 'pistol', slot: 1 });
   const snapshot = inventory.state; snapshot.slots[0] = 'fists';
-  assert.deepEqual(inventory.state.slots, ['smg', 'sniper', 'axe'], 'snapshot cannot mutate inventory');
+  assert.deepEqual(inventory.state.slots, ['sniper', 'smg', 'axe'], 'snapshot cannot mutate inventory');
   assert.equal(inventory.state.selected, 'smg');
   assert.equal(inventory.pickup('smg').duplicate, true);
   assert.throws(() => inventory.pickup('fists'), RangeError);

@@ -1,6 +1,7 @@
 import { pointInPolygon, SpatialGrid, distToSegment } from '../shared/geo.js';
 import { mulberry32 } from '../shared/rng.js';
 import { createKit, frameAt, yawOf, toWorld, rectRing } from './landmark-kit.js';
+import { standVolumes } from '../shared/stands.js';
 
 // Área de convivência (lago, quiosques, estátua, campo, pista, quadras, arquibancada, vestiários,
 // clube e piscinas). Medidas em scripts/campus/convivencia.json (vistas de topo do Google Earth);
@@ -176,7 +177,7 @@ const paintMedallion = (g, w, h) => {
 export function buildLeisure(C, { renderer, terrain }) {
   const G = C.leisure;
   if (!G) return null;
-  const T = C.track, S = G.stand, kit = createKit(renderer), solids = [], surfaces = [], exclusions = [];
+  const T = C.track, S = G.stand, kit = createKit(renderer), solids = standVolumes(S), surfaces = [], exclusions = [];
   const y0 = T.groundLevel, ground = (x, z) => terrain.heightAt(x, z);
   const solid = (ring, top, kind) => solids.push({ rings: [ring], top, kind }), floor = (ring, y) => surfaces.push({ rings: [ring], y });
   const flat = (p, y) => [p[0], y, p[1]];

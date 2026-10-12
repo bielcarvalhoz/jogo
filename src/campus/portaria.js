@@ -44,9 +44,9 @@ export function planPortaria(mark, inside) {
 /** interpola v numa poligonal [[s, v], ...] crescente em s */
 const lineAt = (line, s) => { if (s <= line[0][0]) return line[0][1]; for (let i = 1; i < line.length; i++) if (s <= line[i][0]) return line[i - 1][1] + (line[i][1] - line[i - 1][1]) * (s - line[i - 1][0]) / ((line[i][0] - line[i - 1][0]) || 1); return line.at(-1)[1]; };
 /** distância de (s, v) ao eixo de uma via */
-const distTo = (P, road, s, v) => { const [x, z] = P.at(s, v); let d = Infinity; for (let i = 1; i < road.pts.length; i++) d = Math.min(d, distToSegment(x, z, ...road.pts[i - 1], ...road.pts[i]).d); return d; };
+export const distTo = (P, road, s, v) => { const [x, z] = P.at(s, v); let d = Infinity; for (let i = 1; i < road.pts.length; i++) d = Math.min(d, distToSegment(x, z, ...road.pts[i - 1], ...road.pts[i]).d); return d; };
 /** primeiro v, andando de `from` para `to` com s constante, que fica a `limit` m do eixo da via (null se não chega) */
-function reach(P, road, s, from, to, limit) {
+export function reach(P, road, s, from, to, limit) {
   const step = Math.sign(to - from) * .25;
   for (let v = from; (to - v) * step > 0; v += step) {
     if (distTo(P, road, s, v + step) > limit) continue;
@@ -57,7 +57,7 @@ function reach(P, road, s, from, to, limit) {
   return null;
 }
 /** distância ao longo do eixo da via do ponto dela mais próximo de (x, z) */
-function alongOf(road, x, z) {
+export function alongOf(road, x, z) {
   let best = Infinity, at = 0, run = 0;
   for (let i = 1; i < road.pts.length; i++) {
     const a = road.pts[i - 1], b = road.pts[i], q = distToSegment(x, z, ...a, ...b), length = Math.hypot(b[0] - a[0], b[1] - a[1]);
