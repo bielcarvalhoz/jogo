@@ -8,7 +8,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
   const rooms = new Map();
   const directory = () => [...rooms.values()].filter(r => r.members.size).map(r => ({ code: r.code, name: r.name, players: r.members.size,
     connected: [...r.members.values()].filter(m => m.socketId).length, maxPlayers: NET.maxPlayers, full: r.members.size >= NET.maxPlayers,
-    defense: r.sim.defense.status === 'running' ? `Wave ${r.sim.defense.wave}` : 'Explorando', football: r.sim.football.status === 'running' }));
+    defense: r.sim.defense.status === 'running' ? `Wave ${r.sim.defense.wave}` : r.sim.snapshot().phase === 'waiting' ? 'Aguardando aprovação' : 'Em partida', football: r.sim.football.status === 'running' }));
   const broadcastDirectory = () => io.to('directory').emit(EV.rooms, directory());
   const roster = room => ({ code: room.code, name: room.name, ownerId: room.ownerId, players: [...room.members.values()].map(m => ({ id: m.id, character: m.character, connected: !!m.socketId })) });
   function announce(room) { io.to(room.code).emit(EV.roster, roster(room)); broadcastDirectory(); }
@@ -27,7 +27,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
     const room = rooms.get(socket.data.room), member = room?.members.get(socket.data.player);
     socket.data.room = socket.data.player = null;
     if (!room || !member || member.socketId !== socket.id) return;
-    socket.leave(room.code); member.socketId = null; room.sim.players.get(member.id).connected = false;
+    socket.leave(room.code); member.socketId = null; room.sim.players.get(member.id).connected = false; room.sim.players.get(member.id).ready = false;
     // A disconnected player cannot absorb damage while occupying a slot.
     room.sim.players.get(member.id).entity.protectedUntil = Infinity;
     room.sim.players.get(member.id).entity.networkGhost = true;
@@ -44,7 +44,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
     const room = { code, name: cleanName(name), ownerId: null, members: new Map(), tokens: new Map(), emptyTimer: null, last: performance.now(), accumulator: 0, snapAccumulator: 0 };
     room.sim = createRoomSimulation(world, { onEvent: event => {
       io.to(code).emit(EV.event, event);
-      if (event.type === 'minigame') broadcastDirectory();
+      if (event.type === 'minigame' || event.type === 'matchStart') broadcastDirectory();
     } });
     room.timer = setInterval(() => {
       const now = performance.now(), elapsed = Math.min(.25, (now - room.last) / 1000); room.last = now;
@@ -71,7 +71,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
       if (!member && room.members.size >= NET.maxPlayers) { reply(ack, { ok: false, message: 'Esta sala já tem 10 jogadores.' }); return; }
       if (socket.data.room && (socket.data.room !== room.code || socket.data.player !== member?.id)) detach(socket, true);
       if (!member) {
-        const character = { name: cleanName(data.character?.name, 'Sato', 24), appearance: normalizeAppearance(data.character?.appearance) };
+        const character = { name: cleanName(data.character?.name, 'Bancário', 24), appearance: normalizeAppearance(data.character?.appearance) };
         member = { id: randomUUID(), token: randomBytes(24).toString('hex'), character, socketId: null, graceTimer: null };
         room.sim.addPlayer(member.id, character); room.members.set(member.id, member); room.tokens.set(member.token, member.id);
       }

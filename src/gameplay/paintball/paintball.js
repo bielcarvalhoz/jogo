@@ -189,7 +189,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getCame
     }
     // Keep updating the hidden socket: scoped shots still originate at the
     // muzzle and use the same collision/aim path as every other firearm.
-    gun.visible = !!getActive() && !scopeActive && !holstered;
+    gun.visible = !!getActive() && !scopeActive && !holstered && !gun.userData.characterEmote;
   }
 
   function resetInput() {

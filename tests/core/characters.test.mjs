@@ -5,7 +5,7 @@ import { createCharacterStore, normalizeAppearance, DEFAULT_APPEARANCE, CHARACTE
 test('a fresh roster requires selection and saves independent named appearances across reloads', () => {
   const data = new Map(), storage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
   const store = createCharacterStore(storage);
-  assert.equal(store.selected, null); assert.equal(store.characters[0].name, 'Sato');
+  assert.equal(store.selected, null); assert.equal(store.characters[0].name, 'Bancário');
   assert.throws(() => store.save({ name: '  ' }), /nome/);
   const biel = store.save({ name: '  Biel  ', appearance: { hairStyle: 'mohawk', headAccessory: 'cap', shirtColor: '#FF3300' } });
   const other = store.save({ name: 'Outro', appearance: { hairStyle: 'afro' } });
@@ -25,10 +25,15 @@ test('a fresh roster requires selection and saves independent named appearances 
 test('invalid stored data falls back safely and unavailable storage keeps session play possible', () => {
   for (const content of ['{', 'null', '{"version":2}', '{"version":1,"characters":[null,{}, {"id":"x","name":""}],"selectedId":"missing"}']) {
     const store = createCharacterStore({ getItem: () => content });
-    assert.equal(store.characters[0].name, 'Sato'); assert.equal(store.selected, null);
+    assert.equal(store.characters[0].name, 'Bancário'); assert.equal(store.selected, null);
   }
   const store = createCharacterStore({ getItem() { throw Error(); }, setItem() { throw Error(); } });
   const character = store.save({ name: 'Sem storage' }); store.select(character.id);
   assert.equal(store.selected.name, 'Sem storage'); assert.equal(store.persisted, false);
   assert.deepEqual(normalizeAppearance({ hairStyle: 'constructor', eyeStyle: null, shirtColor: 'url(bad)', pantsColor: '#123', extra: 1 }), DEFAULT_APPEARANCE);
+});
+
+test('legacy starter becomes a generic banker without renaming user-created characters', () => {
+  const store = createCharacterStore({ getItem: () => JSON.stringify({ version: 1, selectedId: 'sato', characters: [{ id: 'sato', name: 'Sato' }, { id: 'mine', name: 'Sato' }] }) });
+  assert.equal(store.selected.name, 'Bancário'); assert.equal(store.characters[1].name, 'Sato');
 });

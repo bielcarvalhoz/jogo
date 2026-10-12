@@ -22,7 +22,7 @@ export function createPlayerModule(game) {
     collide: (x, z, r, feetY, options) => {
       const [nx, nz] = (training() || physics).collide(x, z, r, feetY, options);
       const [dx, dz] = game.dynamicProps?.collide(nx, nz, r, feetY, options) || [nx, nz];
-      return game.combat?.collide(dx, dz, r, feetY) || [dx, dz];
+      return game.combat?.collide(dx, dz, r, feetY, options) || [dx, dz];
     },
     roofAt: (x, z, y) => Math.max((training() || physics).roofAt(x, z, y), game.dynamicProps?.roofAt(x, z, y) ?? -Infinity),
     allowFlight: () => !training() && game.mode !== 'multiplayer',

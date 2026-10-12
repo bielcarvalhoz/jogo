@@ -99,6 +99,15 @@ export function createAudio({ music = true, effects = true, base = '/', fetcher 
       note(base,.085,.13,effectsBus,now,'triangle',kind === 'back' ? 180 : base*1.15);
       if (kind === 'start' || kind === 'confirm') note(base*1.5,.14,.085,effectsBus,now+.035,'sine');
     },
+    notification(position) {
+      if (!audible() || !position) return;
+      const panner = context.createPanner(); panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse';
+      panner.refDistance = 1; panner.rolloffFactor = 1.8; panner.maxDistance = 10000;
+      for (const axis of ['x', 'y', 'z']) panner[`position${axis.toUpperCase()}`].value = position[axis];
+      const tone = context.createOscillator(); tone.type = 'sine';
+      tone.frequency.setValueAtTime(620, context.currentTime); tone.frequency.setTargetAtTime(880, context.currentTime + .06, .02);
+      voice(tone, .18, .12, effectsBus, context.currentTime, panner);
+    },
     preload() { return recordings?.preload() || Promise.resolve([]); },
     setListener(...args) { recordings?.setListener(...args); },
     setAmbience(value) { recordings?.setAmbience(value); },

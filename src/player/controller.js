@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { createTouchControls } from './touch-controls.js';
 import { GAITS, gaitForSpeed } from './locomotion.js';
+import { moveWithContacts } from '../shared/movement.js';
 
 // Primeira pessoa.
 //  Teclado/mouse: WASD + mouse, Shift corre, Espaço pula, F alterna voo livre.
@@ -51,13 +52,14 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   document.addEventListener('pointerlockerror', enableDragMode);
 
   /** touch = true quando o jogo foi iniciado por toque (celular/tablet) */
-  function start(touch = false) {
+  function start(touch = false, { pointerLock = true } = {}) {
     dom.focus?.({ preventScroll: true });
     if (touch) {
       mode = 'touch';
       setActive(true);
       return;
     }
+    if (!pointerLock) { mode = 'drag'; setActive(true); return; }
     mode = 'mouse';
     try {
       const p = dom.requestPointerLock();
@@ -148,7 +150,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
       e.preventDefault(); dom.focus?.({ preventScroll: true }); return;
     }
     if (e.target?.closest?.('button') && ['Space', 'Enter'].includes(e.code)) return;
-    if (mode === 'drag' && active && e.code === 'Escape') { setActive(false); return; }
+    if (mode === 'drag' && active && !weaponWheelOpen && !e.defaultPrevented && e.code === 'Escape') { setActive(false); return; }
     if (active && canAct()) { onKey(e, true); if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => onKey(e, false));
@@ -281,7 +283,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     if (flying) {
       feet.y += move.y;
       const wantX = feet.x + move.x, wantZ = feet.z + move.z;
-      const [nx, nz] = collide(wantX, wantZ, RADIUS, feet.y); // não atravessa prédios e muros
+      const [nx, nz] = moveWithContacts(feet, { x: wantX, z: wantZ }, RADIUS, feet.y, collide);
       // bloqueado por muro/prédio: sobe por cima dele em vez de ficar preso
       const want = Math.hypot(move.x, move.z), got = Math.hypot(nx - feet.x, nz - feet.z);
       if (want > 1e-4 && got < want * 0.6) feet.y += Math.max(want, (autoFly ? flySpeed : speed) * dt) * 0.9;
@@ -291,7 +293,9 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
       onGround = false;
     } else {
       let nx = feet.x + move.x, nz = feet.z + move.z;
-      [nx, nz] = collide(nx, nz, RADIUS, feet.y);
+      const ahead = groundAt(nx, nz, feet.y);
+      if (onGround && ahead - feet.y > STEP_UP) { nx = feet.x; nz = feet.z; }
+      [nx, nz] = moveWithContacts(feet, { x: nx, z: nz }, RADIUS, feet.y, collide);
       feet.x = nx; feet.z = nz;
       vy -= GRAVITY * dt;
       feet.y += vy * dt;

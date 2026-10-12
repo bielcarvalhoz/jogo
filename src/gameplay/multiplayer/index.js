@@ -50,7 +50,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       }
       avatar.setWeapon({ ...weapon, holstered: p.holstered }); avatar.update(dt);
       avatar.updateWeapon(gun, { weapon: weapon.id, kind: weapon.kind, holstered: p.holstered, active: state.active });
-      gun.visible = state.active && !p.holstered && weapon.kind !== 'unarmed';
+      gun.visible = state.active && !p.holstered && weapon.kind !== 'unarmed' && !gun.userData.characterEmote;
       Object.assign(entity, actor(p)); updateHumanoidHitboxes(entity, p.crouched);
     }, dispose() {
       avatar.mixer.stopAllAction(); avatar.mixer.uncacheRoot(avatar.model); avatar.appearance.dispose();
@@ -97,7 +97,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   network.on('status', status => game.events.emit('multiplayerstatus', status));
   network.on('ended', message => { game.toast(message); game.ui?.showMenu(); });
   network.on(EV.event, event => {
-    if (event.type === 'emote' && event.emote === 'wave') (event.player === network.session?.selfId ? game.player.avatar : views.get(event.player)?.avatar)?.playGreeting();
+    if (event.type === 'emote') (event.player === network.session?.selfId ? game.player.avatar : views.get(event.player)?.avatar)?.playEmote(event.emote);
     if (event.type === 'shot' && event.player !== network.session?.selfId) {
       views.get(event.player)?.avatar.playShot();
       game.audio?.shot(event.weapon, { position: event.origin });
@@ -118,7 +118,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     }
     if (event.type === 'death') {
       game.audio?.stopReload?.(`reload:${event.victim}`);
-      if (event.victim === network.session?.selfId) game.player.spawnCorpse?.(event.impulse);
+      if (event.victim === network.session?.selfId) { game.player.spawnCorpse?.(event.impulse); game.player.avatar.stopEmote(); }
     }
     if (event.message) game.toast(event.message);
     worldEvents(event);
@@ -183,11 +183,12 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   network.on('left', clear);
   const api = { network, root, views, zombies, markers, landmarks, update,
     get active() { return game.mode === 'multiplayer'; }, get self() { return latest?.players.find(p => p.id === network.session?.selfId); },
-    get canAct() { return !api.active || (network.ready && !!api.self && !api.self.dead); },
+    get canAct() { return !api.active || (network.ready && latest?.phase === 'running' && !!api.self && !api.self.dead); },
     get snapshot() { return latest; }, get roster() { return roster; }, get peerCount() { return mesh?.connectedCount || 0; }, get nearby() { return nearby; },
     attack(weapon, info) { if (api.active) network.action({ type: 'attack', weapon: weapon.id || weapon, origin: info.origin, direction: info.direction, aiming: !!info.aiming }); },
     reload(weapon, active) { if (api.active) network.action({ type: active ? 'reload' : 'cancelReload', weapon }); },
-    emote(id) { if (api.active && api.canAct) network.action({ type: 'emote', emote: id }); },
+    emote(id) { if (api.active && network.ready && api.self && !api.self.dead) network.action({ type: 'emote', emote: id }); },
+    ready(value) { if (api.active && network.ready) network.action({ type: 'ready', ready: !!value }); },
     interact() { if (!api.active || !api.canAct || !nearby || game.ui?.weaponWheelOpen) return false; network.action({ type: 'interact', game: nearby.id }); return true; },
     raycast(from, to) {
       if (!api.active) return null;

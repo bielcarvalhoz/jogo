@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EMOTES, normalizeCode } from '../shared/multiplayer.js';
+import { normalizeCode, rankPlayers } from '../shared/multiplayer.js';
 import './multiplayer.css';
 
 const statusText = { offline: 'Desconectado', connecting: 'Conectando ao servidor…', waking: 'Acordando o servidor… a primeira conexão pode levar cerca de um minuto.', connected: 'Conectado', reconnecting: 'Reconectando… seu lugar fica reservado por 20 segundos.', error: 'Não foi possível conectar. Tente novamente.' };
@@ -44,7 +44,7 @@ export function createMultiplayerUI(game) {
       finally { setBusy(false); }
     } });
   }
-  $('mp-create-form').addEventListener('submit', event => { event.preventDefault(); choose(() => net.create($('mp-room-name').value || `Sala de ${game.player.character?.name || 'Sato'}`, game.player.character)); });
+  $('mp-create-form').addEventListener('submit', event => { event.preventDefault(); choose(() => net.create($('mp-room-name').value || `Sala de ${game.player.character?.name || 'Bancário'}`, game.player.character)); });
   $('mp-code-form').addEventListener('submit', event => { event.preventDefault(); choose(() => net.join(normalizeCode($('mp-room-code').value), game.player.character)); });
   $('mp-refresh').addEventListener('click', async () => { error.hidden = true; try { await net.open(); await net.refresh(); } catch (e) { fail(e.message); } });
   $('mp-back').addEventListener('click', () => { close(); net.close(); game.events.emit('menuopen'); document.getElementById('play').focus(); });
@@ -65,17 +65,22 @@ export function createMultiplayerUI(game) {
     <p id="mp-defense-score"></p><p id="mp-football-score"></p></div>
     <div id="mp-reconnect" role="status" hidden></div><div id="mp-respawn" role="status" hidden></div>
     <div id="mp-hit" role="status" hidden></div><button id="mp-interact" hidden></button>
-    <div class="mp-emotes" aria-label="Emojis e cumprimentos"></div><div class="mp-labels" aria-hidden="true"></div>`;
+    <section id="mp-ready-panel" class="mp-ready" hidden aria-label="Aprovação da partida"><h2>Prontos para a treta?</h2><ul id="mp-ready-list"></ul><button id="mp-ready" aria-pressed="false">Estou pronto</button><small>Começa quando todos aprovarem.</small></section>
+    <button id="mp-ranking-button" aria-label="Ranking · Tab" aria-expanded="false">🏆 <span>Tab</span></button>
+    <section id="mp-ranking" class="mp-ranking" hidden aria-label="Ranking da partida"><div><b>RANKING</b><button id="mp-ranking-close" aria-label="Fechar ranking">×</button></div><table><thead><tr><th scope="col">#</th><th scope="col">Jogador</th><th scope="col">Kills</th><th scope="col">Assist.</th><th scope="col">Mortes</th></tr></thead><tbody></tbody></table></section>
+    <div class="mp-labels" aria-hidden="true"></div>`;
   document.getElementById('hud').append(hud);
-  const h = id => hud.querySelector(`#${id}`), emotes = hud.querySelector('.mp-emotes'), labels = hud.querySelector('.mp-labels');
-  const emoteNames = { wave: 'Acenar', smile: 'Sorrir', heart: 'Coração', gg: 'Boa!', fire: 'Fogo' };
-  for (const [id, emoji] of Object.entries(EMOTES)) {
-    const button = document.createElement('button'); button.textContent = emoji; button.title = `${emoteNames[id]}${id === 'wave' ? ' · T' : ''}`; button.setAttribute('aria-label', emoteNames[id]);
-    button.addEventListener('click', () => { mp.emote(id); game.engine.renderer.domElement.focus({ preventScroll: true }); }); emotes.append(button);
-  }
+  const h = id => hud.querySelector(`#${id}`), labels = hud.querySelector('.mp-labels');
+  let waiting = false, rankingSignature = '', readySignature = '';
+  function showRanking(value) { h('mp-ranking').hidden = !value || !mp.active; h('mp-ranking-button').setAttribute('aria-expanded', String(value && mp.active)); }
+  h('mp-ready').addEventListener('click', () => mp.ready(!mp.self?.ready));
+  h('mp-ranking-button').addEventListener('click', () => showRanking(h('mp-ranking').hidden));
+  h('mp-ranking-close').addEventListener('click', () => showRanking(false));
+  game.input.bind('Tab', event => { if (mp.active && !game.ui?.mapOpen) { event.preventDefault(); showRanking(true); } }, { label: 'ranking da sala' });
+  window.addEventListener('keyup', event => { if (event.code === 'Tab') showRanking(false); });
+  window.addEventListener('blur', () => showRanking(false));
   h('mp-copy').addEventListener('click', async () => { const code = net.session?.code; if (!code) return; try { await navigator.clipboard.writeText(code); game.toast('Código da sala copiado.'); } catch { game.toast(`Código da sala: ${code}`); } });
   h('mp-interact').addEventListener('click', () => mp.interact());
-  game.input.bind('KeyG', () => { if (mp.active) { game.player.releasePointerForUI(); game.paintball.resetInput(); emotes.querySelector('button').focus(); } }, { label: 'emojis da sala' });
   const plates = new Map(), projection = new THREE.Vector3(); let hitUntil = 0, hurtUntil = 0;
   function plate(key) { if (!plates.has(key)) { const el = document.createElement('div'); el.className = 'mp-nameplate'; labels.append(el); plates.set(key, el); } return plates.get(key); }
   function place(el, position, lift = 2.3, maxDistance = 80) {
@@ -87,11 +92,28 @@ export function createMultiplayerUI(game) {
   function sync() {
     hud.hidden = !mp.active; if (hud.hidden) return;
     const self = mp.self, snapshot = mp.snapshot; if (!self || !snapshot) return;
+    const nextWaiting = snapshot.phase === 'waiting';
+    h('mp-ready-panel').hidden = !nextWaiting;
+    if (nextWaiting && !waiting) { game.player.releasePointerForUI(); game.paintball.resetInput(); }
+    if (nextWaiting && document.pointerLockElement === game.engine.renderer.domElement) game.player.releasePointerForUI();
+    if (!nextWaiting && waiting && game.player.active) game.player.start(game.player.touchMode);
+    waiting = nextWaiting;
+    const readyKey = JSON.stringify(snapshot.players.map(p => [p.id, p.ready, p.connected, mp.roster.get(p.id)?.character.name]));
+    if (readyKey !== readySignature) {
+      readySignature = readyKey; h('mp-ready-list').replaceChildren();
+      for (const p of snapshot.players) { const row = document.createElement('li'); row.textContent = `${p.ready && p.connected ? '✓' : '○'} ${mp.roster.get(p.id)?.character.name || 'Jogador'}${!p.connected ? ' · reconectando' : ''}`; row.classList.toggle('ready', p.ready && p.connected); h('mp-ready-list').append(row); }
+    }
+    h('mp-ready').disabled = !net.ready; h('mp-ready').textContent = self.ready ? 'Cancelar aprovação' : 'Estou pronto'; h('mp-ready').setAttribute('aria-pressed', String(self.ready));
+    const ranked = rankPlayers(snapshot.players), rankingKey = JSON.stringify(ranked.map(p => [p.id, p.kills, p.assists, p.deaths, p.connected, mp.roster.get(p.id)?.character.name]));
+    if (rankingKey !== rankingSignature) {
+      rankingSignature = rankingKey; const body = h('mp-ranking').querySelector('tbody'); body.replaceChildren();
+      ranked.forEach((p, i) => { const row = document.createElement('tr'); row.classList.toggle('self', p.id === self.id); for (const value of [i + 1, `${mp.roster.get(p.id)?.character.name || 'Jogador'}${p.connected ? '' : ' · offline'}`, p.kills, p.assists || 0, p.deaths]) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); } body.append(row); });
+    }
     h('mp-session').textContent = `${net.session.name} · ${net.session.code} · ${snapshot.players.length}/10`;
     h('mp-transport').textContent = `${net.latency} ms · ${mp.peerCount ? `Conexão direta com ${mp.peerCount} jogador(es)` : 'Conexão pelo servidor'}`;
     h('mp-health').textContent = `VIDA ${Math.ceil(self.health)}/${self.maxHealth}`;
     h('mp-health-fill').style.transform = `scaleX(${self.health / self.maxHealth})`;
-    h('mp-score').textContent = `${self.kills} K · ${self.deaths} M`;
+    h('mp-score').textContent = `${self.kills} K · ${self.assists || 0} A · ${self.deaths} M`;
     const d = snapshot.defense, f = snapshot.football;
     h('mp-defense-score').textContent = d.status === 'idle' ? 'Prata: inicie a defesa na entrada do prédio.' : `Prata · ${d.status === 'won' ? 'VITÓRIA' : d.status === 'lost' ? 'DERROTA' : `Wave ${d.wave}/${d.totalWaves} · ${d.remaining} zumbis`} · Prédio ${Math.ceil(d.health)}/${d.maxHealth}`;
     h('mp-football-score').textContent = f.status === 'idle' ? 'Campo: inicie o futebol de caixa no círculo central.' : `Futebol de caixa · Azul ${f.score[0]} × ${f.score[1]} Amarelo${f.status === 'finished' ? ' · FIM DE JOGO' : ' · até 5 gols'}`;
@@ -100,13 +122,12 @@ export function createMultiplayerUI(game) {
     h('mp-hit').hidden = performance.now() > hitUntil; hud.classList.toggle('mp-hurt', performance.now() < hurtUntil);
     h('mp-interact').hidden = !mp.nearby || !mp.canAct || game.ui?.mapOpen;
     if (mp.nearby) h('mp-interact').textContent = `${game.player.touchMode ? 'Iniciar' : 'E · Iniciar'} ${mp.nearby.id === 'defense' ? 'defesa do Prata' : 'futebol de caixa'}`;
-    for (const button of emotes.children) button.disabled = !mp.canAct;
     for (const el of plates.values()) el.hidden = true;
     for (const p of snapshot.players) {
-      const isSelf = p.id === net.session.selfId, entry = mp.views.get(p.id), emoticon = p.emote && EMOTES[p.emote.id];
-      if (p.dead || !p.connected || isSelf && !emoticon) continue;
-      const el = plate(p.id); el.textContent = `${emoticon || ''}${isSelf ? '' : `${emoticon ? ' ' : ''}${mp.roster.get(p.id)?.character.name || 'Jogador'}${p.protected ? ' · 🛡️' : ''}`}`;
-      place(el, isSelf ? game.player.feet : entry?.state.feet || { x: p.x, y: p.y, z: p.z });
+      const isSelf = p.id === net.session.selfId, entry = mp.views.get(p.id);
+      if (p.dead || !p.connected || isSelf) continue;
+      const el = plate(p.id); el.textContent = `${mp.roster.get(p.id)?.character.name || 'Jogador'}${p.protected ? ' · 🛡️' : ''}`;
+      place(el, entry?.state.feet || { x: p.x, y: p.y, z: p.z });
     }
     for (const marker of mp.markers) {
       const el = plate(marker.id); el.classList.add('mp-marker-label'); el.textContent = marker.label; place(el, marker.at, 2, 150);
@@ -116,7 +137,7 @@ export function createMultiplayerUI(game) {
     if (event.type === 'damage' && event.source === net.session?.selfId) { h('mp-hit').textContent = `${event.region === 'head' ? 'Cabeça' : event.region === 'limb' ? 'Membro' : 'Tórax'} · ${Math.round(event.damage)} dano${event.remaining <= 0 ? ' · KILL' : ''}`; hitUntil = performance.now() + 1200; }
     if (event.type === 'damage' && event.victim === net.session?.selfId) hurtUntil = performance.now() + 250;
   });
-  game.events.on('multiplayerleft', () => { hud.hidden = true; for (const p of plates.values()) p.remove(); plates.clear(); });
+  game.events.on('multiplayerleft', () => { hud.hidden = true; waiting = false; readySignature = rankingSignature = ''; showRanking(false); for (const p of plates.values()) p.remove(); plates.clear(); });
   game.engine.addSystem(sync, 'late');
   return { open, close, sync, lobby, hud, get opened() { return opened; } };
 }

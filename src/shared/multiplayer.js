@@ -1,8 +1,10 @@
 import { ringCentroid } from './geo.js';
 
-export const NET = Object.freeze({ maxPlayers: 10, tickHz: 60, snapshotHz: 18, poseHz: 30, graceMs: 20000, emptyMs: 25000, protocol: 1 });
+export const NET = Object.freeze({ maxPlayers: 10, tickHz: 60, snapshotHz: 18, poseHz: 30, graceMs: 20000, emptyMs: 25000, protocol: 2 });
 export const EV = Object.freeze({ list: 'rooms:list', rooms: 'rooms:update', create: 'room:create', join: 'room:join', leave: 'room:leave', welcome: 'room:welcome', roster: 'room:roster', pose: 'player:pose', action: 'player:action', snapshot: 'world:snapshot', event: 'world:event', signal: 'rtc:signal' });
-export const EMOTES = Object.freeze({ wave: '👋', smile: '😄', heart: '❤️', gg: '👏', fire: '🔥' });
+export const EMOTES = Object.freeze({ wave: '👋', dance: '🕺', smile: '😄', heart: '❤️', gg: '👏', fire: '🔥' });
+export const EMOTE_NAMES = Object.freeze({ wave: 'Acenar', dance: 'Dançar', smile: 'Sorrir', heart: 'Coração', gg: 'Boa!', fire: 'Fogo' });
+export const rankPlayers = players => [...players].sort((a, b) => (b.kills || 0) - (a.kills || 0) || (b.assists || 0) - (a.assists || 0) || (a.deaths || 0) - (b.deaths || 0) || a.id.localeCompare(b.id));
 export const finitePoint = p => !!p && ['x', 'y', 'z'].every(k => Number.isFinite(p[k]) && Math.abs(p[k]) < 100000);
 export const cleanName = (v, fallback = 'Sala da treta', max = 32) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max) || fallback : fallback;
 export const normalizeCode = v => typeof v === 'string' ? v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : '';

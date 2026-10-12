@@ -4,15 +4,16 @@ import {createAudio} from '../../src/core/audio.js';
 
 function fixture(preferences={}) {
   const parameter = () => ({value:0,cancelScheduledValues(){},setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){},setTargetAtTime(){}});
-  const sources=[];
+  const sources=[], panners=[];
   const node=()=>({gain:parameter(),frequency:parameter(),Q:parameter(),playbackRate:parameter(),connect(){},disconnect(){},start(t){this.startTime=t;},stop(t){this.stopTime=t;}});
   const context={state:'suspended',currentTime:0,sampleRate:44100,destination:{},createGain:node,
     createOscillator(){const n=node();sources.push(n);return n;},createBufferSource(){const n=node();sources.push(n);return n;},createBiquadFilter:node,
+    createPanner(){const n={...node(),positionX:parameter(),positionY:parameter(),positionZ:parameter()};panners.push(n);return n;},
     createBuffer:(_,length)=>({getChannelData:()=>new Float32Array(length)}),
     async decodeAudioData(){return {duration:.25};},async resume(){this.state='running';},async suspend(){this.state='suspended';},async close(){this.state='closed';}};
   let creations=0, tick=null;
   const audio=createAudio({...preferences,fetcher:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(4)}),contextFactory:()=>{creations++;return context;},schedule:fn=>{tick=fn;return 1;},unschedule:()=>{tick=null;}});
-  return {audio,context,sources,get creations(){return creations;},get tick(){return tick;}};
+  return {audio,context,sources,panners,get creations(){return creations;},get tick(){return tick;}};
 }
 
 test('audio remains lazy until gesture unlock and reuses one context',async()=>{
@@ -22,6 +23,16 @@ test('audio remains lazy until gesture unlock and reuses one context',async()=>{
   f.audio.setMenu(false);assert.equal(f.tick,null);assert.equal(f.audio.state.voices,0);
   f.audio.shot();assert.equal(f.audio.state.voices,1);
   f.audio.dispose();assert.equal(f.audio.state.voices,0);assert.equal(f.context.state,'closed');
+});
+
+test('reaction chime uses the world position, HRTF and continuous distance attenuation', async () => {
+  const f = fixture({ music: false }); await f.audio.unlock();
+  f.audio.notification({ x: -8, y: 2, z: 4 });
+  const p = f.panners.at(-1); assert.equal(p.panningModel, 'HRTF'); assert.equal(p.distanceModel, 'inverse');
+  assert.equal(p.positionX.value, -8); assert.equal(p.positionY.value, 2); assert.equal(p.positionZ.value, 4);
+  assert.ok(p.rolloffFactor > 1 && p.maxDistance > 100); assert.equal(f.audio.state.voices, 1);
+  f.audio.setPreferences({ effects: false }); const count = f.panners.length; f.audio.notification({ x: 0, y: 2, z: 0 }); assert.equal(f.panners.length, count);
+  f.audio.dispose(); assert.equal(f.audio.state.voices, 0);
 });
 test('music and effects are independent; muted shots allocate no sources',async()=>{
   const f=fixture({music:false});await f.audio.unlock();await f.audio.preload();assert.equal(f.tick,null);

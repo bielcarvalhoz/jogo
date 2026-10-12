@@ -354,6 +354,55 @@ Configuração e operação: [Multiplayer no Render](MULTIPLAYER-RENDER.md).
 `npm run test:multiplayer` testa salas e regras; `npm run qa:multiplayer` executa
 dois navegadores reais, desktop/mobile, com Socket.IO e Rapier reais.
 
+### Aprovação, ranking e reações
+
+Salas novas ficam em `snapshot.phase = waiting`. Cada membro envia a ação
+`ready` com um booleano; a autoridade só muda para `running` quando todos os
+membros estão conectados e aprovaram. Desconectar revoga a aprovação durante a
+espera, e reconectar exige aprovar novamente. Sair remove o voto da sala. A
+partida inicia uma vez por sala; entrar em uma partida já iniciada mantém o
+fluxo de entrada e a proteção inicial. Movimento, ataques e minigames ficam
+bloqueados na espera. `game.multiplayer.ready(bool)` é usado por `ui`.
+
+`stats.assists` credita uma assistência por morte a cada participante que
+causou dano nos últimos 10 segundos, excluindo quem matou; a lista é limpa na
+morte/respawn. `shared.rankPlayers` ordena kills decrescentes, assistências
+decrescentes e mortes crescentes. Tab mostra o ranking enquanto pressionado;
+o botão permite alternar no celular. O protocolo passa a **2**: publicar
+cliente e servidor juntos; versões antigas recebem o pedido de atualização.
+
+`game.ui.reactions` expõe `react(id)`, `open()`, `close()` e `opened`. G abre a
+roda com emojis, aceno e dança; Esc cancela, soltar G confirma, e toque permite
+escolher um item. Reações de rede usam o evento autoritativo `emote` com posição.
+`avatar.playEmote(id)` reutiliza `Dance_Loop` e o aceno do rig; `stopEmote()`
+encerra a reação em morte/saída. Movimento,
+ataque, recarga e morte encerram a dança. `ui/reactions` renderiza um pool
+limitado a 24 CSS3DSprites, flutuando e desaparecendo em 2,6 s, com consultas
+de oclusão ao terreno e às colisões estáticas. `audio.notification(position)`
+gera um aviso curto em HRTF com atenuação contínua; passos/armas continuam
+usando exclusivamente os samples gravados.
+O marcador de objetivo dos zumbis no treino passa a Y, liberando G para reações.
+
+### Personalização e contatos
+
+O catálogo de aparência inclui camisa social/terno, com ou sem gravata,
+calça/sapato social e tênis. Mangas reutilizam pesos do skin original;
+colarinho, lapelas e gravata acompanham o tórax. Cabelos usam uma base contínua
+até a nuca, com curto penteado, fade, enroladinho baixo, comprido, dreads,
+black power, espetado e moicano. Boné/touca preservam a faixa de cabelo na
+nuca e sua cor, exceto no estilo raspado. O GLB original permanece intacto.
+O personagem inicial é Bancário; dados antigos do personagem inicial são
+atualizados preservando o ID e a seleção, sem renomear personagens criados.
+
+`shared.moveWithContacts` subdivide o percurso e resolve contatos, mantendo o
+último ponto estável em conflitos. NPCs bloqueiam aproximação em vez de
+empurrar o controlador continuamente e sua navegação evita invadir atores.
+`shared.standVolumes` fornece os mesmos degraus/passeio para cliente e servidor;
+`builder.addSolid(..., stepable)` permite subir degraus até 70 cm e bloqueia
+entrada pelas laterais altas. A autoridade mede o limite de salto a partir
+do piso pisável da arquibancada. `player.start(touch, { pointerLock })` permite
+entrar na espera com cursor livre para aprovar a partida.
+
 ## Responsáveis
 
 Preencha com o time e espelhe em `.github/CODEOWNERS` para o GitHub pedir revisão automática.

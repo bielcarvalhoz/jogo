@@ -56,7 +56,7 @@ export function createCombatHUD(game) {
     $('combat-score').textContent = `${player.stats.kills} K · ${player.stats.deaths} M · ${player.stats.headshots} HS`;
     $('combat-population').textContent = `${alive.filter(e => e.kind === 'zombie').length} zumbis · ${alive.filter(e => e.kind === 'human' && e.role !== 'ally').length} bots · ${alive.filter(e => e.role === 'ally').length} aliados${simulation.pausedAI ? ' · IA pausada' : ''}`;
     $('combat-goal').textContent = simulation.zombieGoal === 'objective' ? `Defender objeto: ${Math.ceil(combat.objective.health.current)} / ${combat.objective.health.max}`
-      : simulation.zombieGoal === 'point' ? 'Zumbis → ponto amarelo · G para mover' : 'Zumbis → personagens';
+      : simulation.zombieGoal === 'point' ? 'Zumbis → ponto amarelo · Y para mover' : 'Zumbis → personagens';
     hit.hidden = simulation.time >= hitUntil;
     root.classList.toggle('combat-hurt', simulation.time < hurtUntil);
     respawn.hidden = !player.dead;
