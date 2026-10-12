@@ -28,6 +28,11 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     }
     if (event.type === 'remove') { views.get(event.entity)?.dispose(); views.delete(event.entity); }
     if (event.type === 'damage') {
+      if (event.source !== player && event.weapon?.kind === 'firearm') {
+        const view = views.get(event.victim), target = event.victim === player ? game.player.avatar?.root : view?.root;
+        const box = event.victim.hitboxes?.find(b => b.region === event.region);
+        if (box && target) game.bodyPaint?.stamp(target, new THREE.Vector3().copy(box.a).lerp(box.b, .5), new THREE.Vector3().copy(event.source.position).sub(event.victim.position).normalize());
+      }
       views.get(event.victim)?.react(event.region, event.time);
       if (event.weapon?.kind === 'melee' && event.source !== player) game.audio?.hit?.({ entity: event.victim, point: event.victim.position }, { kind: 'melee' });
     }
@@ -80,6 +85,7 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
   function horde(count = 8) { for (let i = 0; i < count; i++) if (!add('zombie')) break; }
   function reset() {
     simulation.clear(); simulation.revive(player, game.player.feet); simulation.revive(objective, objective.position);
+    if (game.player.avatar) game.bodyPaint?.clear(game.player.avatar.root);
     player.stats = { kills: 0, deaths: 0, headshots: 0, damage: 0 }; sequence = 0; simulation.pausedAI = false;
     game.paintball?.clearEffects(); game.events.emit('combatreset');
     for (const tracer of tracers) tracer.line.visible = false;
@@ -129,6 +135,7 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     },
     impact(hit, info) {
       if (!hit.entity || !game.training.active) return false;
+      if (info.kind === 'firearm') game.bodyPaint?.stamp(views.get(hit.entity)?.root, hit.point, hit.normal, info.paintColor);
       simulation.damage(hit.entity, { source: player, region: hit.region, weapon: info.weapon }); return true;
     },
     collide(x, z, radius, feetY = 0, { from } = {}) {
@@ -150,12 +157,13 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     root.visible = game.training.active; if (!root.visible) return;
     player.position = { x: game.player.feet.x, y: game.player.feet.y, z: game.player.feet.z }; player.yaw = game.player.yaw; player.crouched = game.player.crouched;
     updateHumanoidHitboxes(player, player.crouched);
-    const running = game.player.active && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && !document.hidden;
+    const running = game.player.active && !game.ui?.paused && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && !document.hidden;
     if (running) {
       if (simulation.time - lastObstaclesAt >= .25) { syncObstacles(); lastObstaclesAt = simulation.time; }
       simulation.update(dt);
       if (player.dead && simulation.time - player.dead.at >= simulation.rules.respawnSeconds) {
         game.player.placeAt(spawn.x, spawn.z, spawn.yaw); simulation.revive(player, game.player.feet); game.paintball?.clearEffects(); game.paintball?.resetAmmo?.();
+        game.bodyPaint?.clear(game.player.avatar.root);
       }
     }
     for (const [entity, view] of views) {

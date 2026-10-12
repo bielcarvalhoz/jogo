@@ -5,10 +5,10 @@
   --muted: #aab4c0;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1014; color: var(--text); font-family: 'Segoe UI', system-ui, Arial, sans-serif; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1014; color: var(--text); font-family: 'Nunito', system-ui, Arial, sans-serif; }
 #app, #app canvas { position: fixed; inset: 0; display: block; }
 .hidden { display: none !important; }
-kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; margin-right: 3px; border-radius: 5px; background: #2a313a; border: 1px solid #47515d; border-bottom-width: 2px; font: 600 12px 'Segoe UI', sans-serif; color: #fff; text-align: center; }
+kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; margin-right: 3px; border-radius: 5px; background: #2a313a; border: 1px solid #47515d; border-bottom-width: 2px; font: 600 12px 'Nunito', sans-serif; color: #fff; text-align: center; }
 
 .brand { font-weight: 800; font-size: 34px; letter-spacing: 0.06em; color: #fff; }
 .brand span { display: block; font-size: 14px; letter-spacing: 0.35em; color: var(--gold); margin-top: 2px; }
@@ -116,7 +116,7 @@ button:focus-visible, select:focus-visible, summary:focus-visible, canvas:focus-
 #overlay { padding: 0; overflow: hidden; background: #070b10; backdrop-filter: none; }
 .menu-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .art-panel { position: absolute; background: #050608; overflow: hidden; container-type: size; min-height: 0; }
-.art-panel::before { content: ''; position: absolute; inset: 5px; clip-path: inherit; background-image: url('/art/city-of-god-cover.webp'); background-repeat: no-repeat; background-size: max(300cqw, 300cqh) max(200cqw, 200cqh); background-position: calc(50cqw - (var(--col) + .5) * max(100cqw, 100cqh)) calc(50cqh - (var(--row) + .5) * max(100cqw, 100cqh)); }
+.art-panel::before { content: ''; position: absolute; inset: clamp(9px, 1.25vw, 18px); clip-path: inherit; background-image: url('/art/city-of-god-cover.webp'); background-repeat: no-repeat; background-size: max(300cqw, 300cqh) max(200cqw, 200cqh); background-position: calc(50cqw - (var(--col) + .5) * max(100cqw, 100cqh)) calc(50cqh - (var(--row) + .5) * max(100cqw, 100cqh)); }
 .art-1 { left: 0%; top: 0%; width: 33%; height: 51%; clip-path: polygon(0 0,100% 0,84.85% 100%,0 86.27%); --col: 0; --row: 0; --enter-x: -110%; --enter-y: -30%; --tilt: -9deg; }
 .art-2 { left: 28%; top: 0%; width: 45%; height: 51%; clip-path: polygon(11.11% 0,93.33% 0,100% 88.24%,0 100%); --col: 1; --row: 0; --enter-x: 0%; --enter-y: -110%; --tilt: 7deg; }
 .art-3 { left: 70%; top: 0%; width: 30%; height: 45%; clip-path: polygon(0 0,100% 0,100% 84.44%,10% 100%); --col: 2; --row: 0; --enter-x: 110%; --enter-y: -30%; --tilt: 9deg; }
@@ -292,7 +292,7 @@ body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: no
 #tour-places { touch-action: pan-x; }
 .menu-options button:disabled, .menu-options #play:disabled { color: #a7abae; opacity: .45; cursor: wait; transform: none; filter: none; }
 .menu-options button:disabled::before, .menu-options #play:disabled::before { opacity: 0; }
-.menu-options button small { display: block; font: 12px 'Segoe UI', sans-serif; color: #b2b7bd; margin: 3px 0 8px; text-shadow: none; }
+.menu-options button small { display: block; font: 12px 'Nunito', sans-serif; color: #b2b7bd; margin: 3px 0 8px; text-shadow: none; }
 #treta-menu button:disabled { cursor: default; }
 .menu-options { bottom: max(20vh, 118px); }
 .menu-location { margin-bottom: 7px; }
@@ -303,7 +303,7 @@ body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: no
 .character-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .character-header h2 { margin: 8px 0 6px; font: 400 clamp(25px, 3vw, 36px) 'Cover', sans-serif; }
 .character-header p, .character-roster p { font-size: 12px; color: #9cabb9; line-height: 1.5; }
-#character-panel button { min-height: 44px; font: 600 13px 'Segoe UI', sans-serif; color: #f5f0e5; background: #1a2a39; border: 1px solid #415165; border-radius: 5px; padding: 10px 14px; cursor: pointer; }
+#character-panel button { min-height: 44px; font: 600 13px 'Nunito', sans-serif; color: #f5f0e5; background: #1a2a39; border: 1px solid #415165; border-radius: 5px; padding: 10px 14px; cursor: pointer; }
 #character-panel button:focus-visible, #character-panel select:focus-visible, #character-panel input:focus-visible { outline: 2px solid #ffc940; outline-offset: 3px; }
 #character-panel button:disabled { opacity: .4; cursor: default; }
 #character-panel #character-close { font-size: 20px; flex-shrink: 0; }
@@ -327,7 +327,7 @@ body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: no
 #character-panel.editing #character-preview { height: 100%; }
 #character-editor { max-height: 420px; overflow-y: auto; padding: 3px 9px 3px 3px; }
 #character-editor label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: #b6c3ce; min-width: 0; }
-#character-editor input, #character-editor select { width: 100%; min-width: 0; min-height: 40px; border: 1px solid #4c6275; border-radius: 4px; background: #172938; color: #fff; font: 14px 'Segoe UI', sans-serif; padding: 6px; }
+#character-editor input, #character-editor select { width: 100%; min-width: 0; min-height: 40px; border: 1px solid #4c6275; border-radius: 4px; background: #172938; color: #fff; font: 14px 'Nunito', sans-serif; padding: 6px; }
 #character-name { font-size: 16px !important; margin-bottom: 12px; }
 #character-editor input[type="color"] { padding: 4px; cursor: pointer; }
 #character-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; }

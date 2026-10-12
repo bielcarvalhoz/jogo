@@ -9,7 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="preload" href="./fonts/BowlbyOne-Regular.woff" as="font" type="font/woff" crossorigin />
+    <link rel="preload" href="./fonts/Jersey10-Regular.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="./fonts/Nunito.ttf" as="font" type="font/ttf" crossorigin />
     <title>Grand Treta Auto: City of God · Osasco</title>
   </head>
   <body>
@@ -81,7 +82,7 @@
 
     <div id="tour-markers" class="hidden" aria-label="Pontos da cidade"></div>
     <div id="tour-panel" class="hidden">
-      <div class="tour-topline"><span class="tour-label">TOUR</span><div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita</button><button id="tour-map">Mapa 2D</button><button id="tour-menu">Menu</button></div></div>
+      <div class="tour-topline"><span class="tour-label">TOUR</span><div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita</button></div></div>
       <div data-collapsible class="compact-tour"><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="tour-details">Lugares <span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="tour-details" class="collapse-body" inert><div class="collapse-inner"><div class="tour-detail"><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Arraste para olhar · Dois dedos para zoom</p></div>
       <div id="tour-places" aria-label="Estruturas da cidade"></div></div></div></div>
     </div>
@@ -98,14 +99,16 @@
         </div></div>
       </div>
       <div class="utility-controls"><button id="btn-fly" class="only-touch" aria-label="Alternar voo" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fly" /></svg></button><button id="btn-orientation" class="only-touch" aria-label="Alternar orientação da tela"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#rotate" /></svg></button><button id="btn-camera" class="camera-toggle" aria-pressed="true" aria-label="Alternar entre primeira e terceira pessoa" title="Terceira pessoa · X para alternar"><svg class="control-icon" aria-hidden="true"><use id="camera-icon" href="./icons/controls.svg#camera-third" /></svg></button></div></div>
-      <div class="hud-top-right"><div class="utility-controls only-touch"><button id="btn-menu" aria-label="Menu"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#menu" /></svg></button><button id="btn-map" aria-label="Abrir mapa"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#map" /></svg></button></div>
-      <div class="compact-minimap" data-collapsible><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="minimap-details">Mapa <span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="minimap-details" class="collapse-body" inert><div class="collapse-inner"><canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas></div></div></div></div><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
+      <div class="hud-top-right"><div class="utility-controls"><button id="btn-menu" aria-label="Configurações do modo" aria-haspopup="dialog"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#menu" /></svg></button></div>
+      <canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Expandir mapa"></canvas></div><button id="desktop-menu" class="desktop-menu" hidden>Menu · Esc</button>
       <div id="hud-fps"></div>
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#color" /></svg><span id="paint-chip"></span><span class="paint-caption">Tinta <b id="paint-label">Vermelho</b></span><small class="only-desktop">V troca</small></button>
       <div class="character-controls only-touch"><button id="btn-holster" aria-label="Desarmar" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#holster" /></svg></button><button id="btn-crouch" aria-label="Agachar" aria-pressed="false" title="C · Agachar / levantar"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#crouch" /></svg></button></div>
-      <div id="ammo-hud" hidden aria-label="Munição"><b id="ammo-loaded">20</b><span>/</span><span id="ammo-reserve">120</span><span id="reload-status" role="status"></span><i id="reload-progress"></i></div>
-      <div class="combat-controls">
+      <div class="ammo-controls">
         <button id="btn-reload" class="only-touch" aria-label="Recarregar"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div id="ammo-hud" hidden aria-label="Munição"><b id="ammo-loaded">20</b><span>/</span><span id="ammo-reserve">120</span><span id="reload-status" role="status"></span><i id="reload-progress"></i></div>
+      </div>
+      <div class="combat-controls">
         <button id="btn-fire" class="only-touch" aria-label="Segurar para atirar; arrastar para mirar"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fire" /></svg></button>
         <button id="btn-aim" class="only-touch" aria-label="Alternar mira focada" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#aim" /></svg></button>
         <button id="btn-jump" class="only-touch" aria-label="Pular"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#jump" /></svg></button>
@@ -116,7 +119,6 @@
         <div id="weapon-wheel-ring"><div id="weapon-wheel-options" role="listbox" aria-label="Escolha uma arma pela direção"></div><div class="weapon-wheel-center"><b id="weapon-wheel-title"></b><small id="weapon-wheel-detail" hidden></small></div><i id="weapon-wheel-cursor" aria-hidden="true"></i></div>
 
       </div>
-      <div class="compact-help" data-collapsible><button id="help-toggle" class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="help" aria-label="Controles">?</button><div id="help" class="collapse-body" inert><div class="collapse-inner">WASD mover · R recarregar · 1–4 armas · Q roda · E pegar · X câmera · M mapa</div></div></div>
       <div id="joystick" hidden aria-hidden="true"><span class="joystick-thumb"></span></div>
       <div id="touch-help" class="help only-touch"></div>
       <div id="crosshair"></div>

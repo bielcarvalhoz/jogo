@@ -12,7 +12,7 @@ import { createGame, detectQuality, debugOptions, setupVisualStyle, createTour, 
 import { loadMapData, buildMap } from './map/index.js';
 import { loadCampusData, createCampusPlugin } from './campus/index.js';
 import { createPlayerModule } from './player/index.js';
-import { createPaintballModule, loadWeaponModels, createWeaponPickups } from './gameplay/paintball/index.js';
+import { createPaintballModule, loadWeaponModels, createWeaponPickups, createAmmoPickups } from './gameplay/paintball/index.js';
 import { createCombatModule } from './gameplay/combat/index.js';
 import { createMultiplayerModule } from './gameplay/multiplayer/index.js';
 import { createUI, loading, applyDeviceClasses, createFrontMenu } from './ui/index.js';
@@ -54,6 +54,7 @@ async function main() {
   game.paintball = createPaintballModule(game);
   game.paintball.setWeaponModels(weaponModels);
   game.weaponPickups = createWeaponPickups(game, weaponModels);
+  game.ammoPickups = createAmmoPickups(game);
   game.multiplayer = createMultiplayerModule(game, { weaponModels });
   game.ui = createUI(game);
   game.styler = setupVisualStyle(game); // depois de tudo estar na cena

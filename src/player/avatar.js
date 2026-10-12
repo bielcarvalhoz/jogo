@@ -4,6 +4,7 @@ import { sweepHairTips } from './hair.js';
 import { GAITS, gaitForSpeed } from './locomotion.js';
 import { createPoseConfig } from './pose-config.js';
 import { fillThumbWebs } from './hand-shape.js';
+import { aimBone, poseArm } from './arm-pose.js';
 import { createFirstPersonFists } from './first-person-fists.js';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 import { createAppearance } from './appearance.js';
@@ -60,6 +61,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
     }
   });
   root.updateMatrixWorld(true);
+  const bindPose = Object.fromEntries(Object.values(bones).map(bone => [bone.name, bone.quaternion.clone()]));
   fillThumbWebs(meshes);
   sweepHairTips(meshes);
   const appearance = createAppearance(model, bones, meshes);
@@ -136,7 +138,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   const poseAnchor = vector();
   const authoredSpine = spine.quaternion.clone();
   const evaluatedCamera = quaternion(), evaluatedEye = vector();
-  const firstPersonFists = createFirstPersonFists(root, bones);
+  const firstPersonFists = createFirstPersonFists(root, bones, bindPose);
   function setMotion(name, speed, fullBody = false) {
     const key = `${fullBody ? 'body' : 'lower'}-${name}`;
     if (!lowerActions.has(key)) {
@@ -165,7 +167,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
     appearance.setHeadVisible(!!preview || player.cameraMode === 'third', heldKind !== 'relaxed' && !scopedView);
   }
   let greeting = 0, dancing = 0;
-  const greetingBones = ['DEF-upper_armR', 'DEF-forearmR'].map(name => bones[name]).filter(Boolean);
+  const greetingBones = Object.values(bones).filter(bone => /DEF-(upper_arm|forearm|hand|f_|thumb).*R$/.test(bone.name));
   const greetingBase = new Map();
   function restoreGreeting() {
     for (const [bone, rotation] of greetingBase) bone.quaternion.copy(rotation);
@@ -189,8 +191,9 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
       if (speed > .15 || player.fly || !player.active) dancing = greeting = 0;
       dancing = Math.max(0, dancing - Math.max(0, dt));
+      greeting = Math.max(0, greeting - Math.max(0, dt));
       animationState.emote = dancing > 0 ? 'dance' : greeting > 0 ? 'wave' : null;
-      const flying = !!player.fly, fullBody = flying || heldKind === 'relaxed' || dancing > 0;
+      const flying = !!player.fly, fullBody = flying || heldKind === 'relaxed' || dancing > 0 || greeting > 0;
       const airborne = !player.grounded && player.active;
       const gait = GAITS[gaitForSpeed(speed, player.crouched && !flying)];
       setMotion(dancing > 0 ? 'Dance_Loop' : flying ? 'Swim_Fwd_Loop' : airborne ? 'Jump_Loop' : gait.clip, dancing > 0 ? 1 : flying ? 1.2 : airborne || !gait.speed ? 1 : speed / gait.speed, fullBody);
@@ -261,11 +264,17 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
       }
     }
     if (greeting > 0 && !preview && !player.fly) {
-      greeting = Math.max(0, greeting - Math.max(0, dt));
       const weight = Math.min(1, greeting / .25, (2.5 - greeting) / .2);
       for (const bone of greetingBones) greetingBase.set(bone, bone.quaternion.clone());
-      if (bones['DEF-upper_armR']) bones['DEF-upper_armR'].rotation.z -= weight * 1.85;
-      if (bones['DEF-forearmR']) { bones['DEF-forearmR'].rotation.x -= weight * 1.2; bones['DEF-forearmR'].rotation.y += weight * Math.sin(greeting * 13) * .45; }
+      root.updateMatrixWorld(true);
+      const upper = bones['DEF-upper_armR'], fore = bones['DEF-forearmR'], hand = bones['DEF-handR'], middle = bones['DEF-f_middle01R'];
+      const shoulder = root.worldToLocal(upper.getWorldPosition(vector())), sign = Math.sign(shoulder.x) || 1;
+      const target = root.localToWorld(shoulder.clone().add(vector().set(sign * (.08 + Math.sin(greeting * 12) * .055), .40, -.06)));
+      poseArm(upper, fore, hand, target, vector().set(sign, -.15, .2).applyQuaternion(root.quaternion));
+      for (const bone of greetingBones) if (/f_|thumb/.test(bone.name)) bone.quaternion.copy(bindPose[bone.name]);
+      hand.updateWorldMatrix(false, true);
+      aimBone(hand, middle, hand.getWorldPosition(vector()).add(vector().set(Math.sin(greeting * 12) * .10, .25, 0).applyQuaternion(root.quaternion)));
+      for (const [bone, base] of greetingBase) bone.quaternion.slerpQuaternions(base, bone.quaternion.clone(), weight);
     }
     evaluatedCamera.copy(camera.quaternion); evaluatedEye.copy(player.eyePosition);
     root.updateMatrixWorld(true);
@@ -429,6 +438,9 @@ export async function loadPlayerAvatar(options, url) {
     const corpse = avatar.cloneForPreview({ scene: options.scene, camera: options.camera, player: state });
     corpse.appearance.apply(avatar.appearance.value);
     corpse.setWeapon({ id: 'fists', kind: avatar.animationState.kind }); corpse.update(0);
+    // The first-person rig is reframed for the camera. Transfer its stains by
+    // bone name into the independent full-body death rig.
+    for (const bone of Object.values(avatar.bones)) for (const mark of bone.children) if (mark.userData.bodyPaint) corpse.bones[bone.name.replace(/[.:]/g, '')]?.add(mark.clone());
     return { root: corpse.root, cleanup() {
       corpse.appearance.dispose(); corpse.mixer.stopAllAction(); corpse.mixer.uncacheRoot(corpse.model);
       const skeletons = new Set(); corpse.model.traverse(o => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); });

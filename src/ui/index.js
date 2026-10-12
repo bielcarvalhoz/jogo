@@ -11,7 +11,9 @@ import { createCombatHUD } from './combat-hud.js';
 import { createCharacterMenu } from './character-menu.js';
 import { createMultiplayerUI } from './multiplayer.js';
 import { createReactions } from './reactions.js';
+import { createGameMenu } from './game-menu.js';
 import './style.css';
+import './game-menu.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
 const $ = id => document.getElementById(id);
@@ -26,7 +28,7 @@ export function applyDeviceClasses() {
 
 export function createUI(game) {
   const { map, player, engine, tour, training } = game;
-  const overlay = $('overlay'), mapPanel = $('map-panel'), help = $('help');
+  const overlay = $('overlay'), mapPanel = $('map-panel');
   const points = game.mapPoints, places = game.places;
   let touchSession = IS_TOUCH;
   const weaponWheel = createWeaponWheel(game);
@@ -36,6 +38,17 @@ export function createUI(game) {
   const characters = createCharacterMenu(game);
   const multiplayerUI = createMultiplayerUI(game);
   const reactions = createReactions(game);
+  const sessionMenu = createGameMenu(game, { exit: showMenu, resume: resumeGame, setTouch(touch) {
+    touchSession = touch; document.body.classList.toggle('touch', touch);
+  } });
+  function resumeGame() {
+    game.audio?.setMenu(false);
+    if (game.mode === 'tour') tour.controls.enabled = true;
+    else if (walkingMode()) {
+      player.start(touchSession, { pointerLock: game.mode !== 'multiplayer' || game.multiplayer.snapshot?.phase === 'running' });
+      document.body.classList.add('playing');
+    }
+  }
 
   const toast = msg => {
     const el = $('toast'); el.textContent = msg; el.classList.add('show');
@@ -57,7 +70,6 @@ export function createUI(game) {
     if (touch) document.body.classList.add('touch');
     document.body.classList.toggle('flying', player.fly);
     $('btn-fly').setAttribute('aria-pressed', String(player.fly));
-    help.querySelector('.collapse-inner').textContent = `WASD mover · R recarregar · 1–4 armas · Q armas · G reações · E pegar · X câmera · M mapa${mode === 'multiplayer' ? ' · Tab ranking' : mode === 'training' ? ' · J laboratório' : ''}`;
     game.events.emit('modechange', mode);
     player.start(touch, { pointerLock: mode !== 'multiplayer' || game.multiplayer.snapshot?.phase === 'running' });
   }
@@ -111,10 +123,10 @@ export function createUI(game) {
 
   const hud = createHud({ groundCanvas: map.ground.canvas, bounds: map.terrain.bounds,
     footprints: map.footprints, quarter: map.world.quarter, proj: map.proj, terrain: map.terrain,
-    streetAt: map.roads.streetAt, places: points, onSelect: selectPoint, getMode: () => game.mode });
+    streetAt: map.roads.streetAt, places: points, onSelect: selectPoint, getMode: () => game.mode, training, dynamicProps: game.dynamicProps });
   engine.addSystem((dt, t) => {
     sniperScope.update();
-    if (game.mode && game.mode !== 'training') hud.update(t, dt, tour.active ? engine.camera.position : player.feet, player.yaw, player.fly);
+    if (game.mode) hud.update(t, dt, tour.active ? engine.camera.position : player.feet, player.yaw, player.fly);
   }, 'late');
 
   function syncCameraMode() {
@@ -221,9 +233,8 @@ export function createUI(game) {
   }).observe($('tour-panel'));
   $('tour-overview').addEventListener('click', () => tour.overview());
   $('tour-orbit').addEventListener('click', () => { tour.setOrbit(!tour.orbit); $('tour-orbit').setAttribute('aria-pressed', String(tour.orbit)); });
-  $('tour-menu').addEventListener('click', showMenu);
-  $('desktop-menu').addEventListener('click', showMenu);
-  $('btn-menu').addEventListener('click', showMenu);
+  $('desktop-menu').addEventListener('click', sessionMenu.open);
+  $('btn-menu').addEventListener('click', sessionMenu.open);
 
   player.events.addEventListener('lock', e => {
     if (!walkingMode()) { player.stop(); return; }
@@ -234,12 +245,12 @@ export function createUI(game) {
   });
   player.events.addEventListener('unlock', () => {
     document.body.classList.remove('playing');
-    if (walkingMode() && !mapPanel.classList.contains('open')) showMenu();
+    if (walkingMode() && !mapPanel.classList.contains('open')) sessionMenu.open();
   });
   player.events.addEventListener('fly', e => {
     document.body.classList.toggle('flying', e.detail.flying);
     $('btn-fly').setAttribute('aria-pressed', String(e.detail.flying));
-    toast(e.detail.flying ? 'Voando · Toque no avião para pousar' : 'Pousando');
+    toast(e.detail.flying ? 'Voando · Mais ações → Voar / pousar' : 'Pousando');
   });
   player.events.addEventListener('joystick', e => {
     const s = e.detail, el = $('joystick'); el.hidden = !s.active;
@@ -258,32 +269,43 @@ export function createUI(game) {
   });
 
   function openMap() {
-    if (!game.mode || game.mode === 'training') return;
+    if (!game.mode || sessionMenu.paused) return;
+    sessionMenu.setActions(false);
     game.audio?.setMenu(true);
     mapPanel.classList.add('open'); overlay.classList.add('hidden'); player.stop();
     tour.controls.enabled = false;
-    $('map-mode-label').textContent = game.mode === 'tour' ? 'MAPA DO TOUR' : game.mode === 'multiplayer' ? 'MAPA DA SALA' : 'MAPA DA TRETA';
+    $('map-mode-label').textContent = game.mode === 'training' ? 'MAPA DO TREINO' : game.mode === 'tour' ? 'MAPA DO TOUR' : game.mode === 'multiplayer' ? 'MAPA DA SALA' : 'MAPA DA TRETA';
     $('map-help').textContent = game.mode === 'tour' ? 'Arraste · Roda ou dois dedos para zoom · Selecione um ponto para visitar · M para voltar' : game.mode === 'multiplayer' ? 'Arraste · Roda ou dois dedos para zoom · Prata: defender o prédio · Campo: futebol de caixa · M para voltar' : 'Arraste · Roda ou dois dedos para zoom · Clique num ponto ou local para teleportar · M para voltar';
+    if (game.mode === 'training') $('map-help').textContent = 'Área de treino · Caixas e posição do personagem · M para voltar';
     hud.drawBigMap(tour.active ? engine.camera.position.x : player.feet.x, tour.active ? engine.camera.position.z : player.feet.z, player.yaw);
   }
   function closeMap(resume = true) {
     mapPanel.classList.remove('open');
     if (game.mode === 'tour') { tour.controls.enabled = true; game.audio?.setMenu(false); }
-    else if (resume) startWalking(game.mode === 'multiplayer' ? 'multiplayer' : 'campaign', touchSession);
+    else if (resume) resumeGame();
     else showMenu();
   }
-  $('tour-map').addEventListener('click', openMap);
-  $('btn-map').addEventListener('click', openMap);
   $('minimap').addEventListener('click', openMap);
   $('minimap').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMap(); } });
   $('map-close').addEventListener('click', () => closeMap());
   game.input.bind('KeyM', () => mapPanel.classList.contains('open') ? closeMap() : openMap(), { when: 'always', label: 'mapa' });
-  game.input.bind('Escape', event => { if (reactions.opened) { event.preventDefault(); reactions.close(); } else if (weaponWheel.open) { event.preventDefault(); weaponWheel.cancel(); } else if (game.mode) showMenu(); }, { when: 'always' });
+  game.input.bind('Escape', event => {
+    if (sessionMenu.paused) return; // Native dialog cancel resumes exactly once.
+    event.preventDefault();
+    if (sessionMenu.actionsOpen) sessionMenu.setActions(false);
+    else if (reactions.opened) reactions.close();
+    else if (weaponWheel.open) weaponWheel.cancel();
+    else if (mapPanel.classList.contains('open')) closeMap();
+    else if (game.mode) sessionMenu.open();
+  }, { when: 'always' });
   bindCollapsiblePanels();
-  game.input.bind('KeyH', () => $('help-toggle').click(), { label: 'esconder ajuda' });
+  game.input.bind('KeyH', () => sessionMenu.openControls(), { label: 'controles e atalhos' });
   addEventListener('resize', () => {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);
   });
-  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, reactions, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); }, get weaponWheelOpen() { return weaponWheel.open || reactions.opened; } };
+  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, reactions, sessionMenu, startMode, showMenu, openMap, closeMap, selectPoint,
+    get paused() { return sessionMenu.paused; },
+    get mapOpen() { return mapPanel.classList.contains('open'); },
+    get weaponWheelOpen() { return weaponWheel.open || reactions.opened || sessionMenu.actionsOpen || sessionMenu.paused; } };
 }

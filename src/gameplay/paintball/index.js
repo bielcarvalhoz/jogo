@@ -6,6 +6,7 @@ import { createPaintball } from './paintball.js';
 export { PAINTBALL_PALETTE, PAINTBALL_LIMITS, PAINTBALL_WEAPONS } from './paintball.js';
 export { loadWeaponModels } from './weapon-models.js';
 export { createWeaponPickups } from './pickups.js';
+export { createAmmoPickups } from './ammo-pickups.js';
 
 export function createPaintballModule(game) {
   const { scene, camera, renderer } = game.engine;
@@ -13,10 +14,13 @@ export function createPaintballModule(game) {
   const player = game.player;
   const paintEnabled = () => (player.active || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen && !game.ui?.weaponWheelOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true);
   const paintball = createPaintball({
-    scene, camera, getActive: paintEnabled,
+    scene, camera, getActive: paintEnabled, getVisible: () => player.active || game.debug.inspectionView === 'tinta',
     getCameraMode: () => player.cameraMode,
     colliderRoots: () => game.training?.active ? [game.training.floor, game.training.root, game.dynamicProps?.root].filter(Boolean) : [scene],
-    traceActors: (from, to) => game.multiplayer?.active ? game.multiplayer.raycast(from, to) : game.combat?.raycast(from, to),
+    traceActors: (from, to) => {
+      const live = game.multiplayer?.active ? game.multiplayer.raycast(from, to) : game.combat?.raycast(from, to), corpse = game.ragdolls?.raycast(from, to);
+      return corpse && (!live || corpse.distance < live.distance) ? corpse : live;
+    },
     updateWeaponPose: (gun, state) => player.updateWeapon?.(gun, state),
     getShotOrigin: target => player.getShotOrigin ? player.getShotOrigin(target) : camera.getWorldPosition(target),
     onShot: (weapon, recoil) => { game.audio?.shot(weapon, { position: recoil.origin }); player.avatar?.playShot(recoil?.recoilStrength); game.multiplayer?.attack(weapon, recoil); },
@@ -28,6 +32,7 @@ export function createPaintballModule(game) {
     onAttack: (weapon, state) => { game.audio?.melee?.(weapon, { position: player.eyePosition }); player.avatar?.playAttack?.(weapon, state); },
     onStrike: (weapon, info) => game.multiplayer?.attack(weapon, info),
     onImpact: (hit, info) => {
+      if (hit.corpse) { game.audio?.hit?.(hit, info); game.ragdolls.impact(hit, info); return; }
       if (game.multiplayer?.active) return;
       game.audio?.hit?.(hit, info);
       if (!game.combat?.impact(hit, info)) game.dynamicProps?.impact(hit, info);

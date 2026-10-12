@@ -32,6 +32,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     const entity = actor(pose), gun = new THREE.Group(); gun.userData.paintballIgnore = true; root.add(gun);
     const entry = { state, camera, avatar, entity, gun, weapon: null, update(p, dt) {
       if (p.dead && !entry.dead && entry.initialized) game.ragdolls?.capture(avatar.root, { impulse: p.deathImpulse });
+      if (entry.life !== p.life) { game.bodyPaint?.clear(avatar.root); entry.life = p.life; }
       entry.dead = p.dead; entry.initialized = true;
       const displacement = state.feet.distanceTo(new THREE.Vector3(p.x, p.y, p.z));
       if (!p.dead && displacement < 1 && Math.abs(p.y - state.feet.y) < .05) {
@@ -67,6 +68,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   function reconcile(snapshot, force = false) {
     const me = snapshot.players.find(p => p.id === network.session?.selfId); if (!me) return;
     if (force || me.life !== life) {
+      game.bodyPaint?.clear(game.player.avatar.root);
       life = me.life; pending = []; seq = Math.max(seq, me.seq);
       game.player.placeAt(me.x, me.z, me.yaw); game.player.feet.y = me.y; game.player.updateCamera(); return;
     }
@@ -97,6 +99,11 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   network.on('status', status => game.events.emit('multiplayerstatus', status));
   network.on('ended', message => { game.toast(message); game.ui?.showMenu(); });
   network.on(EV.event, event => {
+    if (event.type === 'ammoPickup' && event.player === network.session?.selfId) { game.paintball.refillAmmo(); game.audio?.ui('confirm'); game.toast('Munição coletada · +2 carregadores por arma'); }
+    if (event.type === 'paintHit') {
+      const victim = event.victim === network.session?.selfId ? game.player.avatar.root : views.get(event.victim)?.avatar.root || zombies.get(event.victim)?.view.root;
+      game.bodyPaint?.stamp(victim, event.point, event.normal, event.paintColor);
+    }
     if (event.type === 'emote') (event.player === network.session?.selfId ? game.player.avatar : views.get(event.player)?.avatar)?.playEmote(event.emote);
     if (event.type === 'shot' && event.player !== network.session?.selfId) {
       views.get(event.player)?.avatar.playShot();
@@ -185,7 +192,8 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     get active() { return game.mode === 'multiplayer'; }, get self() { return latest?.players.find(p => p.id === network.session?.selfId); },
     get canAct() { return !api.active || (network.ready && latest?.phase === 'running' && !!api.self && !api.self.dead); },
     get snapshot() { return latest; }, get roster() { return roster; }, get peerCount() { return mesh?.connectedCount || 0; }, get nearby() { return nearby; },
-    attack(weapon, info) { if (api.active) network.action({ type: 'attack', weapon: weapon.id || weapon, origin: info.origin, direction: info.direction, aiming: !!info.aiming }); },
+    attack(weapon, info) { if (api.active) network.action({ type: 'attack', weapon: weapon.id || weapon, origin: info.origin, direction: info.direction, aiming: !!info.aiming, paintColor: game.paintball.color.color }); },
+    pickupAmmo() { if (api.active && api.canAct) network.action({ type: 'pickupAmmo' }); },
     reload(weapon, active) { if (api.active) network.action({ type: active ? 'reload' : 'cancelReload', weapon }); },
     emote(id) { if (api.active && network.ready && api.self && !api.self.dead) network.action({ type: 'emote', emote: id }); },
     ready(value) { if (api.active && network.ready) network.action({ type: 'ready', ready: !!value }); },

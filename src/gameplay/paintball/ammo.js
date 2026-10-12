@@ -49,5 +49,13 @@ export function createAmmoStore() {
     if (loading.elapsed >= loading.duration) cancel();
   }
   reset();
-  return { state, reload, consume, update, cancel, reset };
+  function refill() {
+    let gained = 0;
+    for (const [id, ammo] of rounds) {
+      const w = WEAPON_BY_ID[id], count = Math.max(0, Math.min(w.magazineSize * 2, w.reserveAmmo * 2 - ammo.reserve));
+      ammo.reserve += count; gained += count;
+    }
+    return gained;
+  }
+  return { state, reload, consume, update, cancel, reset, refill };
 }

@@ -6,6 +6,7 @@ import { pointInPolygon, distToSegment, SpatialGrid } from '../src/shared/geo.js
 import { multiplayerLandmarks } from '../src/shared/multiplayer.js';
 import { createRegionCanvas } from './region-canvas.js';
 import { standVolumes } from '../src/shared/stands.js';
+import { CRATE_TYPES, cratePosition } from '../src/shared/props.js';
 
 export async function loadServerWorld() {
   const read = async name => JSON.parse(await fs.readFile(new URL(`../public/data/${name}`, import.meta.url), 'utf8'));
@@ -93,11 +94,10 @@ function createCrates(terrain, field) {
   }
   for (let z = 0; z < cells; z++) for (let x = 0; x < cells; x++) { const a = z * (cells + 1) + x, b = a + cells + 1; indices.push(a, b, a + 1, a + 1, b, b + 1); }
   world.createCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(vertices), new Uint32Array(indices)).setFriction(.7));
-  const crates = ['wood', 'metal'].map(type => {
-    const half = type === 'wood' ? .6 : .8, mass = type === 'wood' ? 6 : 72;
-    const spawn = { x: field.x + (type === 'wood' ? 0 : 5.6), y: field.y + half + .03, z: field.z - (type === 'wood' ? 0 : 1) };
+  const crates = Object.entries(CRATE_TYPES).map(([type, { half, mass, friction }]) => {
+    const spawn = { ...cratePosition(type, field), y: field.y + half + .03 };
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(spawn.x, spawn.y, spawn.z).setLinearDamping(.18).setAngularDamping(.35).setCcdEnabled(true));
-    world.createCollider(RAPIER.ColliderDesc.cuboid(half, half, half).setMass(mass).setFriction(type === 'wood' ? .45 : .8).setRestitution(.12), body);
+    world.createCollider(RAPIER.ColliderDesc.cuboid(half, half, half).setMass(mass).setFriction(friction).setRestitution(.12), body);
     return { id: type, type, half, mass, body, spawn, lastTouch: null };
   });
   return {

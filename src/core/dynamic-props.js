@@ -1,11 +1,24 @@
 import * as THREE from 'three';
+import { CRATE_TYPES, cratePosition } from '../shared/props.js';
+export { CRATE_TYPES } from '../shared/props.js';
 
 const FIXED_STEP = 1 / 60;
-export const CRATE_TYPES = Object.freeze({
-  wood: { half: .6, mass: 6, friction: .45 },
-  metal: { half: .8, mass: 72, friction: .8 },
-});
 let rapierReady;
+
+export function metalCrateTexture() {
+  const size = 128, pixels = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const frame = x < 8 || x > 119 || y < 8 || y > 119;
+    const seam = x === 8 || x === 119 || y === 8 || y === 119;
+    const rivet = [[5, 5], [122, 5], [5, 122], [122, 122]].some(([a, b]) => (x - a) ** 2 + (y - b) ** 2 < 7);
+    const grain = Math.sin(y * 2.43) * 5 + Math.sin(x * 1.19 + y * 12.7) * 2;
+    const scratch = y % 37 === 11 && x > 24 && x < 70 ? 12 : 0;
+    const c = rivet ? 174 : seam ? 50 : (frame ? 104 : 126) + grain + scratch;
+    pixels.set([c * .83, c * .94, c, 255], (y * size + x) * 4);
+  }
+  const texture = new THREE.DataTexture(pixels, size, size, THREE.RGBAFormat); texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.LinearFilter; texture.needsUpdate = true; return texture;
+}
 
 /** A small deterministic plank texture, including battens and nail heads. */
 export function woodenCrateTexture() {
@@ -42,16 +55,17 @@ export async function createDynamicProps(game) {
   const root = new THREE.Group(); root.name = 'rapier-test-crates';
   game.engine.scene.add(root);
   const texture = woodenCrateTexture();
+  const metalTexture = metalCrateTexture();
   const resources = Object.fromEntries(Object.entries(CRATE_TYPES).map(([type, { half }]) => [type, {
     geometry: new THREE.BoxGeometry(half * 2, half * 2, half * 2),
     material: new THREE.MeshStandardMaterial(type === 'wood' ? { map: texture, roughness: .91 }
-      : { color: 0x657580, metalness: .82, roughness: .35 }),
+      : { map: metalTexture, bumpMap: metalTexture, bumpScale: .018, metalness: .88, roughness: .42 }),
   }]));
   const campaign = footballFieldCenter(game), training = { x: game.training.spawn.x, z: game.training.spawn.z - 4 };
   const crates = [];
   for (const [mode, center] of [['campaign', campaign], ['training', training]]) for (const [type, spec] of Object.entries(CRATE_TYPES)) {
     // The metal box sits beyond the pickup lane/ring, with a clear firing lane.
-    const at = type === 'metal' ? { x: center.x + 5.6, z: center.z - 1 } : center;
+    const at = cratePosition(type, center);
     const { half, mass, friction } = spec;
     const y = mode === 'training' ? 0 : game.map.terrain.heightAt(at.x, at.z);
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(at.x, y + half + .03, at.z)
@@ -62,6 +76,7 @@ export async function createDynamicProps(game) {
     mesh.castShadow = mesh.receiveShadow = true;
     mesh.userData.dynamicBody = true;
     mesh.userData.dynamicPaint = true;
+    mesh.userData.keepStandard = type !== 'wood';
     const crate = { mode, type, mass, mesh, body, bounds: new THREE.Box3(), damage: 0, hits: 0, spawn: new THREE.Vector3(at.x, y + half + .03, at.z) };
     mesh.userData.crate = crate;
     root.add(mesh); crates.push(crate);
@@ -102,7 +117,7 @@ export async function createDynamicProps(game) {
   function update(dt) {
     if (disposed) return;
     sync();
-    if (!game.player?.active || !['campaign', 'training'].includes(game.mode)) { accumulator = 0; return; }
+    if (!game.player?.active || game.ui?.paused || game.ui?.mapOpen || !['campaign', 'training'].includes(game.mode)) { accumulator = 0; return; }
     accumulator += Math.min(.05, Math.max(0, dt));
     while (accumulator >= FIXED_STEP) { world.step(); accumulator -= FIXED_STEP; }
     for (const crate of crates) {
@@ -169,6 +184,6 @@ export async function createDynamicProps(game) {
       sync();
     },
     roofAt: (x, z, y) => surfaceHeightAt(x, z, y + .05),
-    dispose() { if (disposed) return; disposed = true; root.removeFromParent(); for (const { geometry, material } of Object.values(resources)) { geometry.dispose(); material.dispose(); } texture.dispose(); world.free(); },
+    dispose() { if (disposed) return; disposed = true; root.removeFromParent(); for (const { geometry, material } of Object.values(resources)) { geometry.dispose(); material.dispose(); } texture.dispose(); metalTexture.dispose(); world.free(); },
   };
 }

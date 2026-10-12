@@ -93,7 +93,8 @@ encaixe da arma continua atualizado para disparos e colisões. Não há imports 
 pendentes e bloqueia novos ataques. `Z` alterna esse estado; selecionar uma arma
 explicitamente equipa novamente. Sem guarda, o avatar usa `Idle_Loop` completo
 e os braços ficam fora da vista em primeira pessoa. `C` agacha e `V` troca tinta;
-os botões de desarmar/agachar ficam ao lado da tinta no toque.
+agachar fica no canto inferior esquerdo no toque. Desarmar, tinta, reações,
+câmera e outras ações ficam na grade recolhida de **Mais ações**, no topo esquerdo.
 
 `weapons.js` mantém o catálogo e a regra de dois slots de fogo, um melee e socos
 sempre disponíveis. `paintball.inventory` retorna `{slots, selected, lastFirearmSlot}`;
@@ -193,11 +194,25 @@ pela IA também recarregam a cada 30 tiros. A UI mostra contagem, tempo e barra.
 `muzzle-paint.js` mantém 96 gotas instanciadas recicladas, dez por disparo, sem
 criar geometrias por tiro.
 
+`game.ammoPickups` cria caixas de munição no treino e no campo de futebol.
+`refillAmmo()` acrescenta dois carregadores à reserva de cada arma, limitada ao
+dobro da reserva inicial, sem carregar a arma ou interromper a recarga.
+Coletar exige proximidade por E ou botão contextual; o loot retorna após 15 s.
+No multiplayer a autoridade valida distância, visão, estoque e cooldown.
+`shared/props.js` mantém posições, dimensões e massas das caixas para cliente e
+servidor. Uma caixa metálica de 0,8 m de altura serve de degrau para a de 1,6 m.
+
 `game.ragdolls`, criado por `core/ragdolls.js`, oferece `capture(root, options)`,
-`clear()` e `dispose()`. Humanos, zumbis, jogador local e jogadores remotos deixam
-uma cópia de corpo inteiro com 11 cápsulas e juntas esféricas em um mundo Rapier
+`raycast(from, to)`, `impact(hit, info)`, `clear()` e `dispose()`. Humanos,
+zumbis, jogador local e jogadores remotos deixam uma cópia de corpo inteiro
+com 11 cápsulas em um mundo Rapier
 cosmético. O corpo permanece físico por 10 s; depois libera a física e afunda
 suavemente por 2,5 s, com profundidade suficiente para esconder o corpo inteiro.
+Juntas fixas preservam pelve, tórax e pescoço; membros mantêm juntas esféricas.
+Tiros e golpes aplicam impulso ao corpo e ao membro atingido.
+`body-paint.js` projeta manchas na superfície deformada, presas ao osso dominante.
+Até 24 manchas por personagem acompanham as animações e sua cópia morta;
+respawn limpa apenas o personagem vivo. Novos tiros também mancham o ragdoll.
 `core/ragdoll-colliders.js` amostra terreno e recorta triângulos reais de paredes,
 escadas, arquibancadas e pisos próximos, aproveitando BVHs existentes. A região
 de 16 × 16 m acompanha corpos arremessados; caixas usam proxies cinemáticos
@@ -218,8 +233,13 @@ direitos e filtros de paintball estão em `public/audio/README.md`.
 
 `ui/collapsible.js` conecta painéis `data-collapsible` a botões com `aria-controls`.
 Abertura/fechamento anima altura por CSS grid e opacidade; `inert` retira o conteúdo
-fechado da navegação. Localização, minimapa, ajuda, detalhes do tour e placar
-começam recolhidos; nomes e SVGs compõem os itens de arma. `H` alterna a ajuda.
+fechado da navegação. Localização, detalhes do tour e placares começam recolhidos.
+O minimapa permanece visível e clicável, sem cabeçalho ou botão separado de mapa.
+`ui/game-menu.js` abre configurações do modo em um dialog azul translúcido;
+continuar preserva a partida e só a opção explícita de sair abre o menu principal.
+`ui/controls-guide.js` organiza teclas desenhadas, mouse e gestos de toque dentro
+dessas configurações; H abre o guia e não há ícone de ajuda na HUD.
+Nunito é a fonte da interface; Jersey 10 fica restrita ao logo da capa.
 
 `gameplay/paintball/surface-paint.js` recorta triângulos de superfícies próximas com
 um pincel volumétrico. A máscara de tinta usa coordenadas 3D para atravessar quinas

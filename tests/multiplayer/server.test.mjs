@@ -22,6 +22,23 @@ const fixture = t => {
 };
 const place = (p, position) => { p.entity.position = { ...position }; p.entity.protectedUntil = 0; updateHumanoidHitboxes(p.entity); };
 
+test('ammo loot is server-owned, requires proximity and clear sight, and only one player can collect per cooldown', t => {
+  const { s, events } = fixture(t), a = s.addPlayer('a', {}), b = s.addPlayer('b', {});
+  assert.equal(s.handleAction('a', { type: 'pickupAmmo' }), false, 'remote pickups must be rejected');
+  const at = { ...s.snapshot().ammoLoot.position, y: field.y };
+  place(a, at); place(b, at);
+  const reserve = a.ammunition.state('pistol').reserve;
+  assert.equal(s.handleAction('a', { type: 'pickupAmmo' }), true);
+  assert.equal(a.ammunition.state('pistol').reserve, reserve + 40);
+  assert.equal(s.handleAction('b', { type: 'pickupAmmo' }), false);
+  assert.equal(events.filter(e => e.type === 'ammoPickup').length, 1);
+  advance(s, 15.1);
+  const trace = flat.trace; flat.trace = () => ({ point: at });
+  try { assert.equal(s.handleAction('b', { type: 'pickupAmmo' }), false, 'a wall must block the pickup'); }
+  finally { flat.trace = trace; }
+  assert.equal(s.handleAction('b', { type: 'pickupAmmo' }), true);
+});
+
 test('ranking sorts kills, assists and then fewer deaths without mutating snapshots', () => {
   const players = [{ id: 'a', kills: 2, assists: 1, deaths: 5 }, { id: 'b', kills: 3, assists: 0, deaths: 8 }, { id: 'c', kills: 2, assists: 2, deaths: 4 }, { id: 'd', kills: 2, assists: 2, deaths: 1 }];
   assert.deepEqual(rankPlayers(players).map(p => p.id), ['b', 'd', 'c', 'a']); assert.equal(players[0].id, 'a');

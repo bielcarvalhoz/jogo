@@ -3,6 +3,7 @@ import { updateHumanoidHitboxes } from '../src/gameplay/combat/hitboxes.js';
 import { WEAPON_BY_ID } from '../src/gameplay/paintball/weapons.js';
 import { createAmmoStore } from '../src/gameplay/paintball/ammo.js';
 import { EMOTES, finitePoint, separatedSpawn, cleanName } from '../src/shared/multiplayer.js';
+import { ammoPosition, AMMO_RESPAWN_SECONDS } from '../src/shared/props.js';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -13,6 +14,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   const players = new Map(), physics = world.createCrates(), projectiles = [];
   const defense = { status: 'idle', wave: 0, totalWaves: 5, remaining: 0, nextWaveAt: 0 };
   const football = { status: 'idle', score: [0, 0], target: 5, resetAt: 0, lastScorer: null };
+  const ammoLoot = { position: ammoPosition(world.landmarks.field), availableAt: 0 };
   let serial = 0, disposed = false, phase = 'waiting';
   function tryStart() {
     if (phase !== 'waiting' || !players.size || ![...players.values()].every(p => p.ready && p.connected)) return;
@@ -87,10 +89,13 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const actor = sim.traceActors(a, b, { source }), wall = world.trace(a, b), crate = physics.trace(a, b);
     return [actor, wall, crate].filter(Boolean).sort((x, y) => x.distance - y.distance)[0] || null;
   }
-  function impact(hit, source, weapon, direction) {
+  function impact(hit, source, weapon, direction, paintColor = '#d91e44') {
     const surface = hit.entity ? 'flesh' : hit.crate?.type || (Math.abs(hit.normal?.y || 0) > .7 ? 'dirt' : 'concrete');
     emit('impact', { point: hit.point, surface, kind: weapon.kind });
-    if (hit.entity) sim.damage(hit.entity, { source, region: hit.region, weapon });
+    if (hit.entity) {
+      if (weapon.kind === 'firearm') emit('paintHit', { victim: hit.entity.id, point: hit.point, normal: hit.normal, paintColor });
+      sim.damage(hit.entity, { source, region: hit.region, weapon });
+    }
     if (hit.crate) {
       const c = hit.crate, power = weapon.impulse * (weapon.kind === 'firearm' ? 4 : 4.5);
       c.body.applyImpulseAtPoint({ x: direction.x * power, y: direction.y * power + (weapon.kind === 'firearm' ? 0 : power * .13), z: direction.z * power }, hit.point, true);
@@ -128,7 +133,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
       const a = random() * Math.PI * 2, r = i === 0 && weapon.pellets > 1 ? 0 : Math.sqrt(random()) * (action.aiming ? weapon.spread : weapon.hipSpread || weapon.spread);
       const d = { x: direction.x + right.x * Math.cos(a) * r + up.x * Math.sin(a) * r, y: direction.y + up.y * Math.sin(a) * r, z: direction.z + right.z * Math.cos(a) * r + up.z * Math.sin(a) * r };
       const l = Math.hypot(d.x, d.y, d.z); for (const key of ['x', 'y', 'z']) d[key] /= l;
-      const bullet = { id: ++serial, source: e, weapon, position: { ...origin }, direction: d, traveled: 0 };
+      const bullet = { id: ++serial, source: e, weapon, position: { ...origin }, direction: d, traveled: 0, paintColor: /^#[0-9a-f]{6}$/i.test(action.paintColor || '') ? action.paintColor : '#d91e44' };
       if (projectiles.length < 256) projectiles.push(bullet);
       bullets.push({ id: bullet.id, direction: d });
     }
@@ -145,6 +150,14 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     if (!p || !p.connected || !action || p.entity.dead) return false;
     if (action.type === 'ready' && phase === 'waiting' && typeof action.ready === 'boolean') { p.ready = action.ready; tryStart(); return true; }
     if (phase !== 'running' && action.type !== 'emote') return false;
+    if (action.type === 'pickupAmmo') {
+      const at = p.entity.position, y = world.terrain.heightAt(ammoLoot.position.x, ammoLoot.position.z);
+      if (sim.time < ammoLoot.availableAt || distance(at, ammoLoot.position) > 1.8 || Math.abs(at.y - y) > 1.8) return false;
+      if (world.trace({ ...at, y: at.y + .8 }, { ...ammoLoot.position, y: y + .3 })) return false;
+      const gained = p.ammunition.refill(); if (!gained) return false;
+      ammoLoot.availableAt = sim.time + AMMO_RESPAWN_SECONDS;
+      emit('ammoPickup', { player: id, availableAt: ammoLoot.availableAt, gained }); return true;
+    }
     if (action.type === 'attack') return attack(p, action);
     if (action.type === 'cancelReload') { p.ammunition.cancel(); emit('reload', { player: id, weapon: p.weapon, active: false }); return true; }
     if (action.type === 'reload') {
@@ -176,7 +189,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     for (let i = projectiles.length - 1; i >= 0; i--) {
       const b = projectiles[i], next = { x: b.position.x + b.direction.x * b.weapon.speed * dt, y: b.position.y + b.direction.y * b.weapon.speed * dt, z: b.position.z + b.direction.z * b.weapon.speed * dt };
       const hit = firstHit(b.position, next, b.source); b.traveled += b.weapon.speed * dt;
-      if (hit) { impact(hit, b.source, b.weapon, b.direction); emit('bulletEnd', { bullet: b.id }); }
+      if (hit) { impact(hit, b.source, b.weapon, b.direction, b.paintColor); emit('bulletEnd', { bullet: b.id }); }
       if (hit || b.traveled >= b.weapon.range) projectiles.splice(i, 1); else b.position = next;
     }
     const wood = physics.crates[0], before = { ...wood.body.translation() };
@@ -222,7 +235,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     health: e.health.current, maxHealth: e.health.max, dead: !!e.dead, deathImpulse: e.dead?.impulse, respawnIn: e.dead ? Math.max(0, 3 - (sim.time - e.dead.at)) : 0, protected: sim.time < e.protectedUntil,
     kills: e.stats.kills, assists: e.stats.assists, deaths: e.stats.deaths, action: e.action, actionSerial: e.actionSerial });
   return { players, sim, physics, defense, football, objective, projectiles, addPlayer, removePlayer, setPose, handleAction, step,
-    snapshot: () => ({ phase, time: sim.time, players: [...players.values()].map(p => ({ ...pack(p.entity), ready: p.ready, seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, ammo: p.ammunition.state(p.weapon), holstered: p.holstered, emote: p.emote })),
+    snapshot: () => ({ phase, time: sim.time, ammoLoot: { ...ammoLoot }, players: [...players.values()].map(p => ({ ...pack(p.entity), ready: p.ready, seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, ammo: p.ammunition.state(p.weapon), holstered: p.holstered, emote: p.emote })),
       zombies: [...sim.actors].filter(e => e.kind === 'zombie').map(pack), crates: physics.snapshot(), defense: { ...defense, health: objective.health.current, maxHealth: objective.health.max }, football: { ...football, score: [...football.score] } }),
     dispose() { if (disposed) return; disposed = true; sim.dispose(); physics.dispose(); },
   };

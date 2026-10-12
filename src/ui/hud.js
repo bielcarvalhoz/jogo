@@ -4,7 +4,7 @@ import { placeMarker } from './marker-layout.js';
 
 // HUD: painel de localização, minimapa (norte para cima) e mapa grande clicável.
 
-export function createHud({ groundCanvas, bounds, footprints, quarter, proj, terrain, streetAt, places, onSelect = () => {}, getMode = () => 'campaign' }) {
+export function createHud({ groundCanvas, bounds, footprints, quarter, proj, terrain, streetAt, places, onSelect = () => {}, getMode = () => 'campaign', training, dynamicProps }) {
   const { x0, z0, width, depth } = bounds;
 
   // mapa base (chão + plantas + limite do bairro), ~1 px/m
@@ -40,13 +40,33 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
   const VIEW_M = 260; // metros visíveis no minimapa
   function drawMinimap(x, z, yaw) {
     const W = mini.width, H = mini.height;
+    if (getMode() === 'training') { drawTraining(mctx, W, H, x, z, yaw, 32); return; }
     mctx.fillStyle = '#20252b';
     mctx.fillRect(0, 0, W, H);
     const sw = VIEW_M * S;
     mctx.drawImage(base, (x - x0) * S - sw / 2, (z - z0) * S - sw / 2, sw, sw, 0, 0, W, H);
     arrow(mctx, W / 2, H / 2, yaw, 9);
-    mctx.fillStyle = '#fff'; mctx.font = 'bold 13px Segoe UI, sans-serif'; mctx.textAlign = 'center';
+    mctx.fillStyle = '#fff'; mctx.font = 'bold 13px Nunito, sans-serif'; mctx.textAlign = 'center';
     mctx.fillText('N', W / 2, 15);
+  }
+
+  function drawTraining(ctx, W, H, x, z, yaw, metres) {
+    const scale = Math.min(W, H) / metres, cx = training.spawn.x, cz = training.spawn.z - 8;
+    const point = (wx, wz) => [W / 2 + (wx - cx) * scale, H / 2 + (wz - cz) * scale];
+    ctx.fillStyle = '#1a3343'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#b1e9fb18'; ctx.lineWidth = 1;
+    for (let i = -metres; i <= metres; i += 2) {
+      const [px, py] = point(cx + i, cz + i); ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    }
+    ctx.fillStyle = '#7995a9';
+    for (const box of training.obstacles) { const [px, py] = point(box.min.x, box.min.z); ctx.fillRect(px, py, (box.max.x - box.min.x) * scale, (box.max.z - box.min.z) * scale); }
+    for (const crate of dynamicProps?.crates || []) {
+      if (crate.mode !== 'training') continue;
+      const [px, py] = point(crate.bounds.min.x, crate.bounds.min.z); ctx.fillStyle = crate.type === 'wood' ? '#d8a264' : '#b1e9fb';
+      ctx.fillRect(px, py, (crate.bounds.max.x - crate.bounds.min.x) * scale, (crate.bounds.max.z - crate.bounds.min.z) * scale);
+    }
+    const [px, py] = point(x, z); arrow(ctx, px, py, yaw, W < 300 ? 9 : 12);
+    ctx.fillStyle = '#f4f9fc'; ctx.font = '800 13px Nunito'; ctx.textAlign = 'center'; ctx.fillText('N', W / 2, 18);
   }
 
   function arrow(ctx, cx, cy, yaw, r) {
@@ -83,6 +103,7 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
     lastState = { x, z, yaw };
     if (!sizeMap()) return;
     const W = view.width, H = view.height;
+    if (getMode() === 'training') { markerHits = []; drawTraining(bctx, W, H, x, z, yaw, 48); dirty = false; return; }
     const gradient = bctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H));
     gradient.addColorStop(0, '#49675d'); gradient.addColorStop(1, '#152d36');
     bctx.fillStyle = gradient; bctx.fillRect(0, 0, W, H);
@@ -100,24 +121,25 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
       bctx.beginPath(); bctx.moveTo(anchorX, anchorY); bctx.lineTo(sx, sy); bctx.stroke();
       bctx.fillStyle = '#ffc940'; bctx.strokeStyle = '#14232d'; bctx.lineWidth = 2;
       bctx.beginPath(); bctx.arc(sx, sy, 11, 0, Math.PI * 2); bctx.fill(); bctx.stroke();
-      bctx.font = 'bold 10px Segoe UI, sans-serif'; bctx.textAlign = 'center'; bctx.fillStyle = '#15222a';
+      bctx.font = 'bold 10px Nunito, sans-serif'; bctx.textAlign = 'center'; bctx.fillStyle = '#15222a';
       bctx.fillText(p.number, sx, sy + 3.5);
       if (view.zoom > 5) {
-        bctx.textAlign = 'left'; bctx.font = '11px Segoe UI, sans-serif'; bctx.lineWidth = 3;
+        bctx.textAlign = 'left'; bctx.font = '11px Nunito, sans-serif'; bctx.lineWidth = 3;
         bctx.strokeText(p.name, sx + 17, sy + 4); bctx.fillStyle = '#fff'; bctx.fillText(p.name, sx + 17, sy + 4);
       }
     }
     const [px, py] = view.toScreen(x, z);
     if (!tour) arrow(bctx, px, py, yaw, 9);
     else { bctx.strokeStyle = '#fff'; bctx.lineWidth = 2; bctx.beginPath(); bctx.arc(px, py, 5, 0, Math.PI * 2); bctx.stroke(); }
-    bctx.textAlign = 'left'; bctx.font = 'bold 12px Segoe UI, sans-serif'; bctx.fillStyle = '#fff'; bctx.fillText('N ↑', 12, 22);
+    bctx.textAlign = 'left'; bctx.font = 'bold 12px Nunito, sans-serif'; bctx.fillStyle = '#fff'; bctx.fillText('N ↑', 12, 22);
     // A physical scale bar stays meaningful at every zoom level.
     const metres = view.zoom < 3 ? 200 : view.zoom < 8 ? 100 : 25;
-    bctx.fillRect(12, H - 22, metres * scale, 2); bctx.font = '10px Segoe UI, sans-serif'; bctx.fillText(`${metres} m`, 12, H - 29);
+    bctx.fillRect(12, H - 22, metres * scale, 2); bctx.font = '10px Nunito, sans-serif'; bctx.fillText(`${metres} m`, 12, H - 29);
     dirty = false;
   }
 
   function bigMapToWorld(clientX, clientY) {
+    if (getMode() === 'training') return null;
     const r = big.getBoundingClientRect();
     const [wx, wz] = view.toWorld(clientX - r.left, clientY - r.top);
     if (wx < x0 || wz < z0 || wx > x0 + width || wz > z0 + depth) return null;
@@ -189,9 +211,11 @@ export function createHud({ groundCanvas, bounds, footprints, quarter, proj, ter
     }
     if (t - lastText < 0.15) return;
     lastText = t;
+    if (getMode() === 'training') return;
     const [lon, lat] = proj.toLonLat(feet.x, feet.z);
     const s = streetAt(feet.x, feet.z);
     street.textContent = s ? s.name : '—';
+    street.closest('.compact-location').hidden = !s?.name;
     coords.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
     alt.textContent = `${(terrain.heightAt(feet.x, feet.z) + terrain.base).toFixed(0)} m`;
     const inside = quarter && pointInPolygon(feet.x, feet.z, quarter);

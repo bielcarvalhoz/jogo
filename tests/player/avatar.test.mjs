@@ -359,6 +359,13 @@ test('first-person boxing keeps both closed fists visible through jab/cross and 
       const track = punchClip.tracks.find(track => track.name === `DEF-f_index02${side}.quaternion`);
       const original = new THREE.Quaternion().fromArray(track.createInterpolant().evaluate(punchClip.duration - .001));
       assert.ok(avatar.bones[`DEF-f_index02${side}`].quaternion.angleTo(original) > .4, 'close view must tighten the original loose finger curl');
+      const hand = avatar.bones[`DEF-hand${side}`];
+      const knuckle = hand.worldToLocal(avatar.bones[`DEF-f_index01${side}`].getWorldPosition(new THREE.Vector3()));
+      const distal = hand.worldToLocal(avatar.bones[`DEF-f_index03${side}`].getWorldPosition(new THREE.Vector3()));
+      assert.ok(distal.y < knuckle.y - .004, 'fingers must fold back below the knuckles, not stay extended');
+      const forward = new THREE.Vector3(0, 1, 0).applyQuaternion(hand.getWorldQuaternion(new THREE.Quaternion()));
+      const view = camera.getWorldDirection(new THREE.Vector3());
+      assert.ok(forward.dot(view) > .95, 'knuckles must point forward, not out of the sides of the view');
     }
     for (const sequence of [0, 1]) {
       avatar.playAttack({ id: 'fists', kind: 'unarmed', interval: .42 }, { sequence });
@@ -394,6 +401,9 @@ test('first-person jab and cross extend the whole arm toward the target and reco
         avatar.update(.015); avatar.updateWeapon(gun, { weapon: 'fists', kind: 'unarmed' }); frames.push(sample());
       }
       const impact = frames.reduce((best, frame) => frame.wrist.z < best.wrist.z ? frame : best);
+      const windup = frames.reduce((best, frame) => frame.wrist.z > best.wrist.z ? frame : best);
+      assert.ok(windup.wrist.z - idle.wrist.z > .04, 'fist must draw back before extending');
+      assert.ok(windup.shoulder.z - idle.shoulder.z > .02, 'upper arm must draw back with the fist');
       assert.ok(idle.wrist.z - impact.wrist.z > .20, 'fist must travel forward visibly');
       assert.ok(idle.shoulder.z - impact.shoulder.z > .15, 'shoulder must drive the strike');
       assert.ok(idle.elbow.distanceTo(impact.elbow) > .15, 'elbow must travel with the forearm');

@@ -15,6 +15,21 @@ test('campaign crate uses the football-field centre, ignoring closing vertex', (
   assert.deepEqual(footballFieldCenter(fixture()), { x: 0, z: 0 });
 });
 
+test('metal step sits beside the large crate with two usable parkour surfaces', async () => {
+  const game = fixture(), props = await createDynamicProps(game);
+  try {
+    for (let i = 0; i < 100; i++) props.update(1 / 60);
+    const large = props.crates.find(c => c.mode === 'training' && c.type === 'metal');
+    const step = props.crates.find(c => c.mode === 'training' && c.type === 'metalStep');
+    assert.ok(step); assert.ok(step.mesh.position.distanceTo(large.mesh.position) < 1.7);
+    const stepTop = props.surfaceHeightAt(step.mesh.position.x, step.mesh.position.z, 1.1);
+    const largeTop = props.surfaceHeightAt(large.mesh.position.x, large.mesh.position.z, 2);
+    assert.ok(Math.abs(stepTop - .8) < .04); assert.ok(Math.abs(largeTop - 1.6) < .04);
+    assert.ok(largeTop - stepTop < .85, 'second jump remains reachable');
+    assert.ok(large.mesh.material.metalness > .8); assert.ok(large.mesh.material.map && large.mesh.material.bumpMap);
+  } finally { props.dispose(); }
+});
+
 test('Rapier crate settles, receives off-centre shot/melee impulses, and switches spaces', async () => {
   const game = fixture(), props = await createDynamicProps(game);
   try {

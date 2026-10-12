@@ -150,7 +150,6 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
       e.preventDefault(); dom.focus?.({ preventScroll: true }); return;
     }
     if (e.target?.closest?.('button') && ['Space', 'Enter'].includes(e.code)) return;
-    if (mode === 'drag' && active && !weaponWheelOpen && !e.defaultPrevented && e.code === 'Escape') { setActive(false); return; }
     if (active && canAct()) { onKey(e, true); if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => onKey(e, false));
