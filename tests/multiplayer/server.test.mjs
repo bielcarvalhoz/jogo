@@ -63,6 +63,24 @@ test('scenery and disconnected ghosts cannot be used as targets or shot through'
   assert.equal(s.handleAction('a', { type: 'attack', weapon: 'sniper', origin: { ...field, x: field.x + 100 }, direction: { x: 0, y: 0, z: -1 } }), false);
 });
 
+test('authority enforces finite magazines, reload time, cancellation and independent weapon ammo', t => {
+  const { s, events } = fixture(t), p = s.addPlayer('a', {}); place(p, { ...field, x: field.x - 4 });
+  const shot = { type: 'attack', weapon: 'pistol', origin: { ...p.entity.position, y: field.y + 1.4 }, direction: { x: 0, y: 0, z: 1 } };
+  for (let i = 0; i < 20; i++) { assert.equal(s.handleAction('a', shot), true); advance(s, .2); }
+  assert.equal(s.handleAction('a', shot), false); assert.equal(s.snapshot().players[0].ammo.loaded, 0);
+  assert.equal(s.handleAction('a', { type: 'reload', weapon: 'automatic' }), false);
+  assert.equal(s.handleAction('a', { type: 'reload', weapon: 'pistol' }), true);
+  advance(s, 1); assert.equal(s.handleAction('a', shot), false);
+  assert.equal(s.handleAction('a', { type: 'cancelReload' }), true); advance(s, 2);
+  assert.equal(p.ammunition.state('pistol').loaded, 0); assert.equal(p.ammunition.state('pistol').reserve, 120);
+  s.handleAction('a', { type: 'reload', weapon: 'pistol' }); advance(s, 2.3);
+  assert.equal(p.ammunition.state('pistol').loaded, 20); assert.equal(p.ammunition.state('pistol').reserve, 100);
+  assert.equal(s.handleAction('a', shot), true); advance(s, .2);
+  assert.equal(s.handleAction('a', { ...shot, weapon: 'automatic' }), true);
+  assert.equal(p.ammunition.state('automatic').loaded, 29); assert.equal(p.ammunition.state('pistol').loaded, 19);
+  assert.ok(events.some(event => event.type === 'reload' && event.active));
+});
+
 test('defense requires proximity, creates portal waves, advances after kills and finishes after five waves', t => {
   const { s, events } = fixture(t), p = s.addPlayer('p', {});
   assert.equal(s.handleAction('p', { type: 'interact', game: 'defense' }), false);

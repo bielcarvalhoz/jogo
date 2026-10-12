@@ -1,6 +1,7 @@
 import { createCombatSimulation } from '../src/gameplay/combat/simulation.js';
 import { updateHumanoidHitboxes } from '../src/gameplay/combat/hitboxes.js';
 import { WEAPON_BY_ID } from '../src/gameplay/paintball/weapons.js';
+import { createAmmoStore } from '../src/gameplay/paintball/ammo.js';
 import { EMOTES, finitePoint, separatedSpawn, cleanName } from '../src/shared/multiplayer.js';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -22,7 +23,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     random, traceScenery: world.trace,
     onEvent(event) {
       if (event.type === 'damage') emit('damage', { victim: event.victim.id, source: event.source?.id, region: event.region, damage: event.damage, remaining: event.remaining });
-      if (event.type === 'death') emit('death', { victim: event.victim.id, source: event.source?.id });
+      if (event.type === 'death') emit('death', { victim: event.victim.id, source: event.source?.id, impulse: event.victim.dead.impulse });
     },
   });
   sim.navigation.setObstacles(world.obstacles);
@@ -36,7 +37,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const entity = sim.spawn({ kind: 'player', id, position: spawnFor() });
     entity.protectedUntil = sim.time + 2;
     const player = { entity, character: { name: cleanName(character?.name, 'Sato', 24), appearance: character?.appearance || {} }, seq: 0,
-      connected: true, aiming: false, budget: .7, nextAttackAt: 0, nextEmoteAt: 0, emote: null, life: 1, lastPoseAt: sim.time, weapon: 'pistol', holstered: false };
+      connected: true, ammunition: createAmmoStore(), aiming: false, budget: .7, nextAttackAt: 0, nextEmoteAt: 0, emote: null, life: 1, lastPoseAt: sim.time, weapon: 'pistol', holstered: false };
     players.set(id, player); return player;
   }
   function removePlayer(id) { const p = players.get(id); if (p) sim.remove(p.entity); players.delete(id); }
@@ -58,8 +59,12 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     e.velocity = { x: (next.x - before.x) / dt, y: (next.y - before.y) / dt, z: (next.z - before.z) / dt };
     e.action = distance(before, next) > .001 ? 'walk' : 'idle'; updateHumanoidHitboxes(e, e.crouched);
     p.seq = pose.seq; p.lastPoseAt = sim.time;
-    if (typeof pose.weapon === 'string' && Object.hasOwn(WEAPON_BY_ID, pose.weapon)) p.weapon = pose.weapon;
+    if (typeof pose.weapon === 'string' && Object.hasOwn(WEAPON_BY_ID, pose.weapon)) {
+      if (p.weapon !== pose.weapon) p.ammunition.cancel();
+      p.weapon = pose.weapon;
+    }
     p.holstered = !!pose.holstered;
+    if (p.holstered) p.ammunition.cancel();
     // The server applies contact pushes; the client's Rapier world is only a view.
     for (const crate of physics.crates) {
       const at = crate.body.translation(), delta = distance(next, at);
@@ -75,6 +80,8 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     return [actor, wall, crate].filter(Boolean).sort((x, y) => x.distance - y.distance)[0] || null;
   }
   function impact(hit, source, weapon, direction) {
+    const surface = hit.entity ? 'flesh' : hit.crate?.type || (Math.abs(hit.normal?.y || 0) > .7 ? 'dirt' : 'concrete');
+    emit('impact', { point: hit.point, surface, kind: weapon.kind });
     if (hit.entity) sim.damage(hit.entity, { source, region: hit.region, weapon });
     if (hit.crate) {
       const c = hit.crate, power = weapon.impulse * (weapon.kind === 'firearm' ? 4 : 4.5);
@@ -90,6 +97,8 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const len = Math.hypot(action.direction.x, action.direction.y, action.direction.z);
     if (len < .9 || len > 1.1) return false;
     const direction = { x: action.direction.x / len, y: action.direction.y / len, z: action.direction.z / len };
+    if (p.weapon !== weapon.id) p.ammunition.cancel();
+    if (weapon.kind === 'firearm' && !p.ammunition.consume(weapon.id)) return false;
     p.nextAttackAt = sim.time + weapon.interval; p.weapon = weapon.id;
     // Never let a third-person muzzle beyond a wall shoot through that wall.
     const obstruction = world.trace(expected, action.origin), origin = obstruction ? expected : { ...action.origin };
@@ -127,6 +136,11 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const p = players.get(id);
     if (!p || !p.connected || !action || p.entity.dead) return false;
     if (action.type === 'attack') return attack(p, action);
+    if (action.type === 'cancelReload') { p.ammunition.cancel(); emit('reload', { player: id, weapon: p.weapon, active: false }); return true; }
+    if (action.type === 'reload') {
+      if (p.holstered || action.weapon !== p.weapon || !p.ammunition.reload(p.weapon)) return false;
+      emit('reload', { player: id, weapon: p.weapon, active: true, duration: p.ammunition.state(p.weapon).remaining }); return true;
+    }
     if (action.type === 'emote' && Object.hasOwn(EMOTES, action.emote) && sim.time >= p.nextEmoteAt) {
       p.emote = { id: action.emote, until: sim.time + 2.5 }; p.nextEmoteAt = sim.time + 1;
       emit('emote', { player: id, emote: action.emote }); return true;
@@ -141,9 +155,10 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   function step(dt = 1 / 60) {
     if (disposed) return;
     for (const p of players.values()) {
+      if (p.entity.dead) p.ammunition.cancel(); else p.ammunition.update(dt);
       p.budget = Math.min(2.6, p.budget + dt * (p.entity.crouched ? 1.6 : p.aiming ? 3.1 : 9.5));
       if (sim.time - p.lastPoseAt > .2) { p.entity.velocity = { x: 0, y: 0, z: 0 }; p.entity.action = 'idle'; }
-      if (p.entity.dead && sim.time - p.entity.dead.at >= 3) { sim.revive(p.entity, spawnFor()); p.life++; p.seq = p.seq || 0; p.budget = .7; emit('respawn', { player: p.entity.id }); }
+      if (p.entity.dead && sim.time - p.entity.dead.at >= 3) { sim.revive(p.entity, spawnFor()); p.ammunition.reset(); p.life++; p.seq = p.seq || 0; p.budget = .7; emit('respawn', { player: p.entity.id }); }
       if (p.emote && p.emote.until <= sim.time) p.emote = null;
     }
     sim.update(dt);
@@ -151,7 +166,7 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     for (let i = projectiles.length - 1; i >= 0; i--) {
       const b = projectiles[i], next = { x: b.position.x + b.direction.x * b.weapon.speed * dt, y: b.position.y + b.direction.y * b.weapon.speed * dt, z: b.position.z + b.direction.z * b.weapon.speed * dt };
       const hit = firstHit(b.position, next, b.source); b.traveled += b.weapon.speed * dt;
-      if (hit) { impact(hit, b.source, b.weapon, b.direction); emit('impact', { bullet: b.id, point: hit.point }); }
+      if (hit) { impact(hit, b.source, b.weapon, b.direction); emit('bulletEnd', { bullet: b.id }); }
       if (hit || b.traveled >= b.weapon.range) projectiles.splice(i, 1); else b.position = next;
     }
     const wood = physics.crates[0], before = { ...wood.body.translation() };
@@ -194,10 +209,10 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     }
   }
   const pack = e => ({ id: e.id, kind: e.kind, x: e.position.x, y: e.position.y, z: e.position.z, yaw: e.yaw, vx: e.velocity.x, vz: e.velocity.z, crouched: !!e.crouched,
-    health: e.health.current, maxHealth: e.health.max, dead: !!e.dead, respawnIn: e.dead ? Math.max(0, 3 - (sim.time - e.dead.at)) : 0, protected: sim.time < e.protectedUntil,
+    health: e.health.current, maxHealth: e.health.max, dead: !!e.dead, deathImpulse: e.dead?.impulse, respawnIn: e.dead ? Math.max(0, 3 - (sim.time - e.dead.at)) : 0, protected: sim.time < e.protectedUntil,
     kills: e.stats.kills, deaths: e.stats.deaths, action: e.action, actionSerial: e.actionSerial });
   return { players, sim, physics, defense, football, objective, projectiles, addPlayer, removePlayer, setPose, handleAction, step,
-    snapshot: () => ({ time: sim.time, players: [...players.values()].map(p => ({ ...pack(p.entity), seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, holstered: p.holstered, emote: p.emote })),
+    snapshot: () => ({ time: sim.time, players: [...players.values()].map(p => ({ ...pack(p.entity), seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, ammo: p.ammunition.state(p.weapon), holstered: p.holstered, emote: p.emote })),
       zombies: [...sim.actors].filter(e => e.kind === 'zombie').map(pack), crates: physics.snapshot(), defense: { ...defense, health: objective.health.current, maxHealth: objective.health.max }, football: { ...football, score: [...football.score] } }),
     dispose() { if (disposed) return; disposed = true; sim.dispose(); physics.dispose(); },
   };

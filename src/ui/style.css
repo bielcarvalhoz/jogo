@@ -554,3 +554,56 @@ body.sniper-scoped #btn-color, body.sniper-scoped .desktop-menu { z-index: 6; }
 @media (orientation: portrait) {
   body.touch .sniper-scope-zoom { bottom: max(174px, calc(env(safe-area-inset-bottom) + 162px)); }
 }
+
+/* Compact panels keep secondary information available on demand. */
+body.training-active .desktop-menu { left: 270px; top: 14px; bottom: auto; }
+.collapse-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 36px; padding: 5px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.collapse-chevron { display: inline-block; transition: transform .24s ease; color: #d9c28f; }
+.is-expanded > .collapse-toggle .collapse-chevron { transform: rotate(180deg); }
+.collapse-body { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .26s ease, opacity .20s ease, visibility .26s; }
+.is-expanded > .collapse-body { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
+.collapse-inner { min-height: 0; overflow: hidden; }
+#hud .compact-location { min-width: 0; width: min(240px, 38vw); padding: 6px 12px; border-left-width: 2px; }
+#hud .compact-location .street { font-size: 13px; margin: 0; max-width: 190px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#location-details .collapse-inner { padding-inline: 1px; }
+#location-details .title { margin-top: 6px; font-size: 9px; }
+#location-details .row, #location-details .zone { font-size: 10px; }
+.compact-minimap { position: absolute; top: 14px; right: 14px; width: 152px; padding: 4px 9px; border-radius: 8px; background: #13212bd9; color: #eef2ef; pointer-events: auto; font-size: 11px; }
+#hud .compact-minimap #minimap { position: static; width: 130px; height: 130px; border-width: 2px; margin-bottom: 5px; }
+#hud-fps, .attrib, .paint-hud .paint-caption, .paint-hud small { display: none; }
+.weapon-hud { flex-direction: row; align-items: center; gap: 8px; padding: 7px 10px; bottom: 30px; }
+.weapon-hud .control-icon, .paint-hud .control-icon { display: block; width: 25px; height: 23px; }
+.weapon-hud span { font-size: 11px; letter-spacing: .02em; }
+.weapon-hud [hidden], #btn-reload[hidden], #ammo-hud[hidden] { display: none !important; }
+.paint-hud { right: 15px; bottom: 80px; padding: 6px 9px; }
+#ammo-hud { position: absolute; right: 16px; bottom: 127px; display: flex; align-items: baseline; gap: 6px; color: #eef3f2; background: #13212bd9; padding: 7px 10px; border-radius: 7px; font-variant-numeric: tabular-nums; }
+#ammo-loaded { font-size: 25px; line-height: 1; }
+#ammo-reserve { font-size: 13px; color: #c5cfce; }
+#reload-status { font-size: 11px; color: #ffda8e; min-width: 0; }
+#reload-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #f2cc7c; transform: scaleX(var(--reload-progress, 0)); transform-origin: left; border-radius: 2px; }
+.low-ammo #ammo-loaded { color: #ffbc88; }
+.compact-help { position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column-reverse; align-items: flex-start; max-width: min(480px, 70vw); color: #dce4e2; pointer-events: auto; }
+#help-toggle { width: 32px; min-height: 32px; justify-content: center; border: 1px solid #ffffff44; border-radius: 50%; background: #13212bd9; font-weight: 700; }
+#help { font-size: 11px; line-height: 1.8; background: #13212bea; border-radius: 8px; margin-bottom: 6px; }
+#help .collapse-inner { padding-inline: 10px; }
+.compact-tour > .collapse-toggle { font-size: 12px; color: #e7dbc2; }
+#tour-panel { padding-block: 9px; }
+#tour-description { font-size: 11px; line-height: 1.5; }
+.weapon-wheel-option b { font-size: 10px; }
+#weapon-wheel { animation: wheel-reveal .16s ease-out; }
+@keyframes wheel-reveal { from { opacity: 0; } to { opacity: 1; } }
+.combat-status { width: 238px; padding: 8px 11px; }
+.combat-health { margin-top: 5px; }
+.combat-status .collapse-toggle { min-height: 26px; padding: 3px 0 !important; background: none !important; border: 0 !important; font-size: 10px !important; }
+#combat-lab-toggle { min-height: 30px !important; padding: 5px 8px !important; }
+body.touch .compact-minimap { position: static; width: 106px; padding: 3px 7px; }
+body.touch .combat-status { width: min(210px, calc(100vw - 170px)); }
+body.touch #hud .compact-minimap #minimap { width: 88px; height: 88px; }
+body.touch #hud #btn-reload { position: absolute; right: 94px; top: -54px; width: 40px; height: 40px; }
+body.touch #ammo-hud { right: max(17px, env(safe-area-inset-right)); bottom: max(179px, calc(env(safe-area-inset-bottom) + 167px)); padding: 6px 8px; }
+body.touch #ammo-loaded { font-size: 21px; }
+body.touch #help-toggle { width: 28px; min-height: 28px; }
+body.touch .compact-help { left: max(14px, env(safe-area-inset-left)); bottom: max(10px, env(safe-area-inset-bottom)); max-width: 50vw; }
+body.tour-active #ammo-hud, body.tour-active .compact-help, body.tour-active .compact-minimap { display: none !important; }
+@media (max-height: 500px) and (orientation: landscape) { body.touch #hud #btn-reload { right: 160px; top: 8px; } body.touch #ammo-hud { right: 180px; bottom: 82px; } }
+@media (prefers-reduced-motion: reduce) { .collapse-body, .collapse-chevron, #reload-progress { transition: none; } #weapon-wheel { animation: none; } }

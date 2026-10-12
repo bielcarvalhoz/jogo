@@ -3,17 +3,15 @@ import * as THREE from 'three';
 const v = () => new THREE.Vector3();
 const q = () => new THREE.Quaternion();
 
-/** Frame the authored boxing motion on arms entering from below the camera.
- * A fixed camera-local mapping preserves the clips' advance/recovery instead
- * of clipping each wrist or dragging the shoulder along with the fist. */
+/** A bent guard and a full shoulder/elbow extension, retaining the authored
+ * boxing clip's wrist rotation. The arm starts remain below the camera. */
 export function createFirstPersonFists(root, bones) {
   const arms = ['R', 'L'].map(side => ({
     sign: side === 'R' ? 1 : -1,
-    viewOffset: v().set(side === 'L' ? -.03 : 0, side === 'R' ? -.12 : -.065, -.30),
     upper: bones[`DEF-upper_arm${side}`], fore: bones[`DEF-forearm${side}`], hand: bones[`DEF-hand${side}`],
     position: v(), upperRotation: q(), foreRotation: q(), handRotation: q(),
     curls: ['index', 'middle', 'ring', 'pinky'].flatMap(finger => [1, 2, 3].map((joint, i) => ({
-      bone: bones[`DEF-f_${finger}0${joint}${side}`], rotation: q(), angle: [.35, .45, .35][i],
+      bone: bones[`DEF-f_${finger}0${joint}${side}`], rotation: q(), angle: [1.7, 1.8, 1.25][i],
     }))),
   }));
   let applied = false;
@@ -33,33 +31,37 @@ export function createFirstPersonFists(root, bones) {
     bone.quaternion.copy(bone.parent.getWorldQuaternion(q()).invert().multiply(world));
     bone.updateWorldMatrix(false, true);
   }
-  function frame(camera, eye, anchor, config) {
+  function frame(camera, eye, anchor, config, punch = {}) {
     const center = v().set(0, -.14, -.41).applyQuaternion(camera.quaternion).add(eye);
     root.position.add(center.clone().sub(root.localToWorld(anchor.clone())));
     root.updateMatrixWorld(true);
     const toWorld = point => point.applyQuaternion(camera.quaternion).add(eye);
-    const toView = point => point.sub(eye).applyQuaternion(camera.quaternion.clone().invert());
     const horizontal = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
-    // Fit the entire punch envelope, not its current frame. In portrait the
-    // lateral travel is narrower; depth and timing stay identical in both orientations.
-    const viewScale = v().set(Math.min(.5, horizontal * .9), .6, .5);
-    const framePoint = (bone, offset) => toView(bone.getWorldPosition(v())).multiply(viewScale).add(offset);
+    const phase = punch.phase;
+    const progress = phase === null || phase === undefined ? 0 : phase < .28
+      ? THREE.MathUtils.smoothstep(phase, 0, .28) : 1 - THREE.MathUtils.smoothstep(phase, .28, 1);
+    const width = Math.min(1, horizontal / .62);
     for (const arm of arms) {
-      const { upper, fore, hand, sign, viewOffset } = arm;
+      const { upper, fore, hand, sign } = arm;
       arm.position.copy(upper.position); arm.upperRotation.copy(upper.quaternion);
       arm.foreRotation.copy(fore.quaternion); arm.handRotation.copy(hand.quaternion);
       for (const curl of arm.curls) curl.rotation.copy(curl.bone.quaternion);
       const wristRotation = hand.getWorldQuaternion(q());
       const upperLength = upper.getWorldPosition(v()).distanceTo(fore.getWorldPosition(v()));
       const foreLength = fore.getWorldPosition(v()).distanceTo(hand.getWorldPosition(v()));
-      const wrist = framePoint(hand, viewOffset);
-      // Keep the authored shoulder/torso motion independent of the wrist. The
-      // elbow can then unfold on impact and bend again during the recovery.
-      const shoulder = framePoint(upper, viewOffset).add(v().set(0, -.26, .16));
+      const striking = (sign === 1 ? 'R' : 'L') === punch.side ? progress : progress * .08;
+      // Frame a bent boxing guard, then drive shoulder, elbow and fist through
+      // a forward extension. Keep authored hand rotation and a small clip delta;
+      // do not leave a nearly straight arm with only the wrist moving.
+      const authored = root.worldToLocal(hand.getWorldPosition(v())).sub(punch.hands?.[sign === 1 ? 'R' : 'L'] || v()).sub(punch.stanceOffset || v());
+      const wrist = v().set(sign * (.14 - striking * .07) * width, -.12 + striking * .02, -.32 - striking * .30)
+        .add(authored.multiply(v().set(.12 * width, .12, .08)));
+      const shoulder = v().set(sign * .28 * width, -.32, .035 - striking * .18);
       const target = toWorld(wrist), start = toWorld(shoulder);
       upper.position.copy(upper.parent.worldToLocal(start.clone()));
       upper.updateWorldMatrix(false, true);
-      const direction = target.clone().sub(start), distance = direction.length(); direction.normalize();
+      const direction = target.clone().sub(start); direction.clampLength(.01, (upperLength + foreLength) * .99);
+      target.copy(start).add(direction); const distance = direction.length(); direction.normalize();
       const along = THREE.MathUtils.clamp((upperLength ** 2 + distance ** 2 - foreLength ** 2) / (2 * distance), 0, upperLength);
       const pole = v().set(sign, -1, 0).applyQuaternion(camera.quaternion);
       pole.addScaledVector(direction, -pole.dot(direction)).normalize();

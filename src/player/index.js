@@ -51,6 +51,11 @@ export function createPlayerModule(game) {
     player.avatar.appearance.apply(character.appearance); player.avatar.update(0);
   };
   player.createCharacterPreview = container => createCharacterPreview(player.avatar, container);
+  player.spawnCorpse = impulse => {
+    if (!game.ragdolls) return null;
+    const corpse = player.avatar.createCorpse();
+    return game.ragdolls.capture(corpse.root, { owned: true, cleanup: corpse.cleanup, impulse });
+  };
 
   game.input.bind('KeyF', () => setTimeout(() => game.toast(player.fly ? 'Voo livre (E sobe, Control desce, Shift acelera)' : 'Andando'), 0), { label: 'voo livre' });
   return player;

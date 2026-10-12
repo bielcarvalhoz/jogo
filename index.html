@@ -34,8 +34,8 @@
         </nav>
         <nav id="treta-menu" class="menu-options hidden" aria-label="Modo treta">
           <span class="menu-location">MODO TRETA / ESCOLHA COMO JOGAR</span>
-          <button id="treta-single"><b>Um jogador</b><small>A treta atual, do seu jeito.</small></button>
-          <button id="treta-multi" disabled aria-describedby="loading-text"><b>Multijogador</b><small>Salas públicas · até 10 jogadores</small></button>
+          <button id="treta-single"><b>Um jogador</b></button>
+          <button id="treta-multi" disabled aria-describedby="loading-text"><b>Multijogador</b></button>
           <button id="treta-back"><b>Voltar</b></button>
         </nav>
         <section id="settings-panel" class="hidden" aria-label="Configurações">
@@ -46,11 +46,11 @@
           <label for="music">Música dos menus <input id="music" type="checkbox" checked /></label>
           <label for="effects">Efeitos sonoros <input id="effects" type="checkbox" checked /></label>
           <label class="paint-choice" for="paint-color">Cor da tinta <select id="paint-color" aria-label="Cor da tinta" disabled><option value="vermelho">Vermelho</option></select></label>
-          <p class="setting-note">Áudio e câmera mudam na hora. Gráficos e entorno exigem recarregar a cidade. Você será avisado antes de aplicar.</p>
+          <p class="setting-note">Gráficos e entorno recarregam a cidade.</p>
           <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar</button></div>
           <details class="menu-help"><summary>Controles</summary>
-            <p>WASD: andar · Mouse: olhar · Clique/segurar: atacar · Botão direito: mira focada · Segure Q, escolha e solte: roda de armas · E: pegar arma · Z: desarmar/equipar novamente · Desarmado: mouse/arraste orbita; scroll ou pinça à direita dá zoom · C: agachar/levantar · V: cor da tinta · X: câmera · Shift: correr · Espaço: pular · F: voar · E/Control em voo: subir/descer · M: mapa · Esc: menu</p>
-            <p>No celular: analógico à esquerda (avance até o limite para correr); arraste à direita para mirar. Use os botões ao lado da tinta para desarmar e agachar. Agachado, continue usando o analógico para andar. Segure e arraste o botão de ataque para atacar e mirar juntos. Segure o botão da arma, arraste na direção da opção ou use o analógico e solte para equipar. Você carrega 2 armas de fogo e 1 melee; os socos estão sempre disponíveis. Aproxime-se de uma arma no chão e toque em Pegar para substituir o slot indicado. Jogue em pé ou deitado.</p>
+            <p>WASD · andar / Shift · correr / Espaço · pular / C · agachar<br>Mouse · olhar / Clique · atacar / Direito · mirar / R · recarregar<br>1 · principal / 2 · secundária / 3 · melee / 4 · soco / Q · roda<br>E · pegar / Z · guardar / V · tinta / X · câmera / F · voo / M · mapa</p>
+            <p>Toque: analógico para mover; arraste à direita para olhar. Segure ataque ou arma para usar.</p>
             <div class="places-title">Portarias</div><ul id="places-list" class="controls places"></ul>
           </details>
           <p id="stat-line" class="stats"></p>
@@ -58,7 +58,7 @@
         <div id="loading" role="status" aria-live="polite">
           <div class="progress-label"><span id="loading-text">Preparando a cidade…</span><b data-progress-label>0%</b></div>
           <div class="load-track" data-load-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Carregamento da cidade"><span class="load-fill"></span></div>
-          <small>Treta, treino e tour liberam quando o carregamento terminar.</small>
+
         </div>
       </main>
       <button id="intro-skip">Pular abertura ›</button>
@@ -82,39 +82,43 @@
     <div id="tour-markers" class="hidden" aria-label="Pontos da cidade"></div>
     <div id="tour-panel" class="hidden">
       <div class="tour-topline"><span class="tour-label">TOUR</span><div class="tour-actions"><button id="tour-overview">Visão aérea</button><button id="tour-orbit" aria-pressed="true">Órbita</button><button id="tour-map">Mapa 2D</button><button id="tour-menu">Menu</button></div></div>
-      <div class="tour-detail"><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Arraste para olhar · Dois dedos para zoom</p></div>
-      <div id="tour-places" aria-label="Estruturas da cidade"></div>
+      <div data-collapsible class="compact-tour"><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="tour-details">Lugares <span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="tour-details" class="collapse-body" inert><div class="collapse-inner"><div class="tour-detail"><h2 id="tour-title">Cidade de Deus</h2><p id="tour-description">Arraste para olhar · Dois dedos para zoom</p></div>
+      <div id="tour-places" aria-label="Estruturas da cidade"></div></div></div></div>
     </div>
 
     <div id="hud" class="hidden">
-      <div id="training-status"><span>TREINO</span><b>Espaço livre</b><p>Teste armas e golpes na caixa.<br />Cada quadrado mede 2 metros.</p></div>
-      <div class="hud-left"><div class="panel">
-        <div class="title">CIDADE DE DEUS · OSASCO/SP <span id="hud-mode">A PÉ</span></div>
-        <div id="hud-street" class="street">—</div>
-        <div id="hud-zone" class="zone">—</div>
-        <div class="row"><span>lat, lon</span><b id="hud-coords">—</b></div>
-        <div class="row"><span>altitude</span><b id="hud-alt">—</b></div>
+      <div id="training-status"><span>TREINO</span><b>Espaço livre</b></div>
+      <div class="hud-left"><div class="panel compact-location" data-collapsible>
+        <button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="location-details" aria-label="Expandir localização"><span id="hud-street" class="street">—</span><span class="collapse-chevron" aria-hidden="true">⌄</span></button>
+        <div id="location-details" class="collapse-body" inert><div class="collapse-inner">
+          <div class="title">CIDADE DE DEUS <span id="hud-mode">A PÉ</span></div>
+          <div id="hud-zone" class="zone">—</div>
+          <div class="row"><span>lat, lon</span><b id="hud-coords">—</b></div>
+          <div class="row"><span>altitude</span><b id="hud-alt">—</b></div>
+        </div></div>
       </div>
       <div class="utility-controls"><button id="btn-fly" class="only-touch" aria-label="Alternar voo" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fly" /></svg></button><button id="btn-orientation" class="only-touch" aria-label="Alternar orientação da tela"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#rotate" /></svg></button><button id="btn-camera" class="camera-toggle" aria-pressed="true" aria-label="Alternar entre primeira e terceira pessoa" title="Terceira pessoa · X para alternar"><svg class="control-icon" aria-hidden="true"><use id="camera-icon" href="./icons/controls.svg#camera-third" /></svg></button></div></div>
       <div class="hud-top-right"><div class="utility-controls only-touch"><button id="btn-menu" aria-label="Menu"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#menu" /></svg></button><button id="btn-map" aria-label="Abrir mapa"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#map" /></svg></button></div>
-      <canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas></div><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
+      <div class="compact-minimap" data-collapsible><button class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="minimap-details">Mapa <span class="collapse-chevron" aria-hidden="true">⌄</span></button><div id="minimap-details" class="collapse-body" inert><div class="collapse-inner"><canvas id="minimap" width="220" height="220" role="button" tabindex="0" aria-label="Abrir mapa"></canvas></div></div></div></div><button id="desktop-menu" class="desktop-menu">Menu · Esc</button>
       <div id="hud-fps"></div>
       <button id="btn-color" class="paint-hud" aria-label="Trocar cor da tinta"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#color" /></svg><span id="paint-chip"></span><span class="paint-caption">Tinta <b id="paint-label">Vermelho</b></span><small class="only-desktop">V troca</small></button>
       <div class="character-controls only-touch"><button id="btn-holster" aria-label="Desarmar" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#holster" /></svg></button><button id="btn-crouch" aria-label="Agachar" aria-pressed="false" title="C · Agachar / levantar"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#crouch" /></svg></button></div>
+      <div id="ammo-hud" hidden aria-label="Munição"><b id="ammo-loaded">20</b><span>/</span><span id="ammo-reserve">120</span><span id="reload-status" role="status"></span><i id="reload-progress"></i></div>
       <div class="combat-controls">
+        <button id="btn-reload" class="only-touch" aria-label="Recarregar"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button id="btn-fire" class="only-touch" aria-label="Segurar para atirar; arrastar para mirar"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#fire" /></svg></button>
         <button id="btn-aim" class="only-touch" aria-label="Alternar mira focada" aria-pressed="false"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#aim" /></svg></button>
         <button id="btn-jump" class="only-touch" aria-label="Pular"><svg class="control-icon" aria-hidden="true"><use  href="./icons/controls.svg#jump" /></svg></button>
-        <button id="btn-weapon" class="weapon-hud" aria-label="Segurar para abrir a roda de armas" aria-haspopup="listbox" aria-expanded="false" aria-controls="weapon-wheel"><svg class="control-icon" aria-hidden="true"><use id="weapon-icon" href="./icons/controls.svg#pistol" /></svg><span id="weapon-label">PISTOLA</span><small id="weapon-mode">SEGURE Q · ESCOLHA · SOLTE</small></button>
+        <button id="btn-weapon" class="weapon-hud" aria-label="Segurar para abrir a roda de armas" aria-haspopup="listbox" aria-expanded="false" aria-controls="weapon-wheel"><svg class="control-icon" aria-hidden="true"><use id="weapon-icon" href="./icons/controls.svg#pistol" /></svg><span id="weapon-label">PISTOLA</span><small id="weapon-mode" hidden></small></button>
       </div>
-      <button id="btn-pickup" hidden><kbd class="only-desktop">E</kbd><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#pickup" /></svg><span><b id="pickup-label">Pegar arma</b><small id="pickup-detail">Substitui o slot indicado</small></span></button>
+      <button id="btn-pickup" hidden><kbd class="only-desktop">E</kbd><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#pickup" /></svg><span><b id="pickup-label">Pegar arma</b><small id="pickup-detail" hidden></small></span></button>
       <div id="weapon-wheel" hidden aria-label="Roda de armas">
-        <div id="weapon-wheel-ring"><div id="weapon-wheel-options" role="listbox" aria-label="Escolha uma arma pela direção"></div><div class="weapon-wheel-center"><b id="weapon-wheel-title"></b><small id="weapon-wheel-detail"></small></div><i id="weapon-wheel-cursor" aria-hidden="true"></i></div>
-        <p>Segure · arraste na direção ou use o analógico · solte para equipar</p><small>↑ Fogo 1 · → Fogo 2 · ↓ Melee · ← Socos</small>
+        <div id="weapon-wheel-ring"><div id="weapon-wheel-options" role="listbox" aria-label="Escolha uma arma pela direção"></div><div class="weapon-wheel-center"><b id="weapon-wheel-title"></b><small id="weapon-wheel-detail" hidden></small></div><i id="weapon-wheel-cursor" aria-hidden="true"></i></div>
+
       </div>
-      <div id="help" class="help only-desktop">WASD andar · C agachar · Z desarmar · Segurar: atacar · Botão direito: mira · Segure Q: armas · E pegar · V tinta · X câmera · F voar · M mapa · H esconder</div>
+      <div class="compact-help" data-collapsible><button id="help-toggle" class="collapse-toggle" data-collapse-toggle aria-expanded="false" aria-controls="help" aria-label="Controles">?</button><div id="help" class="collapse-body" inert><div class="collapse-inner">WASD mover · R recarregar · 1–4 armas · Q roda · E pegar · X câmera · M mapa</div></div></div>
       <div id="joystick" hidden aria-hidden="true"><span class="joystick-thumb"></span></div>
-      <div id="touch-help" class="help only-touch">Analógico: andar/correr · Segure e arraste TIRO</div>
+      <div id="touch-help" class="help only-touch"></div>
       <div id="crosshair"></div>
       <div id="toast"></div>
       <div class="attrib">Dados © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · Relevo: SRTM / Mapzen Terrarium</div>

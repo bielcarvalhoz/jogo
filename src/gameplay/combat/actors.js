@@ -12,7 +12,7 @@ export async function loadCombatModels(base = '/') {
 
 /** SkeletonUtils clones bones and skeletons while sharing immutable geometry,
  * textures and materials. Each actor has its own mixer and collision pose. */
-export function createActorView(entity, asset, { parent, weaponModel } = {}) {
+export function createActorView(entity, asset, { parent, weaponModel, ragdolls } = {}) {
   const zombie = entity.kind === 'zombie', root = new THREE.Group(), model = clone(asset.scene);
   root.name = entity.id; root.userData.paintballIgnore = true; root.add(model); parent?.add(root);
   model.updateMatrixWorld(true);
@@ -105,8 +105,11 @@ export function createActorView(entity, asset, { parent, weaponModel } = {}) {
   function update(dt, time, camera, showHitboxes = false) {
     root.position.copy(entity.position); root.rotation.y = entity.yaw;
     if (entity.dead && !dead) {
+      ring.visible = bar.visible = false; if (gun) gun.visible = false;
+      if (ragdolls) ragdolls.capture(root, { impulse: entity.dead.impulse || entity.deathImpulse });
       dead = true; mixer.stopAllAction(); special = play(zombie ? 'Death' : 'Death01', true); ring.visible = false;
     }
+    if (dead && ragdolls) { root.visible = false; debugRoot.visible = false; return; }
     if (!dead) {
       if (entity.actionSerial !== lastSerial && entity.action === 'melee') specialAnimation(zombie ? 'Idle_Attack' : 'Punch_Jab', .65, time);
       lastSerial = entity.actionSerial;
@@ -154,6 +157,10 @@ export function createActorView(entity, asset, { parent, weaponModel } = {}) {
   update(0, 0, null);
   return { root, model, bones, mixer, update, healthBar: bar, debugRoot,
     shoot() { if (!dead) recoil?.reset().setEffectiveWeight(1).play(); },
+    reload(seconds, time) {
+      specialAnimation('Pistol_Reload', seconds, time);
+      if (special) special.setEffectiveTimeScale(special.getClip().duration / seconds);
+    },
     react(region, time) { specialAnimation(zombie ? 'HitReact' : region === 'head' ? 'Hit_Head' : 'Hit_Chest', .25, time); },
     dispose() {
       mixer.stopAllAction(); mixer.uncacheRoot(model); root.removeFromParent(); debugRoot.removeFromParent();

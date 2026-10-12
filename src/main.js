@@ -8,7 +8,7 @@
 //   debug/     inspeção e QA
 //   shared/    utilitários puros (geometria, aleatoriedade, texturas)
 // Regras e responsabilidades: docs/ARQUITETURA.md
-import { createGame, detectQuality, debugOptions, setupVisualStyle, createTour, createTraining, partitionStaticInstances, createDynamicProps, bindLocomotionAudio } from './core/index.js';
+import { createGame, detectQuality, debugOptions, setupVisualStyle, createTour, createTraining, partitionStaticInstances, createDynamicProps, createRagdolls, bindLocomotionAudio } from './core/index.js';
 import { loadMapData, buildMap } from './map/index.js';
 import { loadCampusData, createCampusPlugin } from './campus/index.js';
 import { createPlayerModule } from './player/index.js';
@@ -42,6 +42,7 @@ async function main() {
   game.training = createTraining(game);
   await loading.status('Preparando caixas e física Rapier...', 89);
   game.dynamicProps = await createDynamicProps(game);
+  game.ragdolls = await createRagdolls(game);
   game.player = createPlayerModule(game);
   bindLocomotionAudio(game);
   await loading.status('Preparando o personagem Sato...', 90);

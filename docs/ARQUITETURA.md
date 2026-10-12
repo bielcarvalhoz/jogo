@@ -8,7 +8,7 @@ quebrar o trabalho de quem cuida de outro módulo.
 
 | Pasta | Módulo | Responsabilidade | Exemplos de tarefa |
 |---|---|---|---|
-| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, espaço de treino, visual cartoon/pixel, perfil gráfico, câmera de tour, configurações persistentes, lotes de instâncias, áudio procedural | pós-processamento, ciclo dia/noite, otimização de desempenho |
+| `src/core/` | Núcleo / motor | renderer, cena, câmera, céu, luz e sombra, laço de sistemas, eventos, atalhos de teclado, física compartilhada, espaço de treino, visual cartoon/pixel, perfil gráfico, câmera de tour, configurações persistentes, lotes de instâncias, áudio espacial gravado e ragdolls | pós-processamento, ciclo dia/noite, otimização de desempenho |
 | `src/map/` | Mapa (mundo real) | relevo SRTM, vias, prédios do OSM, prédios procedurais, vegetação, água, muros, semáforos, placas, destinos do entorno | melhorar ruas, novos tipos de prédio, mais vegetação |
 | `src/campus/` | Campus Cidade de Deus | núcleo do Bradesco: prédios da planta oficial, muros, portarias, estacionamentos, terraplenagem, detalhes, marcos levantados em campo (`landmarks.js`: escadaria, beco, acessos, locomotiva) | novo prédio, fachada, mobiliário do campus |
 | `src/player/` | Personagem | avatar Sato, animações e encaixe de armas; controle em primeira/terceira pessoa, teclado, mouse, toque, colisão, pulo, voo | modelo/avatar, animação, corrida, agachar |
@@ -97,6 +97,8 @@ os botões de desarmar/agachar ficam ao lado da tinta no toque.
 
 `weapons.js` mantém o catálogo e a regra de dois slots de fogo, um melee e socos
 sempre disponíveis. `paintball.inventory` retorna `{slots, selected, lastFirearmSlot}`;
+slots 0/1/2 representam principal/secundária/melee. `1`/`2`/`3` selecionam esses
+slots e `4` seleciona socos (incluindo Numpad); números não teleportam.
 `availableWeapons` contém os três equipamentos e socos. `pickupWeapon(id)` retorna
 `{picked, dropped, slot}`; armas de fogo substituem o slot de fogo selecionado ou o
 último usado, e melee substitui apenas o slot 3. `pickups.js` cria as cópias no chão,
@@ -114,8 +116,9 @@ aplica o recuo do clipe original de disparo sobre a pose de mira atual; a Nova u
 maior amplitude e recuperação mais lenta. A arma acompanha a mão direita, e a primeira
 pessoa enquadra o conjunto de braços/arma sem reescrever rotações das articulações.
 Clipes preservados no GLB podem ser inspecionados com
-`avatar.setPreviewAnimation(name, time)`; a presença de `Pistol_Reload` no arquivo
-não representa uma mecânica de recarga no jogo. `public/models/sato.glb` é uma cópia
+`avatar.setPreviewAnimation(name, time)`. `playReload(duration)` usa `Pistol_Reload`
+na camada superior, preserva a locomoção e evita recentrar a arma durante a recarga.
+`stopReload()` cancela essa camada. `public/models/sato.glb` é uma cópia
 sem alterações do `sato (4).glb` fornecido pelo usuário. A orientação dos punhos e
 a articulação dos dedos vêm da pose de pistola original, sem reescrever o asset.
 
@@ -135,7 +138,7 @@ um balanço sutil durante a corrida, movendo a cadeia inteira de braços.
 A intensidade do analógico escolhe continuamente caminhada, trote ou corrida em
 qualquer direção. `Walk_Loop`, `Jog_Fwd_Loop` e `Sprint_Loop` acompanham a velocidade
 real e a fase compartilhada `player.locomotion`. Eventos `footstep`, `jump` e `land`
-disparam sons de grama/concreto por `core/locomotion-audio.js`, sem passos parado,
+disparam gravações de grama/terra/concreto por `core/locomotion-audio.js`, sem passos parado,
 contra obstáculos ou durante o voo. `avatar.playAttack(def, {sequence})` usa
 `Sword_Attack` para melee e alterna `Punch_Jab`/`Punch_Cross` para socos.
 `Crouch_Idle_Loop` e `Crouch_Fwd_Loop` animam o agachamento parado/em movimento.
@@ -148,10 +151,10 @@ e o movimento aditivo dos braços de espada, com amplitude reduzida e ombros
 fora do enquadramento. A guarda fica mais à direita/abaixo, com braços e arma
 reduzidos juntos nessa vista; todas as lâminas e cabos inclinam para frente.
 A terceira pessoa conserva a pose e o golpe de espada completos.
-Os socos em primeira pessoa usam a mesma guarda de soco e os clipes completos
-Jab/Cross da terceira pessoa. `player/first-person-fists.js` adapta os dois ossos
-de cada braço aos pulsos animados, preservando a orientação das mãos e reforçando
-a curvatura dos dedos nessa vista, com o início dos braços fora da tela. A pose original é restaurada antes
+Os socos em primeira pessoa partem de uma guarda dobrada. `player/first-person-fists.js`
+avança ombro, cotovelo e punho, estende o braço e recupera a guarda durante Jab/Cross.
+Preserva a orientação das mãos do clipe e reforça a curvatura dos dedos,
+com o início dos braços fora da tela e largura adaptada ao celular. A pose original é restaurada antes
 de cada avaliação, inclusive ao trocar câmera/arma ou atualizar o mesmo quadro.
 Melee e socos compensam a rotação herdada do quadril e mantêm a cabeça na orientação
 ereta de repouso em terceira pessoa. O encaixe reavalia o rig sem avançar o tempo
@@ -178,6 +181,38 @@ aplica impulso no ponto atingido e registra dano; marcas de tinta acompanham a c
 Golpes de melee e socos usam um alcance curto a partir dos olhos e nunca criam tinta.
 Consultas de piso rejeitam explicitamente o `-1` que Rapier retorna quando um raio
 não acerta a caixa. Não há alteração de geometria, altura ou visual do mapa.
+
+`paintball.reload()` inicia a recarga antecipada por R ou pelo botão de toque;
+`ammo` expõe munição carregada/reserva, capacidade e progresso/tempo restante.
+`gameplay/paintball/ammo.js` é a regra única, usada também pelo servidor:
+Glock 20, M4/MP5 30, R8/Nova 8 e AWP 5. Pentes vazios iniciam recarga automática;
+a Nova insere cartuchos individualmente e pode interromper a recarga para atirar.
+Troca, guarda, menus e morte cancelam recarga; voltar do mapa preserva munição.
+`resetAmmo()` reinicia por partida, laboratório ou respawn. Humanos controlados
+pela IA também recarregam a cada 30 tiros. A UI mostra contagem, tempo e barra.
+`muzzle-paint.js` mantém 96 gotas instanciadas recicladas, dez por disparo, sem
+criar geometrias por tiro.
+
+`game.ragdolls`, criado por `core/ragdolls.js`, oferece `capture(root, options)`,
+`clear()` e `dispose()`. Humanos, zumbis, jogador local e jogadores remotos deixam
+uma cópia de corpo inteiro com 11 cápsulas e juntas esféricas em um mundo Rapier
+cosmético. A queda usa impulso de morte e piso/terreno amostrado; aos 1,7 s congela
+e afunda suavemente, removendo visual e física aos 3,3 s. Há limite de 16 corpos.
+É um efeito experimental: não altera dano e não colide com paredes, caixas ou
+outros corpos. O original permanece fora das hitboxes após morrer.
+
+`core/recorded-audio.js` reproduz samples de passos por superfície, seis disparos,
+recargas, movimento/impacto de golpes, impactos por material e passagem próxima
+de balas. `game.audio` oferece `setListener`, `setAmbience`, `preload`, `reload`,
+`stopReload(tag)`, `hit` e `whiz`, além dos efeitos existentes. HRTF segue a câmera,
+a distância atenua continuamente e reduz agudos. Natureza fica ativa dentro do
+polígono Cidade de Deus nos modos treta/campaign e multiplayer. Arquivos, origem,
+direitos e filtros de paintball estão em `public/audio/README.md`.
+
+`ui/collapsible.js` conecta painéis `data-collapsible` a botões com `aria-controls`.
+Abertura/fechamento anima altura por CSS grid e opacidade; `inert` retira o conteúdo
+fechado da navegação. Localização, minimapa, ajuda, detalhes do tour e placar
+começam recolhidos; nomes e SVGs compõem os itens de arma. `H` alterna a ajuda.
 
 `gameplay/paintball/surface-paint.js` recorta triângulos de superfícies próximas com
 um pincel volumétrico. A máscara de tinta usa coordenadas 3D para atravessar quinas
