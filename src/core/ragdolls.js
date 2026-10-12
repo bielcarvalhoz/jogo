@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
+import { createCorpseColliders } from './ragdoll-colliders.js';
 
-const STEP = 1 / 60, MAX_CORPSES = 16, GROUPS = (2 << 16) | 1;
+const STEP = 1 / 60, MAX_CORPSES = 16, LOOSE_SECONDS = 10, SINK_SECONDS = 2.5;
 const normalized = name => name.replace(/[.:]/g, '');
 const up = new THREE.Vector3(0, 1, 0);
 export function ragdollSegments(bones) {
@@ -33,7 +34,7 @@ export async function createRagdolls(game) {
     if (corpse.frozen) return; corpse.frozen = true;
     for (const joint of corpse.joints) world.removeImpulseJoint(joint, true);
     for (const part of corpse.parts) world.removeRigidBody(part.body);
-    for (const floor of corpse.floors) world.removeCollider(floor, true);
+    corpse.environment.dispose();
   }
   function remove(corpse) {
     if (!corpses.delete(corpse)) return;
@@ -53,21 +54,18 @@ export async function createRagdolls(game) {
     game.engine.scene.add(root); root.updateMatrixWorld(true);
     const definitions = ragdollSegments(bones);
     if (definitions.length < 8) { root.removeFromParent(); cleanup?.(); return null; }
-    const corpse = { root, parts: [], joints: [], floors: [], age: 0, frozen: false, baseY: root.position.y, cleanup };
-    const feet = root.getWorldPosition(new THREE.Vector3()), vertices = [], indices = [], grid = 6, extent = 3;
-    for (let z = 0; z <= grid; z++) for (let x = 0; x <= grid; x++) {
-      const wx = feet.x + (x / grid * 2 - 1) * extent, wz = feet.z + (z / grid * 2 - 1) * extent;
-      const floor = game.training?.active ? 0 : Math.max(game.map.terrain.heightAt(wx, wz), game.physics.surfaceHeightAt(wx, wz, feet.y + .4), game.physics.roofAt(wx, wz, feet.y + .4));
-      vertices.push(wx, floor, wz);
-    }
-    for (let z = 0; z < grid; z++) for (let x = 0; x < grid; x++) { const a = z * (grid + 1) + x, b = a + grid + 1; indices.push(a, b, a + 1, a + 1, b, b + 1); }
-    corpse.floors.push(world.createCollider(R.ColliderDesc.trimesh(new Float32Array(vertices), new Uint32Array(indices)).setFriction(.8).setCollisionGroups((1 << 16) | 2)));
+    // Each corpse owns one of Rapier's 16 groups, avoiding duplicate floor
+    // contacts when several bodies fall together. Dynamic self contacts stay off.
+    let slot = 0; while ([...corpses].some(c => c.slot === slot)) slot++;
+    const bit = 1 << slot, groups = ((bit << 16) | bit) >>> 0;
+    const corpse = { root, parts: [], joints: [], age: 0, frozen: false, baseY: root.position.y, cleanup, slot, groups };
+    corpse.environment = createCorpseColliders(game, world, R, root.getWorldPosition(new THREE.Vector3()), groups);
     for (const def of definitions) {
       const start = def.bone.getWorldPosition(new THREE.Vector3()), end = def.end.getWorldPosition(new THREE.Vector3());
       const delta = end.clone().sub(start), length = delta.length(), center = start.clone().add(end).multiplyScalar(.5);
       const rotation = length > .001 ? new THREE.Quaternion().setFromUnitVectors(up, delta.normalize()) : def.bone.getWorldQuaternion(new THREE.Quaternion());
-      const body = world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(center.x, center.y, center.z).setRotation(rotation).setLinearDamping(.7).setAngularDamping(1.4).setCcdEnabled(true));
-      world.createCollider(R.ColliderDesc.capsule(Math.max(0, length * .5 - def.radius), def.radius).setMass(def.mass).setFriction(.75).setRestitution(.02).setCollisionGroups(GROUPS), body);
+      const body = world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(center.x, center.y, center.z).setRotation(rotation).setLinearDamping(.7).setAngularDamping(1.4).setCcdEnabled(true).setAdditionalSolverIterations(4));
+      world.createCollider(R.ColliderDesc.capsule(Math.max(0, length * .5 - def.radius), def.radius).setMass(def.mass).setFriction(.75).setRestitution(.02).setCollisionGroups(groups).setActiveCollisionTypes(R.ActiveCollisionTypes.DEFAULT & ~R.ActiveCollisionTypes.DYNAMIC_DYNAMIC), body);
       const bodyMatrix = new THREE.Matrix4().compose(center, rotation, new THREE.Vector3(1, 1, 1));
       corpse.parts.push({ ...def, body, offset: bodyMatrix.clone().invert().multiply(def.bone.matrixWorld), bodyMatrix });
     }
@@ -88,6 +86,13 @@ export async function createRagdolls(game) {
   function update(dt) {
     if (disposed || !game.player?.active || !game.mode || game.ui?.mapOpen) { accumulator = 0; return; }
     const elapsed = Math.min(.1, Math.max(0, dt)); accumulator += elapsed;
+    for (const corpse of corpses) if (!corpse.frozen) {
+      const position = corpse.parts[0].body.translation();
+      if (corpse.environment.needsRefresh(position)) {
+        corpse.environment.dispose(); corpse.environment = createCorpseColliders(game, world, R, position, corpse.groups);
+      }
+      corpse.environment.sync();
+    }
     while (accumulator >= STEP) { world.step(); accumulator -= STEP; }
     for (const corpse of corpses) {
       corpse.age += elapsed;
@@ -100,17 +105,23 @@ export async function createRagdolls(game) {
           const local = part.bone.parent.matrixWorld.clone().invert().multiply(worldPose);
           local.decompose(part.bone.position, part.bone.quaternion, part.bone.scale); part.bone.updateMatrixWorld(true);
         }
-        if (corpse.age >= 1.7) releasePhysics(corpse);
+        if (corpse.age >= LOOSE_SECONDS) {
+          const bounds = new THREE.Box3().setFromObject(corpse.root, true);
+          const floor = game.training?.active ? 0 : game.map.terrain.heightAt(bounds.getCenter(new THREE.Vector3()).x, bounds.getCenter(new THREE.Vector3()).z);
+          corpse.sinkDepth = Math.max(2.3, bounds.max.y - floor + .3);
+          releasePhysics(corpse);
+        }
       }
       if (corpse.frozen) {
-        const progress = Math.min(1, (corpse.age - 1.7) / 1.5), eased = progress * progress * (3 - 2 * progress);
-        corpse.root.position.y = corpse.baseY - eased * 2.3;
+        const progress = Math.min(1, (corpse.age - LOOSE_SECONDS) / SINK_SECONDS), eased = progress * progress * (3 - 2 * progress);
+        corpse.root.position.y = corpse.baseY - eased * corpse.sinkDepth;
       }
-      if (corpse.age >= 3.3) remove(corpse);
+      if (corpse.age >= LOOSE_SECONDS + SINK_SECONDS) remove(corpse);
     }
   }
   const clear = () => { for (const corpse of corpses) remove(corpse); accumulator = 0; };
-  const unbind = game.events.on('modechange', clear), unbindReset = game.events.on('combatreset', clear);
+  let activeMode = game.mode;
+  const unbind = game.events.on('modechange', mode => { if (mode !== activeMode) clear(); activeMode = mode; }), unbindReset = game.events.on('combatreset', clear);
   game.engine.addSystem(update, 'world');
   return { capture, update, clear, corpses, world, dispose() { if (disposed) return; clear(); disposed = true; unbind(); unbindReset(); world.free(); } };
 }

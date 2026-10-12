@@ -28,9 +28,57 @@ for (const kind of ['human', 'zombie']) test(`${kind}: articulated physical deat
     assert.ok([...box.min.toArray(), ...box.max.toArray()].every(Number.isFinite));
     assert.ok(box.getSize(new THREE.Vector3()).length() < 4, 'physical joints must not stretch the skinned geometry apart');
   });
-  for (let i = 0; i < 45; i++) manager.update(1 / 60);
+  for (let i = 0; i < 480; i++) manager.update(1 / 60);
+  assert.ok(!corpse.frozen, 'the body must remain physical at 9.5 seconds');
+  assert.equal(corpse.root.position.y, corpse.baseY, 'no sinking before ten seconds');
+  game.events.emit('modechange', 'training'); assert.ok(manager.corpses.has(corpse), 'returning to the same match must preserve its corpses');
+  const pelvis = corpse.parts[0].body, before = { ...pelvis.translation() };
+  pelvis.applyImpulse({ x: 80, y: 40, z: 0 }, true);
+  for (let i = 0; i < 15; i++) manager.update(1 / 60);
+  assert.ok(Math.hypot(pelvis.translation().x - before.x, pelvis.translation().y - before.y) > .05, 'settled bodies must still respond to an impulse');
+  for (let i = 0; i < 75; i++) manager.update(1 / 60);
   assert.ok(corpse.frozen); assert.ok(corpse.root.position.y < corpse.baseY - .5);
-  for (let i = 0; i < 70; i++) manager.update(1 / 60);
+  for (let i = 0; i < 100; i++) manager.update(1 / 60);
   assert.equal(manager.corpses.size, 0); assert.equal(manager.world.bodies.len(), 0); assert.equal(manager.world.colliders.len(), 0);
   manager.capture(view.root); game.events.emit('modechange', null); assert.equal(manager.corpses.size, 0);
+});
+
+test('thrown corpses collide with thin walls, a raised floor and moving crates for the full loose lifetime', async t => {
+  const scene = new THREE.Scene(), wall = new THREE.Mesh(new THREE.BoxGeometry(.12, 4, 6), new THREE.MeshStandardMaterial());
+  wall.position.set(1.4, 2, 0); scene.add(wall);
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(12, 1, 12), wall.material);
+  platform.position.y = .5; scene.add(platform);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), wall.material); mesh.position.set(-2.5, 1.5, 0); mesh.userData.dynamicBody = true; scene.add(mesh); mesh.updateWorldMatrix(true, false);
+  const crate = { mesh, bounds: new THREE.Box3().setFromObject(mesh) };
+  const game = { engine: { scene, addSystem() {} }, dynamicProps: { crates: [crate] }, events: createEvents(), training: { active: true }, mode: 'training', player: { active: true } };
+  const manager = await createRagdolls(game); t.after(() => { manager.dispose(); wall.geometry.dispose(); platform.geometry.dispose(); mesh.geometry.dispose(); wall.material.dispose(); });
+  const simulation = createCombatSimulation({ bounds: { x0: -10, x1: 10, z0: -10, z1: 10 } }), entity = simulation.spawn({ kind: 'human', position: { x: 0, y: 1, z: 0 } }); t.after(() => simulation.dispose());
+  const view = createActorView(entity, await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), { parent: scene }); t.after(() => view.dispose()); view.update(.01, 0, null);
+  const corpse = manager.capture(view.root, { impulse: { x: 8, y: 1, z: 0 } });
+  assert.equal(corpse.environment.moving.length, 1);
+  for (let i = 0; i < 570; i++) {
+    mesh.position.z = Math.min(2, i / 120);
+    manager.update(1 / 60);
+    for (const part of corpse.parts) {
+      const p = part.body.translation();
+      assert.ok(p.x < 1.46, `limb crossed the wall: ${part.bone.name} ${p.x}`);
+      assert.ok(p.y >= .93, `limb penetrated the raised floor: ${part.bone.name} ${p.y}`);
+      assert.ok(Number.isFinite(p.x + p.y + p.z));
+    }
+  }
+  assert.ok(!corpse.frozen);
+  assert.ok(Math.abs(corpse.environment.moving[0].body.translation().z - mesh.position.z) < .02);
+  manager.clear(); assert.equal(manager.world.bodies.len(), 0); assert.equal(manager.world.colliders.len(), 0);
+});
+
+test('a thrown corpse keeps terrain support after leaving its original small floor patch', async t => {
+  const scene = new THREE.Scene(), game = { engine: { scene, addSystem() {} }, events: createEvents(), training: { active: true }, mode: 'training', player: { active: true } };
+  const manager = await createRagdolls(game); t.after(() => manager.dispose());
+  const simulation = createCombatSimulation({ bounds: { x0: -100, x1: 100, z0: -100, z1: 100 } }), entity = simulation.spawn({ kind: 'human', position: { x: 0, y: 0, z: 0 } }); t.after(() => simulation.dispose());
+  const view = createActorView(entity, await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), { parent: scene }); t.after(() => view.dispose()); view.update(.01, 0, null);
+  const corpse = manager.capture(view.root, { impulse: { x: 16, y: 2, z: 0 } });
+  for (let i = 0; i < 570; i++) manager.update(1 / 60);
+  assert.ok(corpse.parts[0].body.translation().x > 3);
+  assert.ok(corpse.parts.every(part => part.body.translation().y >= -.04));
+  assert.ok(corpse.environment.center.x > 0, 'local colliders must follow a body that travels beyond the safe margin');
 });

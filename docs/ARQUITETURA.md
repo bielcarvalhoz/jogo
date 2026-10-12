@@ -196,16 +196,23 @@ criar geometrias por tiro.
 `game.ragdolls`, criado por `core/ragdolls.js`, oferece `capture(root, options)`,
 `clear()` e `dispose()`. Humanos, zumbis, jogador local e jogadores remotos deixam
 uma cópia de corpo inteiro com 11 cápsulas e juntas esféricas em um mundo Rapier
-cosmético. A queda usa impulso de morte e piso/terreno amostrado; aos 1,7 s congela
-e afunda suavemente, removendo visual e física aos 3,3 s. Há limite de 16 corpos.
-É um efeito experimental: não altera dano e não colide com paredes, caixas ou
-outros corpos. O original permanece fora das hitboxes após morrer.
+cosmético. O corpo permanece físico por 10 s; depois libera a física e afunda
+suavemente por 2,5 s, com profundidade suficiente para esconder o corpo inteiro.
+`core/ragdoll-colliders.js` amostra terreno e recorta triângulos reais de paredes,
+escadas, arquibancadas e pisos próximos, aproveitando BVHs existentes. A região
+de 16 × 16 m acompanha corpos arremessados; caixas usam proxies cinemáticos
+que seguem suas poses. CCD e iterações adicionais estabilizam juntas/contatos.
+Há limite de 16 corpos com grupos de colisão separados; não há contato entre
+corpos ou com os vivos. Sair da partida/reset limpa tudo; voltar do mapa ao mesmo
+modo preserva corpos. O efeito não altera dano e o original deixa as hitboxes.
 
 `core/recorded-audio.js` reproduz samples de passos por superfície, seis disparos,
 recargas, movimento/impacto de golpes, impactos por material e passagem próxima
 de balas. `game.audio` oferece `setListener`, `setAmbience`, `preload`, `reload`,
 `stopReload(tag)`, `hit` e `whiz`, além dos efeitos existentes. HRTF segue a câmera,
-a distância atenua continuamente e reduz agudos. Natureza fica ativa dentro do
+a distância atenua continuamente e reduz agudos, exceto passos de concreto/terra,
+que usam gravações limpas sem passa-baixas. A grama mantém seu timbre anterior.
+A Glock usa WAV editado com ataque curto e filtro mais aberto. Natureza fica ativa dentro do
 polígono Cidade de Deus nos modos treta/campaign e multiplayer. Arquivos, origem,
 direitos e filtros de paintball estão em `public/audio/README.md`.
 
