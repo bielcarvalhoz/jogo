@@ -31,9 +31,24 @@
 .mp-vitals { margin: 9px 0 5px; }
 .mp-health-track { height: 4px; background: #ffffff33; overflow: hidden; margin-bottom: 5px; }
 .mp-health-track i { display: block; height: 100%; background: #8bd5a7; transform-origin: left; }
-.mp-emotes { pointer-events: auto; position: absolute; left: 50%; bottom: 68px; transform: translateX(-50%); display: flex; gap: 7px; }
-.mp-emotes button { width: 40px; height: 40px; border: 1px solid #ffffff55; border-radius: 9px; background: #142127dd; font-size: 24px; cursor: pointer; touch-action: manipulation; }
-.mp-emotes button:disabled { opacity: .4; }
+.mp-ready, .mp-ranking { pointer-events: auto; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 24px)); max-height: 75dvh; overflow: auto; box-sizing: border-box; border: 1px solid #f2ce7366; border-radius: 16px; padding: 20px; background: #102029f5; box-shadow: 0 20px 90px #0008; }
+.mp-ready { width: min(380px, calc(100vw - 24px)); text-align: center; }
+.mp-ready h2 { font-size: 20px; margin: 0 0 12px; }
+.mp-ready ul { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; }
+.mp-ready li { padding: 6px 10px; color: #c1cbd0; overflow-wrap: anywhere; }
+.mp-ready li.ready { color: #95e2b3; }
+.mp-ready small { display: block; margin-top: 12px; color: #b4c1c5; }
+.mp-ready button, .mp-ranking button, #mp-ranking-button { border: 1px solid #f2ce7366; background: #30434a; color: #f2eedf; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+.mp-ready button[aria-pressed=true] { border-color: #95e2b3; }
+.mp-ranking { z-index: 20; }
+.mp-ranking > div { display: flex; justify-content: space-between; align-items: center; }
+.mp-ranking table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.mp-ranking th, .mp-ranking td { text-align: right; padding: 10px 6px; border-bottom: 1px solid #fff2; }
+.mp-ranking :is(th, td):nth-child(2) { text-align: left; overflow-wrap: anywhere; max-width: 150px; }
+.mp-ranking th { color: #e8ce90; font-size: 11px; }
+.mp-ranking .self { background: #f2ce7315; color: #f2ce73; }
+#mp-ranking-button { position: absolute; top: 76px; right: 18px; pointer-events: auto; padding: 10px; }
+#mp-ranking-button span { font-size: 10px; }
 #mp-reconnect, #mp-respawn, #mp-hit { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); max-width: min(430px, 90vw); padding: 12px 18px; background: #142127ee; border: 1px solid #f5ca71; text-align: center; border-radius: 7px; }
 #mp-respawn { top: 36%; font-size: 17px; }
 #mp-hit { top: 57%; color: #d0f6d8; padding: 6px 12px; border: 0; }
@@ -52,13 +67,13 @@ body.multiplayer-active #hud #btn-pickup { bottom: 122px; }
   .mp-status { top: 12px; left: 12px; width: 230px; padding: 8px; }
   .mp-status p { font-size: 10px; margin-top: 4px; }
   .mp-status-heading b { font-size: 10px; }
-  .mp-emotes { bottom: max(18px, env(safe-area-inset-bottom)); gap: 5px; }
-  .mp-emotes button { width: 36px; height: 36px; font-size: 21px; }
+  #mp-ranking-button { right: 12px; top: 62px; }
+  .mp-ranking { padding: 12px; }
+  .mp-ranking th, .mp-ranking td { padding: 9px 4px; font-size: 11px; }
   #mp-interact { bottom: 72px; }
 }
 @media (orientation: portrait) and (max-width: 700px) {
   .mp-status { top: 12px; width: min(248px, calc(100vw - 164px)); }
-  .mp-emotes { bottom: max(186px, calc(env(safe-area-inset-bottom) + 176px)); }
   #mp-interact { bottom: 234px; }
   body.multiplayer-active #hud #btn-pickup { bottom: 234px; }
   .mp-heading h2 { font-size: 19px; }

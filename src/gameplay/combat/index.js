@@ -33,7 +33,7 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
     }
     if (event.type === 'death') {
       game.audio?.stopReload?.(`reload:${event.victim.id}`);
-      if (event.victim.kind === 'player') game.player.spawnCorpse?.(event.victim.dead.impulse);
+      if (event.victim.kind === 'player') { game.player.spawnCorpse?.(event.victim.dead.impulse); game.player.avatar?.stopEmote(); }
     }
     if (event.type === 'attack') game.audio?.melee?.({ id: 'fists' }, { position: event.entity.position });
     if (event.type === 'reload') { views.get(event.entity)?.reload?.(event.duration, event.time); game.audio?.reload?.({ id: 'automatic' }, { duration: event.duration, position: event.entity.position, tag: `reload:${event.entity.id}` }); }
@@ -131,12 +131,15 @@ export async function createCombatModule(game, { base = '/', models, weaponModel
       if (!hit.entity || !game.training.active) return false;
       simulation.damage(hit.entity, { source: player, region: hit.region, weapon: info.weapon }); return true;
     },
-    collide(x, z, radius, feetY = 0) {
+    collide(x, z, radius, feetY = 0, { from } = {}) {
       if (!game.training.active) return [x, z];
       for (const e of simulation.actors) {
         if (e === player || e.dead || feetY >= e.position.y + 1.8 || feetY + 1.8 <= e.position.y) continue;
         const dx = x - e.position.x, dz = z - e.position.z, d = Math.hypot(dx, dz), limit = radius + e.radius;
-        if (d < limit) { x = e.position.x + (d ? dx / d : 1) * limit; z = e.position.z + (d ? dz / d : 0) * limit; }
+        if (d < limit) {
+          if (from) { if (d < Math.hypot(from.x - e.position.x, from.z - e.position.z) - .00001) return [from.x, from.z]; }
+          else { x = e.position.x + (d ? dx / d : 1) * limit; z = e.position.z + (d ? dz / d : 0) * limit; }
+        }
       }
       return [x, z];
     },

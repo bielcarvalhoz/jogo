@@ -1032,7 +1032,7 @@ export function buildCampus(C, { scene, renderer, terrain, world, roads, rendere
   for(const solid of landmarks.solids)builder.addSolid(solid.rings,solid.top,null);
   details.entrances.push(...landmarks.entrances);
   const leisure=buildLeisure(C,{renderer,terrain});
-  if(leisure){root.add(leisure.root);for(const solid of leisure.solids)builder.addSolid(solid.rings,solid.top,null);}
+  if(leisure){root.add(leisure.root);for(const solid of leisure.solids)builder.addSolid(solid.rings,solid.top,null,solid.stepable);}
   const exclusions=[...details.exclusions,...foundations.exclusions,...amenities.exclusions,...landmarks.exclusions,...(leisure?.exclusions||[])];
   C.detailOccupied=createRegionTest(exclusions);
   const allowedTrees=C.trees.filter(t=>!C.detailOccupied(t.x,t.z));

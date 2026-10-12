@@ -5,6 +5,7 @@ import { createCampusPlugin } from '../src/campus/index.js';
 import { pointInPolygon, distToSegment, SpatialGrid } from '../src/shared/geo.js';
 import { multiplayerLandmarks } from '../src/shared/multiplayer.js';
 import { createRegionCanvas } from './region-canvas.js';
+import { standVolumes } from '../src/shared/stands.js';
 
 export async function loadServerWorld() {
   const read = async name => JSON.parse(await fs.readFile(new URL(`../public/data/${name}`, import.meta.url), 'utf8'));
@@ -20,9 +21,9 @@ export async function loadServerWorld() {
 export function createWorldQueries(map, campus) {
   const terrain = map.terrain, landmarks = multiplayerLandmarks(campus, terrain);
   const obstacles = [], grid = new SpatialGrid(8);
-  function add(rings, bottom, top) {
+  function add(rings, bottom, top, stepable = false) {
     const xs = rings[0].map(p => p[0]), zs = rings[0].map(p => p[1]);
-    const box = { rings, min: { x: Math.min(...xs), y: bottom, z: Math.min(...zs) }, max: { x: Math.max(...xs), y: top, z: Math.max(...zs) } };
+    const box = { rings, stepable, min: { x: Math.min(...xs), y: bottom, z: Math.min(...zs) }, max: { x: Math.max(...xs), y: top, z: Math.max(...zs) } };
     obstacles.push(box); grid.insertBox(box, box.min.x, box.min.z, box.max.x, box.max.z);
   }
   for (const b of campus.buildings) {
@@ -42,11 +43,19 @@ export function createWorldQueries(map, campus) {
       add([[[x - dx, z - dz], [qx - dx, qz - dz], [qx + dx, qz + dz], [x + dx, z + dz]]], y - 1, y + 2.7);
     }
   }
+  const stands = standVolumes(campus.leisure?.stand);
+  for (const v of stands) add(v.rings, campus.leisure.stand.level - 3, v.top, true);
+  function groundAt(x, z, maxY = Infinity) {
+    let y = terrain.heightAt(x, z);
+    for (const b of grid.query(x, z, 0)) if (b.stepable && b.max.y <= maxY && pointInPolygon(x, z, b.rings)) y = Math.max(y, b.max.y);
+    return y;
+  }
   const all = campus.quarter[0], xs = all.map(p => p[0]), zs = all.map(p => p[1]);
   const bounds = { x0: Math.min(...xs) - 30, x1: Math.max(...xs) + 30, z0: Math.min(...zs) - 30, z1: Math.max(...zs) + 30 };
   function free(x, z, radius = .35, y = terrain.heightAt(x, z)) {
     if (x < bounds.x0 || x > bounds.x1 || z < bounds.z0 || z > bounds.z1) return false;
     for (const b of grid.query(x, z, radius + 1)) {
+      if (b.stepable && y + .7 >= b.max.y) continue;
       if (x + radius < b.min.x || x - radius > b.max.x || z + radius < b.min.z || z - radius > b.max.z) continue;
       if (y >= b.max.y || y + 1.8 < b.min.y) continue;
       if (pointInPolygon(x, z, b.rings)) return false;
@@ -72,7 +81,7 @@ export function createWorldQueries(map, campus) {
     }
     return null;
   }
-  return { terrain, campus, landmarks, bounds, obstacles, free, segmentClear, trace, createCrates: () => createCrates(terrain, landmarks.field) };
+  return { terrain, campus, landmarks, bounds, obstacles, free, groundAt, segmentClear, trace, createCrates: () => createCrates(terrain, landmarks.field) };
 }
 
 function createCrates(terrain, field) {

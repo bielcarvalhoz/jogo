@@ -13,7 +13,12 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   const players = new Map(), physics = world.createCrates(), projectiles = [];
   const defense = { status: 'idle', wave: 0, totalWaves: 5, remaining: 0, nextWaveAt: 0 };
   const football = { status: 'idle', score: [0, 0], target: 5, resetAt: 0, lastScorer: null };
-  let serial = 0, disposed = false;
+  let serial = 0, disposed = false, phase = 'waiting';
+  function tryStart() {
+    if (phase !== 'waiting' || !players.size || ![...players.values()].every(p => p.ready && p.connected)) return;
+    phase = 'running'; for (const p of players.values()) p.entity.protectedUntil = sim.time + 2;
+    emit('matchStart', { message: 'Todos prontos. A treta começou!' });
+  }
   const emit = (type, data = {}) => onEvent({ type, time: sim.time, ...data });
   const sim = createCombatSimulation({ bounds: world.bounds, navigationOptions: { cellSize: 1.25, maxFields: 4, guardGrid: true,
     isBlocked: (x, z, r) => !world.free(x, z, r),
@@ -36,19 +41,22 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   function addPlayer(id, character) {
     const entity = sim.spawn({ kind: 'player', id, position: spawnFor() });
     entity.protectedUntil = sim.time + 2;
-    const player = { entity, character: { name: cleanName(character?.name, 'Sato', 24), appearance: character?.appearance || {} }, seq: 0,
+    const player = { entity, ready: phase === 'running', character: { name: cleanName(character?.name, 'Bancário', 24), appearance: character?.appearance || {} }, seq: 0,
       connected: true, ammunition: createAmmoStore(), aiming: false, budget: .7, nextAttackAt: 0, nextEmoteAt: 0, emote: null, life: 1, lastPoseAt: sim.time, weapon: 'pistol', holstered: false };
     players.set(id, player); return player;
   }
-  function removePlayer(id) { const p = players.get(id); if (p) sim.remove(p.entity); players.delete(id); }
+  function removePlayer(id) { const p = players.get(id); if (p) sim.remove(p.entity); players.delete(id); tryStart(); }
   function setPose(id, pose) {
     const p = players.get(id);
     if (!p || !p.connected || p.entity.dead || !finitePoint(pose) || !Number.isSafeInteger(pose.seq) || pose.seq <= p.seq || !Number.isFinite(pose.yaw)) return false;
+    if (phase !== 'running') { p.seq = pose.seq; return false; }
     const e = p.entity, before = { ...e.position }, speed = pose.crouched ? 1.6 : pose.aiming ? 3.1 : 9.5;
     p.budget = Math.min(p.budget, speed * .25 + .2);
     const d = distance(before, pose), fraction = d > p.budget ? p.budget / d : 1;
     let next = { x: before.x + (pose.x - before.x) * fraction, y: pose.y, z: before.z + (pose.z - before.z) * fraction };
-    next.y = Math.max(world.terrain.heightAt(next.x, next.z), Math.min(world.terrain.heightAt(next.x, next.z) + 2.5, next.y));
+    const floor = world.groundAt?.(next.x, next.z, Math.max(before.y, world.terrain.heightAt(next.x, next.z)) + .7) ?? world.terrain.heightAt(next.x, next.z);
+    // Jump clearance is measured above the walkable floor, including stands.
+    next.y = Math.max(floor, Math.min(floor + 2.5, next.y));
     if (!world.segmentClear(before, next)) {
       const xOnly = { ...next, z: before.z }, zOnly = { ...next, x: before.x };
       next = world.segmentClear(before, xOnly) ? xOnly : world.segmentClear(before, zOnly) ? zOnly : before;
@@ -135,6 +143,8 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   function handleAction(id, action) {
     const p = players.get(id);
     if (!p || !p.connected || !action || p.entity.dead) return false;
+    if (action.type === 'ready' && phase === 'waiting' && typeof action.ready === 'boolean') { p.ready = action.ready; tryStart(); return true; }
+    if (phase !== 'running' && action.type !== 'emote') return false;
     if (action.type === 'attack') return attack(p, action);
     if (action.type === 'cancelReload') { p.ammunition.cancel(); emit('reload', { player: id, weapon: p.weapon, active: false }); return true; }
     if (action.type === 'reload') {
@@ -142,8 +152,8 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
       emit('reload', { player: id, weapon: p.weapon, active: true, duration: p.ammunition.state(p.weapon).remaining }); return true;
     }
     if (action.type === 'emote' && Object.hasOwn(EMOTES, action.emote) && sim.time >= p.nextEmoteAt) {
-      p.emote = { id: action.emote, until: sim.time + 2.5 }; p.nextEmoteAt = sim.time + 1;
-      emit('emote', { player: id, emote: action.emote }); return true;
+      p.emote = { id: action.emote, until: sim.time + (action.emote === 'dance' ? 5 : 2.5) }; p.nextEmoteAt = sim.time + 1;
+      emit('emote', { player: id, emote: action.emote, position: { ...p.entity.position } }); return true;
     }
     if (action.type === 'interact' && action.game === 'defense' && distance(p.entity.position, world.landmarks.defense) <= 5 && defense.status !== 'running') { startDefense(); return true; }
     if (action.type === 'interact' && action.game === 'football' && distance(p.entity.position, world.landmarks.field) <= 6 && football.status !== 'running') {
@@ -210,9 +220,9 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   }
   const pack = e => ({ id: e.id, kind: e.kind, x: e.position.x, y: e.position.y, z: e.position.z, yaw: e.yaw, vx: e.velocity.x, vz: e.velocity.z, crouched: !!e.crouched,
     health: e.health.current, maxHealth: e.health.max, dead: !!e.dead, deathImpulse: e.dead?.impulse, respawnIn: e.dead ? Math.max(0, 3 - (sim.time - e.dead.at)) : 0, protected: sim.time < e.protectedUntil,
-    kills: e.stats.kills, deaths: e.stats.deaths, action: e.action, actionSerial: e.actionSerial });
+    kills: e.stats.kills, assists: e.stats.assists, deaths: e.stats.deaths, action: e.action, actionSerial: e.actionSerial });
   return { players, sim, physics, defense, football, objective, projectiles, addPlayer, removePlayer, setPose, handleAction, step,
-    snapshot: () => ({ time: sim.time, players: [...players.values()].map(p => ({ ...pack(p.entity), seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, ammo: p.ammunition.state(p.weapon), holstered: p.holstered, emote: p.emote })),
+    snapshot: () => ({ phase, time: sim.time, players: [...players.values()].map(p => ({ ...pack(p.entity), ready: p.ready, seq: p.seq, life: p.life, connected: p.connected, weapon: p.weapon, ammo: p.ammunition.state(p.weapon), holstered: p.holstered, emote: p.emote })),
       zombies: [...sim.actors].filter(e => e.kind === 'zombie').map(pack), crates: physics.snapshot(), defense: { ...defense, health: objective.health.current, maxHealth: objective.health.max }, football: { ...football, score: [...football.score] } }),
     dispose() { if (disposed) return; disposed = true; sim.dispose(); physics.dispose(); },
   };

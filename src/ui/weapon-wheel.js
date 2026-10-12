@@ -13,7 +13,7 @@ export function createWeaponWheel(game) {
   const cursor = $('weapon-wheel-cursor');
   let owner = null, choices = [], pending = null, virtualX = 0, virtualY = 0;
   let signature = '', pickupSignature = '', pointerId = null, lastGesture = -Infinity;
-  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && game.mode !== 'tour';
+  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.reactions?.opened && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true) && game.mode !== 'tour';
   const icon = weapon => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');

@@ -5,7 +5,8 @@ import { createMultiplayerServer, originAllowed } from '../../server/index.js';
 import { loadServerWorld } from '../../server/world.js';
 import { createRoomSimulation } from '../../server/simulation.js';
 import { updateHumanoidHitboxes } from '../../src/gameplay/combat/hitboxes.js';
-import { NET, EV, separatedSpawn, interpolatePose, cleanName } from '../../src/shared/multiplayer.js';
+import { NET, EV, separatedSpawn, interpolatePose, cleanName, rankPlayers } from '../../src/shared/multiplayer.js';
+import { standVolumes } from '../../src/shared/stands.js';
 
 let surveyed, field, flat;
 before(async () => {
@@ -14,8 +15,64 @@ before(async () => {
     bounds: { x0: field.x - 70, x1: field.x + 70, z0: field.z - 70, z1: field.z + 70 }, obstacles: [], free: () => true, segmentClear: () => true, trace: () => null, createCrates: surveyed.createCrates };
 });
 const advance = (s, seconds) => { for (let i = 0; i < Math.ceil(seconds * 60); i++) s.step(); };
-const fixture = t => { const events = [], s = createRoomSimulation(flat, { random: () => .5, onEvent: e => events.push(e) }); t.after(() => s.dispose()); return { s, events }; };
+const fixture = t => {
+  const events = [], s = createRoomSimulation(flat, { random: () => .5, onEvent: e => events.push(e) });
+  const add = s.addPlayer; s.addPlayer = (...args) => { const p = add(...args); s.handleAction(args[0], { type: 'ready', ready: true }); return p; };
+  t.after(() => s.dispose()); return { s, events };
+};
 const place = (p, position) => { p.entity.position = { ...position }; p.entity.protectedUntil = 0; updateHumanoidHitboxes(p.entity); };
+
+test('ranking sorts kills, assists and then fewer deaths without mutating snapshots', () => {
+  const players = [{ id: 'a', kills: 2, assists: 1, deaths: 5 }, { id: 'b', kills: 3, assists: 0, deaths: 8 }, { id: 'c', kills: 2, assists: 2, deaths: 4 }, { id: 'd', kills: 2, assists: 2, deaths: 1 }];
+  assert.deepEqual(rankPlayers(players).map(p => p.id), ['b', 'd', 'c', 'a']); assert.equal(players[0].id, 'a');
+});
+
+test('all room members must approve; cancellation, joining and disconnection cannot bypass consent', t => {
+  const events = [], s = createRoomSimulation(flat, { onEvent: e => events.push(e) }); t.after(() => s.dispose());
+  const a = s.addPlayer('a', {}), b = s.addPlayer('b', {});
+  assert.equal(s.snapshot().phase, 'waiting');
+  const at = { ...a.entity.position };
+  assert.equal(s.setPose('a', { ...at, x: at.x + .1, seq: 1, yaw: 0 }), false);
+  assert.equal(s.handleAction('a', { type: 'interact', game: 'defense' }), false);
+  s.handleAction('a', { type: 'ready', ready: true }); assert.equal(s.snapshot().phase, 'waiting');
+  s.handleAction('a', { type: 'ready', ready: false });
+  s.handleAction('b', { type: 'ready', ready: true }); assert.equal(s.snapshot().phase, 'waiting');
+  const c = s.addPlayer('c', {}); s.handleAction('a', { type: 'ready', ready: true }); assert.equal(s.snapshot().phase, 'waiting');
+  c.connected = false; assert.equal(s.handleAction('c', { type: 'ready', ready: true }), false);
+  assert.equal(s.snapshot().phase, 'waiting'); c.connected = true;
+  s.handleAction('c', { type: 'ready', ready: true }); assert.equal(s.snapshot().phase, 'running');
+  assert.equal(events.filter(e => e.type === 'matchStart').length, 1);
+  s.handleAction('a', { type: 'ready', ready: false }); assert.equal(s.snapshot().phase, 'running');
+  assert.ok(b.ready);
+});
+
+test('server credits recent assists once and clears contributors on death and respawn', t => {
+  const { s } = fixture(t), a = s.addPlayer('a', {}), b = s.addPlayer('b', {}), victim = s.addPlayer('v', {});
+  for (const p of [a, b, victim]) p.entity.protectedUntil = 0;
+  s.sim.damage(victim.entity, { source: a.entity, weapon: { kind: 'firearm', damage: 30 } });
+  s.sim.damage(victim.entity, { source: b.entity, weapon: { kind: 'firearm', damage: 1000 } });
+  assert.equal(a.entity.stats.assists, 1); assert.equal(b.entity.stats.kills, 1); assert.equal(b.entity.stats.assists, 0);
+  assert.equal(s.snapshot().players.find(p => p.id === 'a').assists, 1);
+  advance(s, 3.2); victim.entity.protectedUntil = 0;
+  s.sim.damage(victim.entity, { source: b.entity, weapon: { kind: 'melee', damage: 1000 } });
+  assert.equal(a.entity.stats.assists, 1);
+  advance(s, 3.2); victim.entity.protectedUntil = 0;
+  s.sim.damage(victim.entity, { source: a.entity, weapon: { kind: 'firearm', damage: 10 } });
+  advance(s, 10.1);
+  s.sim.damage(victim.entity, { source: b.entity, weapon: { kind: 'firearm', damage: 1000 } });
+  assert.equal(a.entity.stats.assists, 1, 'old damage cannot earn a new assist');
+});
+
+test('real stand floors remain stable above the old terrain height cap and block entry through their sides', t => {
+  const s = createRoomSimulation(surveyed); t.after(() => s.dispose()); const p = s.addPlayer('p', {}); s.handleAction('p', { type: 'ready', ready: true });
+  const rows = standVolumes(surveyed.campus.leisure.stand);
+  const row = rows.find(v => { const [x, z] = v.rings[0].reduce((a, b) => [a[0] + b[0] / 4, a[1] + b[1] / 4], [0, 0]); return v.top - surveyed.terrain.heightAt(x, z) > 2.5 && surveyed.free(x, z, .35, v.top); });
+  assert.ok(row, 'reproduction must cover a real elevated row');
+  const [x, z] = row.rings[0].reduce((a, b) => [a[0] + b[0] / 4, a[1] + b[1] / 4], [0, 0]);
+  place(p, { x, y: row.top, z });
+  for (let seq = 1; seq < 120; seq++) { s.step(); s.setPose('p', { x, y: row.top, z, seq, yaw: 0 }); assert.ok(Math.abs(p.entity.position.y - row.top) < .001); }
+  assert.equal(surveyed.free(x, z, .35, surveyed.campus.leisure.stand.level - 1), false);
+});
 
 test('ten safe spawns are distinct and cannot be forced into a solid', () => {
   const occupied = [];
@@ -35,6 +92,7 @@ test('server bounds movement budget, rejects old/nonfinite poses and prevents wa
   assert.ok(p.entity.position.x - budgeted < .0001, 'packet spam cannot create movement time');
   const wall = { ...flat, segmentClear: (a, b) => b.x <= a.x + .01 };
   const blocked = createRoomSimulation(wall); t.after(() => blocked.dispose()); const q = blocked.addPlayer('q', {});
+  blocked.handleAction('q', { type: 'ready', ready: true });
   const start = { ...q.entity.position }; blocked.setPose('q', { ...start, x: start.x + .6, seq: 1, yaw: 0 }); assert.equal(q.entity.position.x, start.x);
 });
 
@@ -96,6 +154,7 @@ test('defense requires proximity, creates portal waves, advances after kills and
 
 test('surveyed portal zombies navigate around real campus buildings and reach the Prata entrance', t => {
   const s = createRoomSimulation(surveyed); t.after(() => s.dispose()); const p = s.addPlayer('p', {}); place(p, surveyed.landmarks.defense);
+  s.handleAction('p', { type: 'ready', ready: true });
   const goal = s.sim.navigation.nearestFree(surveyed.landmarks.defense);
   assert.ok(Math.hypot(goal.x - surveyed.landmarks.defense.x, goal.z - surveyed.landmarks.defense.z) < 2);
   s.handleAction('p', { type: 'interact', game: 'defense' });

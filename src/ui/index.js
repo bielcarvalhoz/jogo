@@ -10,6 +10,7 @@ import { createTrainingPosePanel } from './training-pose.js';
 import { createCombatHUD } from './combat-hud.js';
 import { createCharacterMenu } from './character-menu.js';
 import { createMultiplayerUI } from './multiplayer.js';
+import { createReactions } from './reactions.js';
 import './style.css';
 
 export { loading, createFrontMenu } from './front-menu.js';
@@ -34,6 +35,7 @@ export function createUI(game) {
   const combatHUD = createCombatHUD(game);
   const characters = createCharacterMenu(game);
   const multiplayerUI = createMultiplayerUI(game);
+  const reactions = createReactions(game);
 
   const toast = msg => {
     const el = $('toast'); el.textContent = msg; el.classList.add('show');
@@ -55,9 +57,9 @@ export function createUI(game) {
     if (touch) document.body.classList.add('touch');
     document.body.classList.toggle('flying', player.fly);
     $('btn-fly').setAttribute('aria-pressed', String(player.fly));
-    help.querySelector('.collapse-inner').textContent = `WASD mover · R recarregar · 1–4 armas · Q roda · E pegar · X câmera · M mapa${mode === 'training' ? ' · J laboratório' : ''}`;
+    help.querySelector('.collapse-inner').textContent = `WASD mover · R recarregar · 1–4 armas · Q armas · G reações · E pegar · X câmera · M mapa${mode === 'multiplayer' ? ' · Tab ranking' : mode === 'training' ? ' · J laboratório' : ''}`;
     game.events.emit('modechange', mode);
-    player.start(touch);
+    player.start(touch, { pointerLock: mode !== 'multiplayer' || game.multiplayer.snapshot?.phase === 'running' });
   }
 
   function startCampaign(touch = touchSession) { startWalking('campaign', touch); }
@@ -276,12 +278,12 @@ export function createUI(game) {
   $('minimap').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMap(); } });
   $('map-close').addEventListener('click', () => closeMap());
   game.input.bind('KeyM', () => mapPanel.classList.contains('open') ? closeMap() : openMap(), { when: 'always', label: 'mapa' });
-  game.input.bind('Escape', () => { if (weaponWheel.open) weaponWheel.cancel(); else if (game.mode) showMenu(); }, { when: 'always' });
+  game.input.bind('Escape', event => { if (reactions.opened) { event.preventDefault(); reactions.close(); } else if (weaponWheel.open) { event.preventDefault(); weaponWheel.cancel(); } else if (game.mode) showMenu(); }, { when: 'always' });
   bindCollapsiblePanels();
   game.input.bind('KeyH', () => $('help-toggle').click(), { label: 'esconder ajuda' });
   addEventListener('resize', () => {
     updateOrientation();
     if (tour.active) tour.setViewportInset(innerHeight - $('tour-panel').getBoundingClientRect().top + 12);
   });
-  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); }, get weaponWheelOpen() { return weaponWheel.open; } };
+  return { toast, hud, posePanel, combatHUD, characters, multiplayerUI, reactions, startMode, showMenu, openMap, closeMap, selectPoint, get mapOpen() { return mapPanel.classList.contains('open'); }, get weaponWheelOpen() { return weaponWheel.open || reactions.opened; } };
 }

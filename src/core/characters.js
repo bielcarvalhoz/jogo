@@ -1,13 +1,13 @@
 export const CHARACTER_STORAGE_KEY = 'cdd.characters.v1';
 
 export const APPEARANCE_OPTIONS = Object.freeze({
-  hairStyle: { original: 'Sato original', crop: 'Corte baixo / fade', spikes: 'Espetado RPG', mohawk: 'Moicano punk', afro: 'Afro', bald: 'Raspado' },
+  hairStyle: { original: 'Curto penteado', crop: 'Corte baixo / fade', curls: 'Enroladinho baixo', long: 'Comprido', dreads: 'Dreads', spikes: 'Espetado', mohawk: 'Moicano', afro: 'Black power', bald: 'Raspado' },
   eyeStyle: { original: 'Anime original', round: 'Arredondado', sharp: 'Olhar marcante', sleepy: 'Relaxado' },
   beard: { none: 'Sem barba', stubble: 'Barba por fazer', goatee: 'Cavanhaque', full: 'Barba cheia' },
-  shirtStyle: { classic: 'Camiseta lisa', stripes: 'Listrada', sport: 'Esportiva' },
-  pantsStyle: { jeans: 'Jeans', cargo: 'Cargo', jogger: 'Jogger' },
-  shoeStyle: { casual: 'Casual', sport: 'Esportivo', high: 'Cano alto' },
-  faceAccessory: { glasses: 'Óculos do Sato', none: 'Sem acessório', sunglasses: 'Óculos escuros', mask: 'Máscara' },
+  shirtStyle: { classic: 'Camiseta lisa', stripes: 'Listrada', sport: 'Esportiva', social: 'Camisa social', socialTie: 'Camisa e gravata', suit: 'Terno sem gravata', suitTie: 'Terno e gravata' },
+  pantsStyle: { jeans: 'Jeans', cargo: 'Cargo', jogger: 'Jogger', dress: 'Calça social' },
+  shoeStyle: { casual: 'Tênis casual', sport: 'Tênis esportivo', high: 'Cano alto', dress: 'Sapato social' },
+  faceAccessory: { glasses: 'Óculos de grau', none: 'Sem acessório', sunglasses: 'Óculos escuros', mask: 'Máscara' },
   headAccessory: { none: 'Sem acessório', cap: 'Boné', backwards: 'Boné para trás', beanie: 'Touca', headphones: 'Fone de ouvido' },
 });
 
@@ -39,12 +39,12 @@ export function createCharacterStore(storage) {
       const ids = new Set();
       for (const item of saved.characters.slice(0, 50)) {
         if (typeof item?.id !== 'string' || !item.id || item.id.length > 80 || ids.has(item.id) || !characterName(item.name)) continue;
-        ids.add(item.id); roster.push({ id: item.id, name: characterName(item.name), appearance: normalizeAppearance(item.appearance) });
+        ids.add(item.id); roster.push({ id: item.id, name: item.id === 'sato' && item.name === 'Sato' ? 'Bancário' : characterName(item.name), appearance: normalizeAppearance(item.appearance) });
       }
       if (roster.some(item => item.id === saved.selectedId)) selectedId = saved.selectedId;
     }
   } catch { /* Corrupt or unavailable storage must not prevent playing. */ }
-  if (!roster.length) roster.push({ id: 'sato', name: 'Sato', appearance: { ...DEFAULT_APPEARANCE } });
+  if (!roster.length) roster.push({ id: 'banker', name: 'Bancário', appearance: { ...DEFAULT_APPEARANCE } });
   const copy = item => item ? { ...item, appearance: { ...item.appearance } } : null;
   function persist() {
     try {

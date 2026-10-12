@@ -31,7 +31,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       position: { x: position?.x || 0, y: position?.y || 0, z: position?.z || 0 }, yaw: 0,
       velocity: { x: 0, y: 0, z: 0 }, radius: kind === 'objective' ? .65 : .35,
       health: { current: spec.health, max: spec.health, lastHitAt: -Infinity },
-      hitboxes: [], stats: { kills: 0, deaths: 0, headshots: 0, damage: 0 },
+      hitboxes: [], contributors: new Map(), stats: { kills: 0, assists: 0, deaths: 0, headshots: 0, damage: 0 },
       action: 'idle', actionSerial: 0, protectedUntil: 0,
     });
     if (kind === 'objective') {
@@ -60,7 +60,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
     const amount = Math.min(victim.health.current, damageForHit(rules, victim, region, weapon));
     if (!(amount > 0 && Number.isFinite(amount))) return null;
     victim.health.current = Math.max(0, victim.health.current - amount); victim.health.lastHitAt = time;
-    if (source) source.stats.damage += amount;
+    if (source) { source.stats.damage += amount; victim.contributors.set(source, time); }
     events('damage', { source, victim, region, damage: amount, weapon, remaining: victim.health.current });
     if (victim.health.current <= 1e-8) {
       victim.health.current = 0; victim.velocity = { x: 0, y: 0, z: 0 }; victim.action = 'death'; victim.actionSerial++;
@@ -68,6 +68,10 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       const direction = source ? new Vector3(victim.position.x - source.position.x, 0, victim.position.z - source.position.z).normalize() : new Vector3(0, 0, -1);
       world.addComponent(victim, 'dead', { at: time, impulse: { x: direction.x * 1.6, y: .5, z: direction.z * 1.6 } }); victim.stats.deaths++;
       if (source && victim.kind !== 'objective') { source.stats.kills++; if (region === 'head' && weapon.kind === 'firearm') source.stats.headshots++; }
+      if (victim.kind !== 'objective') for (const [contributor, at] of victim.contributors) {
+        if (contributor !== source && contributor !== victim && world.has(contributor) && time - at <= 10) contributor.stats.assists++;
+      }
+      victim.contributors.clear();
       events('death', { source, victim, region, weapon });
     }
     return { damage: amount, killed: !!victim.dead, remaining: victim.health.current };
@@ -144,6 +148,12 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
       else p.copy(previous);
       vehicle.velocity.set(0, 0, 0);
     }
+    // AI must not walk into the controller then force it out again next frame.
+    for (const other of actors) {
+      if (other === entity || other.dead || Math.abs(other.position.y - previous.y) > 1.7) continue;
+      const limit = entity.radius + other.radius, oldDistance = distance(previous, other.position), nextDistance = distance(p, other.position);
+      if (nextDistance < limit && nextDistance < oldDistance) { p.copy(previous); vehicle.velocity.set(0, 0, 0); break; }
+    }
     entity.position = { x: p.x, y: p.y, z: p.z };
     if (entity.muzzle) { entity.muzzle.x += p.x - previous.x; entity.muzzle.z += p.z - previous.z; }
     entity.velocity = { x: (p.x - previous.x) / dt, y: 0, z: (p.z - previous.z) / dt };
@@ -202,6 +212,7 @@ export function createCombatSimulation({ bounds, rules: overrides, random = Math
     while (accumulator + 1e-10 >= COMBAT_STEP) { tick(COMBAT_STEP); accumulator -= COMBAT_STEP; }
   }
   function revive(entity, position = entity.position) {
+    entity.contributors.clear();
     world.removeComponent(entity, 'dead'); entity.health.current = entity.health.max; entity.health.lastHitAt = -Infinity;
     entity.position = { ...position }; entity.protectedUntil = time + rules.spawnProtection; entity.action = 'idle';
     updateHumanoidHitboxes(entity); events('respawn', { entity });

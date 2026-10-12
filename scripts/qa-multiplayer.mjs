@@ -30,7 +30,25 @@ try {
     await page.screenshot({ path: path.join(directory, `${label}-rooms.png`) });
     if (!clients.length) { await page.locator('#mp-room-name').fill('Sala de teste'); await page.locator('#mp-create').click(); }
     else { await page.locator('#mp-room-list button').first().click(); }
-    await page.locator('#character-list button').first().click(); await page.locator('#character-confirm').click();
+    await page.locator('#character-list button').first().click(); await page.locator('#character-edit').click();
+    await page.locator('#character-name').fill(touch ? 'Colega' : 'Biel');
+    if (!touch) {
+      const preview = await page.locator('#character-preview canvas').boundingBox();
+      async function rotate(amount) { await page.mouse.move(preview.x + preview.width / 2, preview.y + preview.height / 2); await page.mouse.down(); await page.mouse.move(preview.x + preview.width / 2 + amount, preview.y + preview.height / 2, { steps: 12 }); await page.mouse.up(); await page.waitForTimeout(200); }
+      for (const hairStyle of ['original', 'crop', 'dreads']) {
+        await page.locator('#character-hairStyle').selectOption(hairStyle); await rotate(190);
+        await page.screenshot({ path: path.join(directory, `hair-${hairStyle}-back.png`) }); await rotate(-190);
+      }
+      await page.locator('#character-hairColor').fill('#b8792b');
+      for (const headAccessory of ['cap', 'beanie']) {
+        await page.locator('#character-headAccessory').selectOption(headAccessory); await rotate(190);
+        await page.screenshot({ path: path.join(directory, `hair-${headAccessory}-nape.png`) }); await rotate(-190);
+      }
+      await page.locator('#character-headAccessory').selectOption('none'); await page.locator('#character-hairColor').fill('#503b2d');
+    }
+    for (const [key, value] of Object.entries({ hairStyle: touch ? 'long' : 'curls', shirtStyle: touch ? 'socialTie' : 'suitTie', pantsStyle: 'dress', shoeStyle: 'dress' })) await page.locator(`#character-${key}`).selectOption(value);
+    await page.waitForTimeout(200); await page.screenshot({ path: path.join(directory, `${label}-banker.png`) });
+    await page.locator('#character-save').click(); await page.locator('#character-confirm').click();
     await page.waitForFunction(() => __cdd.game.mode === 'multiplayer' && __cdd.player.active && __cdd.game.multiplayer.network.ready, null, { timeout: 30000 });
     clients.push({ context, page, label });
   }
@@ -40,6 +58,23 @@ try {
   const room = app.hub.rooms.values().next().value;
   const positions = [...room.sim.players.values()].map(p => p.entity.position);
   assert.ok(Math.hypot(positions[0].x - positions[1].x, positions[0].z - positions[1].z) >= 1.4);
+  assert.equal(room.sim.snapshot().phase, 'waiting');
+  await a.locator('#mp-ready').click(); await a.waitForTimeout(200); assert.equal(room.sim.snapshot().phase, 'waiting');
+  await a.screenshot({ path: path.join(directory, 'desktop-approval.png') });
+  await b.locator('#mp-ready').click(); await a.waitForFunction(() => __cdd.game.multiplayer.snapshot.phase === 'running');
+  await b.waitForFunction(() => __cdd.game.multiplayer.canAct);
+  await a.keyboard.down('Tab'); assert.equal(await a.locator('#mp-ranking').isVisible(), true);
+  assert.equal(await a.locator('#mp-ranking tbody tr').count(), 2);
+  await a.screenshot({ path: path.join(directory, 'desktop-ranking.png') }); await a.keyboard.up('Tab');
+  assert.equal(await a.locator('#mp-ranking').isVisible(), false);
+  await a.keyboard.down('KeyG'); await a.keyboard.press('ArrowRight');
+  assert.equal(await a.locator('#reaction-wheel').isVisible(), true);
+  await a.screenshot({ path: path.join(directory, 'desktop-reactions.png') });
+  await a.keyboard.press('Escape'); await a.keyboard.up('KeyG');
+  await b.locator('#btn-reactions').click(); await b.getByRole('menuitem', { name: 'Dançar', exact: true }).click();
+  await a.waitForFunction(() => [...__cdd.game.multiplayer.views.values()].some(v => v.avatar.animationState.motion === 'Dance_Loop'));
+  await a.waitForFunction(() => document.querySelectorAll('.reaction-bubble').length > 0);
+  await a.screenshot({ path: path.join(directory, 'desktop-dance.png') });
   await a.keyboard.down('KeyW'); await a.waitForTimeout(500); await a.keyboard.up('KeyW');
   await a.waitForTimeout(250);
   const movement = await a.evaluate(() => ({ local: __cdd.player.feet.toArray(), authoritative: __cdd.game.multiplayer.self }));
@@ -92,10 +127,7 @@ try {
   wood.body.setTranslation({ x: field.x + field.ux * u, y: field.y + .63, z: field.z + field.uz * u }, true);
   wood.body.setLinvel({ x: -field.ux * 20, y: 0, z: -field.uz * 20 }, true); wood.lastTouch = pa.entity.id;
   await b.waitForFunction(() => __cdd.game.multiplayer.snapshot.football.score[0] === 1);
-  assert.ok(await b.evaluate(() => {
-    const pickup = document.querySelector('#btn-pickup'), emotes = document.querySelector('.mp-emotes');
-    return pickup.hidden || pickup.getBoundingClientRect().bottom + 4 <= emotes.getBoundingClientRect().top;
-  }), 'mobile pickup prompt must stay above the emoji buttons');
+  assert.equal(await b.locator('.mp-emotes').count(), 0, 'emoji choices only appear inside the reaction wheel');
   await b.screenshot({ path: path.join(directory, 'mobile-football.png') });
   const defense = app.world.landmarks.defense; relocate(pa, defense.x, defense.z);
   await a.waitForFunction(() => __cdd.game.multiplayer.nearby?.id === 'defense');

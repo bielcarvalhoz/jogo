@@ -34,7 +34,7 @@ test('neutral idle stays standing and both views reuse the same skinned arm mesh
   assert.equal(meshes.filter(mesh => mesh.visible).length, 2);
   assert.ok(meshes.filter(mesh => mesh.visible).every(mesh => /Sato_arm_hand_[LR]/.test(mesh.name)));
   player.cameraMode = 'third'; avatar.update(.016);
-  assert.ok(meshes.every(mesh => mesh.visible));
+  assert.ok(meshes.every(mesh => mesh.visible === !mesh.userData.characterHidden));
   assert.deepEqual(avatar.meshes, meshes); assert.deepEqual(meshes.map(mesh => mesh.material), materials);
 });
 
@@ -289,7 +289,7 @@ test('scope hides only first-person arms and restores both camera views on exit'
   player.cameraMode = 'first'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: true });
   assert.equal(avatar.meshes.filter(mesh => mesh.visible).length, 0);
   player.cameraMode = 'third'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: true });
-  assert.ok(avatar.meshes.every(mesh => mesh.visible));
+  assert.ok(avatar.meshes.every(mesh => mesh.visible === !mesh.userData.characterHidden));
   player.cameraMode = 'first'; avatar.update(0); avatar.updateWeapon(gun, { weapon: 'sniper', scoped: false });
   assert.equal(avatar.meshes.filter(mesh => mesh.visible).length, 2);
   assert.ok(avatar.weaponDiagnostics.gripError < .003);
