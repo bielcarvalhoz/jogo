@@ -52,12 +52,14 @@ try {
       game.combat.simulation.damage(entity, { source: game.combat.player, weapon: { kind: 'melee', damage: 1000 } });
       game.combat.views.get(entity).update(.016, game.combat.simulation.time, __cdd.camera);
       const corpse = [...game.ragdolls.corpses][0], count = corpse?.parts.length;
-      for (let i = 0; i < 120; i++) game.ragdolls.update(1 / 60);
-      const sinking = corpse?.root.position.y < corpse?.baseY;
+      for (let i = 0; i < 570; i++) game.ragdolls.update(1 / 60);
+      const loose = !corpse?.frozen && corpse?.root.position.y === corpse?.baseY;
       for (let i = 0; i < 90; i++) game.ragdolls.update(1 / 60);
-      return { count, sinking, remaining: game.ragdolls.corpses.size };
+      const sinking = corpse?.frozen && corpse?.root.position.y < corpse?.baseY;
+      for (let i = 0; i < 100; i++) game.ragdolls.update(1 / 60);
+      return { count, loose, sinking, remaining: game.ragdolls.corpses.size };
     });
-    assert.equal(ragdoll.count, 11); assert.ok(ragdoll.sinking); assert.equal(ragdoll.remaining, 0);
+    assert.equal(ragdoll.count, 11); assert.ok(ragdoll.loose); assert.ok(ragdoll.sinking); assert.equal(ragdoll.remaining, 0);
     reports.push({ label, audio, ammo, ragdoll }); await context.close();
   }
   assert.deepEqual(errors, []);

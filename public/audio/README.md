@@ -29,18 +29,34 @@ e [Snake's SECOND Authentic Gun Sounds](https://f8studios.itch.io/snakes-second-
 Autor: SnakeF8 / F8 Studios. Packs gratuitos; o autor permite uso comercial,
 edição e redistribuição dos sons e declara domínio público nos comentários.
 Crédito não é obrigatório. `snakef8/sources.json` identifica cada arquivo original.
-Os MP3s foram copiados integralmente, sem reexportar.
+Os MP3s foram copiados integralmente, sem reexportar. A Glock agora reproduz
+`pistol-clean.wav`, editado a partir do WAV original 9mm Single Isolated: remoção
+leve de ruído, corte de subgrave, cauda de 220 ms com fade e pico normalizado
+a 0,8. Isso evita os picos acima de 1 do MP3 e preserva um ataque curto e limpo.
 
 Cada uma das seis armas de fogo tem um disparo e uma recarga próprios. Na reprodução,
 Web Audio aplica envelope de entrada/saída, volume reduzido e filtro passa-baixas
-entre 1.250 e 2.100 Hz para adaptar os tiros a paintball. A Nova usa o sample de
+entre 1.250 e 2.100 Hz nas outras armas; a Glock usa 4.200 Hz e entrada de
+1,5 ms, preservando o estalo sem o abafamento excessivo. A Nova usa o sample de
 inserção de cartucho a cada etapa da recarga.
+
+## Revisão dos passos
+
+`foley/{concrete,dirt}{1,2,3,4}.wav` são edições das gravações Portal 2 acima,
+sem áudio procedural. Concreto (asfalto/calçada) mantém a pancada inicial e
+recorta arrasto posterior; terra mantém a textura do solo com cauda mais curta.
+Há redução leve de ruído e normalização de pico (concreto 0,7; terra 0,55), sem
+filtro passa-baixas na preparação ou reprodução desses passos. O envelope de
+entrada de 1 ms preserva o ataque. A grama conserva arquivos, filtros e envelope.
+`scripts/prepare-refined-audio.mjs <WAV original da 9mm>` reproduz as edições
+com FFmpeg; essa ferramenta não é dependência do jogo nem do build.
 
 ## Reprodução espacial
 
 `src/core/recorded-audio.js` carrega e decodifica 41 arquivos uma vez após o gesto
 que desbloqueia áudio. Eventos de passos não ficam enfileirados durante o download.
-As fontes posicionadas usam HRTF, atenuação inversa contínua e absorção de agudos
-com distância. O listener acompanha posição e orientação da câmera, incluindo
+As fontes posicionadas usam HRTF e atenuação inversa contínua. A absorção de agudos
+com distância permanece nos demais efeitos, mas concreto/terra passam direto
+para ganho e posicionamento espacial. O listener acompanha a câmera, incluindo
 terceira pessoa. Há limite de 32 vozes, cancelamento por personagem para recargas,
 fade da natureza e limpeza ao silenciar ou ocultar a aba.

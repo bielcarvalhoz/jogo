@@ -35,7 +35,7 @@ test('footsteps use loaded surface recordings without synthesized fallback or re
   await f.audio.preload(); await f.audio.preload(); assert.equal(f.files.length, RECORDED_SOUNDS.length);
   for (const surface of ['concrete', 'dirt', 'grass']) {
     f.audio.footstep(surface); f.audio.footstep(surface);
-    const [a, b] = f.sources.slice(-2); assert.match(a.buffer.file, new RegExp(`portal2/player/footsteps/${surface}`)); assert.notEqual(a.buffer, b.buffer);
+    const [a, b] = f.sources.slice(-2); assert.match(a.buffer.file, new RegExp(`${surface === 'grass' ? 'portal2/player/footsteps' : 'foley'}/${surface}`)); assert.notEqual(a.buffer, b.buffer);
   }
   f.audio.dispose(); assert.equal(f.audio.state.voices, 0);
 });
@@ -44,11 +44,25 @@ test('shots apply paintball lowpass, HRTF positioning and progressive air absorp
   const f = fixture(); await f.audio.preload();
   f.audio.setListener({ x: 0, y: 1.7, z: 0 }); f.audio.shot('pistol', { position: { x: -3, y: 1.7, z: 0 } });
   const p = f.panners[0], filter = f.filters[0], near = filter.frequency.value;
-  assert.equal(p.panningModel, 'HRTF'); assert.equal(p.positionX.value, -3); assert.equal(p.distanceModel, 'inverse'); assert.ok(p.maxDistance > 1000); assert.ok(near < 2000);
+  assert.match(f.sources[0].buffer.file, /pistol-clean\.wav$/);
+  assert.equal(p.panningModel, 'HRTF'); assert.equal(p.positionX.value, -3); assert.equal(p.distanceModel, 'inverse'); assert.ok(p.maxDistance > 1000); assert.ok(near > 3500 && near < 4500);
   f.audio.setListener({ x: 30, y: 1.7, z: 0 }, { x: 1, y: 0, z: 0 }); const middle = filter.frequency.value;
   f.audio.setListener({ x: 90, y: 1.7, z: 0 }); assert.ok(near > middle && middle > filter.frequency.value);
   assert.equal(f.context.listener.positionX.value, 90);
   f.audio.reload('pistol', { tag: 'reload:local' }); f.audio.reload('automatic', { tag: 'reload:remote' });
   f.audio.stopReload('reload:remote'); assert.ok(!f.sources.at(-2).stopped); assert.ok(f.sources.at(-1).stopped);
+  f.audio.dispose();
+});
+
+test('concrete and dirt bypass muffling at every distance, including takeoff/landing; grass keeps its timbre', async () => {
+  const f = fixture(); await f.audio.preload(); const position = { x: 0, y: 0, z: -3 };
+  f.audio.setListener({ x: 0, y: 1.7, z: 0 });
+  f.audio.footstep('concrete', { position }); f.audio.footstep('dirt', { position });
+  f.audio.jump('concrete', position); f.audio.land('dirt', 5, position);
+  assert.equal(f.filters.length, 0, 'hard-ground foley must connect directly to gain');
+  assert.equal(f.panners.length, 4); assert.ok(f.panners.every(p => p.panningModel === 'HRTF' && p.distanceModel === 'inverse'));
+  f.audio.setListener({ x: 90, y: 1.7, z: 0 }); assert.equal(f.filters.length, 0);
+  f.audio.footstep('grass', { position }); assert.equal(f.filters.length, 1);
+  assert.match(f.sources.at(-1).buffer.file, /portal2\/player\/footsteps\/grass/);
   f.audio.dispose();
 });

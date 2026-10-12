@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true,
+  args: ['--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--no-sandbox'] });
 try {
   const page = await browser.newPage();
   const url = process.env.QA_URL || 'http://127.0.0.1:5173';
