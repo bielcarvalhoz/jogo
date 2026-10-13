@@ -95,6 +95,10 @@ body.touch #hud #ammo-reserve,body.touch #hud .ammo-separator{font-size:11px}
 body.tour-active #hud .combat-controls,body.tour-active #hud .ammo-controls,body.tour-active #hud .character-controls,body.tour-active #actions-toggle{display:none!important}
 body.training-active #map-panel .map-tools,body.training-active #map-panel #map-places{display:none}
 body.tour-active #hud .hud-top-right #minimap{display:block!important}
+/* Keyboard shortcuts own desktop menus; keep the playable HUD uncluttered. */
+body:not(.touch):not(.tour-active) #hud #actions-toggle,body:not(.touch):not(.tour-active) #hud #btn-menu,body:not(.touch):not(.tour-active) #hud #desktop-menu,body:not(.touch) #hud #btn-reload,body:not(.touch) #hud .character-controls,body:not(.touch) #hud .compact-help,body:not(.touch) #hud #hud-fps,body:not(.touch) #hud .attrib,body:not(.touch) #hud .mp-status{display:none!important}
+body:not(.touch) #hud .hud-top-right #minimap{display:block!important;width:clamp(140px,min(17vw,24vh),280px);height:clamp(140px,min(17vw,24vh),280px)}
+body:not(.touch) #hud #btn-weapon{pointer-events:none}
 @media(max-width:700px) and (orientation:portrait){
  .logo-word{font-size:clamp(68px,min(22vw,13vh),112px);-webkit-text-stroke-width:7px}
  .logo-sub{font-size:clamp(32px,11vw,54px);-webkit-text-stroke-width:5px}

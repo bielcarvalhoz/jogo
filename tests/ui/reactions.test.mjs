@@ -11,12 +11,24 @@ function fixture(t) {
   const player = { active: true, cameraMode: 'first', feet: new THREE.Vector3(2, 0, 3), events: new EventTarget(),
     avatar: { animationState: { emote: null }, playEmote(id) { played.push(id); if (['wave', 'dance'].includes(id)) this.animationState.emote = id; }, stopEmote() { this.animationState.emote = null; } },
     setCameraMode(value) { this.cameraMode = value; }, setWeaponWheelOpen() {}, releasePointerForUI() {}, setFocusedAim() {} };
+  const bindings = new Map();
   const game = { mode: 'training', player, events: createEvents(), ui: { characters: { openState: false }, combatHUD: { panelOpen: false } },
-    input: { bind() {} }, paintball: { resetInput() {} }, engine: { scene, addSystem: fn => systems.push(fn) },
+    input: { bind(code, handler) { bindings.set(code, handler); } }, paintball: { resetInput() {} }, engine: { scene, addSystem: fn => systems.push(fn) },
     multiplayer: { network: { session: { selfId: 'me' } } } };
   const reactions = createReactions(game), update = dt => systems.forEach(fn => fn(dt));
-  return { game, player, played, scene, hud, reactions, update };
+  return { game, player, played, scene, hud, reactions, update, bindings };
 }
+
+test('T opens all interactions without releasing capture, and closing requests capture again', t => {
+  const { game, player, hud, reactions, bindings } = fixture(t);
+  let releases = 0, resumes = 0;
+  player.releasePointerForUI = () => releases++; player.resumePointer = () => resumes++;
+  assert.ok(bindings.has('KeyT')); assert.equal(bindings.has('KeyG'), false);
+  bindings.get('KeyT')({ preventDefault() {} }); assert.equal(reactions.opened, true);
+  assert.equal(hud.children[1].firstElementChild.children.length, Object.keys(EMOTES).length);
+  assert.equal(releases, 0); reactions.close(); assert.equal(resumes, 1);
+  game.ui.paused = true; bindings.get('KeyT')({ preventDefault() {} }); assert.equal(reactions.opened, false);
+});
 
 for (const id of ['wave', 'dance']) test(`${id} produces body animation only and restores the first person camera afterwards`, t => {
     const { player, played, scene, reactions, update } = fixture(t);

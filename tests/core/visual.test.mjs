@@ -12,6 +12,7 @@ test('visual style leaves V to paint and never changes renderer resolution', () 
     input: { bind: (code, handler) => bindings.set(code, handler) }, toast() {},
   });
   assert.equal(bindings.has('KeyV'), false); assert.equal(styler.setPixel, undefined);
-  assert.equal(styler.cartoon, true); bindings.get('KeyT')(); assert.equal(styler.cartoon, false);
+  assert.equal(bindings.has('KeyT'), false, 'T belongs to interactions in every playable mode');
+  assert.equal(styler.cartoon, true); bindings.get('KeyK')(); assert.equal(styler.cartoon, false);
   assert.equal(resolutionChanges, 0);
 });

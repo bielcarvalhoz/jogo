@@ -12,7 +12,7 @@ export function createPaintballModule(game) {
   const { scene, camera, renderer } = game.engine;
   const $ = (id) => document.getElementById(id);
   const player = game.player;
-  const paintEnabled = () => (player.active || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen && !game.ui?.weaponWheelOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true);
+  const paintEnabled = () => ((player.active && (player.touchMode || player.pointerLocked !== false)) || game.debug.inspectionView === 'tinta') && !game.ui?.mapOpen && !game.ui?.weaponWheelOpen && !game.ui?.combatHUD?.panelOpen && (game.combat?.canPlayerAct ?? true) && (game.multiplayer?.canAct ?? true);
   const paintball = createPaintball({
     scene, camera, getActive: paintEnabled, getVisible: () => player.active || game.debug.inspectionView === 'tinta',
     getCameraMode: () => player.cameraMode,

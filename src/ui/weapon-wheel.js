@@ -82,6 +82,7 @@ export function createWeaponWheel(game) {
     paint.resetInput(); game.events.emit('weaponwheel', false);
     if (selected) paint.setWeapon(selected.id);
     syncWeaponButton();
+    player.resumePointer?.();
   }
   function syncWeaponButton() {
     const next = `${paint.weapon.id}:${!!paint.holstered}`;

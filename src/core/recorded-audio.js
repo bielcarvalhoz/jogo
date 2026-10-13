@@ -7,9 +7,9 @@ export const FOOTSTEPS = Object.freeze({
 });
 const shotFile = id => `audio/snakef8/${id === 'pistol' ? 'pistol-clean.wav' : `${id}.mp3`}`;
 export const SHOT_PROFILES = Object.freeze({
-  pistol: { cutoff: 4200, volume: .27, rate: 1.04, attack: .0015 }, automatic: { cutoff: 1550, volume: .24, rate: 1.25 },
-  revolver: { cutoff: 1400, volume: .31, rate: .93 }, shotgun: { cutoff: 1250, volume: .34, rate: 1.05 },
-  sniper: { cutoff: 1650, volume: .32, rate: .88 }, smg: { cutoff: 2100, volume: .19, rate: 1.35 },
+  pistol: { volume: .27, rate: 1.04, attack: .0015 }, automatic: { volume: .24, rate: 1.25 },
+  revolver: { volume: .31, rate: .93 }, shotgun: { volume: .34, rate: 1.05 },
+  sniper: { volume: .32, rate: .88 }, smg: { volume: .19, rate: 1.35 },
 });
 const IMPACTS = {
   concrete: variations('physics/concrete', 'concrete_impact_bullet'), wood: variations('physics/wood', 'wood_box_impact_bullet'),
@@ -35,8 +35,8 @@ export function impactSurface(hit) {
   return /terrain|ground|grama|chao|grass/i.test(hit.object?.name || '') ? 'dirt' : 'concrete';
 }
 
-/** Recorded foley with native HRTF, continuous inverse-distance attenuation
- * and distance-dependent air absorption. No generated footstep/weapon fallback. */
+/** Recorded foley with native HRTF and continuous inverse-distance attenuation.
+ * No generated footstep/weapon fallback. */
 export function createRecordedAudio({ context, bus, audible, base = '/', fetcher = globalThis.fetch, random = Math.random }) {
   const buffers = new Map(), requests = new Map(), failed = new Set(), voices = new Set(), lastVariants = new Map();
   const listener = { x: 0, y: 0, z: 0 };
@@ -57,7 +57,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
   function retire(item) {
     if (!voices.delete(item)) return;
     item.source.onended = null;
-    for (const node of [item.source, item.gain, item.filter, item.panner]) node?.disconnect();
+    for (const node of [item.source, item.gain, item.panner]) node?.disconnect();
   }
   function stop(item, fade = 0) {
     if (fade) { item.gain.gain.cancelScheduledValues(context.currentTime); item.gain.gain.setTargetAtTime(0, context.currentTime, fade / 4); }
@@ -68,20 +68,16 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     if (!item.position || !item.panner) return;
     const p = typeof item.position === 'function' ? item.position() : item.position;
     if (!p) return;
-    const distance = Math.hypot(p.x - listener.x, p.y - listener.y, p.z - listener.z), t = context.currentTime;
+    const t = context.currentTime;
     for (const [axis, value] of Object.entries(p)) if (['x', 'y', 'z'].includes(axis)) item.panner[`position${axis.toUpperCase()}`].setTargetAtTime(value, t, .02);
-    item.filter?.frequency.setTargetAtTime(Math.max(650, item.cutoff / (1 + distance / 70)), t, .06);
   }
-  function play(file, { position, volume = .2, cutoff = 7000, rate = 1, attack = .008, loop = false, duration, tag, when = context.currentTime } = {}) {
+  function play(file, { position, volume = .2, rate = 1, attack = .008, loop = false, duration, tag, when = context.currentTime } = {}) {
     if (disposed || !audible()) return null;
     const buffer = buffers.get(file); if (!buffer) return null;
     if (voices.size >= 32) stop([...voices].find(item => !item.loop) || voices.values().next().value);
-    const source = context.createBufferSource(), gain = context.createGain(), filter = cutoff == null ? null : context.createBiquadFilter();
+    const source = context.createBufferSource(), gain = context.createGain();
     source.buffer = buffer; source.loop = loop; source.playbackRate.value = rate;
-    if (filter) {
-      filter.type = 'lowpass'; filter.frequency.value = cutoff; filter.Q.value = .5;
-      source.connect(filter); filter.connect(gain);
-    } else source.connect(gain);
+    source.connect(gain);
     const panner = position && context.createPanner ? context.createPanner() : null;
     if (panner) {
       panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse'; panner.refDistance = 3; panner.rolloffFactor = 1.15; panner.maxDistance = 10000;
@@ -90,7 +86,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     const length = duration || buffer.duration / rate;
     gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(volume, when + (loop ? .4 : attack));
     if (!loop) { gain.gain.setValueAtTime(volume, when + Math.max(.009, length - .055)); gain.gain.linearRampToValueAtTime(0, when + length); }
-    const item = { source, gain, filter, panner, cutoff, position, tag, loop }; voices.add(item); spatial(item);
+    const item = { source, gain, panner, position, tag, loop }; voices.add(item); spatial(item);
     source.onended = () => retire(item); source.start(when);
     if (!loop) source.stop(when + length + .01);
     return item;
@@ -101,9 +97,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
   }
   const footstep = (surface = 'concrete', options = {}) => play(variant(FOOTSTEPS[surface] || FOOTSTEPS.concrete), {
     volume: Math.min(.24, .10 + (options.speed || 3) * .012), rate: .96 + random() * .08,
-    // Keep grass's existing timbre. Hard-ground attacks bypass lowpass/air
-    // absorption, while retaining HRTF and continuous distance attenuation.
-    ...(surface === 'grass' ? {} : { cutoff: null, attack: .001 }), ...options,
+    ...(surface === 'grass' ? {} : { attack: .001 }), ...options,
   });
   function setListener(position, forward = { x: 0, y: 0, z: -1 }, up = { x: 0, y: 1, z: 0 }) {
     Object.assign(listener, position); const l = context.listener, t = context.currentTime;
@@ -116,7 +110,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
   function setAmbience(value) {
     ambience = !!value;
     if (!ambience || !audible()) { for (const item of voices) if (item.tag === 'ambience' && !item.stopping) { item.stopping = true; stop(item, .4); } return; }
-    for (const [file, volume] of [[WIND, .10], [INSECTS, .045]]) if (![...voices].some(item => item.source.buffer === buffers.get(file) && !item.stopping)) play(file, { volume, cutoff: 4200, loop: true, tag: 'ambience' });
+    for (const [file, volume] of [[WIND, .10], [INSECTS, .045]]) if (![...voices].some(item => item.source.buffer === buffers.get(file) && !item.stopping)) play(file, { volume, loop: true, tag: 'ambience' });
     if (context.currentTime >= birdsAt) {
       play(BIRDS, { position: { x: listener.x + 15, y: listener.y + 5, z: listener.z - 12 }, volume: .17, tag: 'ambience' });
       birdsAt = context.currentTime + 7 + random() * 9;
@@ -129,17 +123,17 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     reload(weapon, { duration = 2.3, position, tag = 'reload' } = {}) {
       stopReload(tag); const id = weapon.id || weapon, file = `audio/snakef8/reload-${id}.mp3`, buffer = buffers.get(file);
       if (!buffer) return;
-      if (weapon.reloadStyle === 'shell') for (let at = 0; at < duration - .01; at += weapon.reloadDuration) play(file, { position, volume: .16, cutoff: 4200, rate: buffer.duration / weapon.reloadDuration, duration: weapon.reloadDuration, when: context.currentTime + at, tag });
-      else play(file, { position, volume: .16, cutoff: 4200, rate: buffer.duration / duration, duration, tag });
+      if (weapon.reloadStyle === 'shell') for (let at = 0; at < duration - .01; at += weapon.reloadDuration) play(file, { position, volume: .16, rate: buffer.duration / weapon.reloadDuration, duration: weapon.reloadDuration, when: context.currentTime + at, tag });
+      else play(file, { position, volume: .16, rate: buffer.duration / duration, duration, tag });
     },
     jump(surface, position) { footstep(surface, { position, volume: .1, rate: 1.14 }); },
     land(surface, speed = 4, position) { footstep(surface, { position, volume: Math.min(.33, .12 + Math.abs(speed) * .018), rate: .88 }); },
-    melee(weapon = {}, options = {}) { play(WHOOSH, { volume: weapon.id === 'fists' ? .10 : .15, rate: weapon.id === 'axe' ? 1.2 : weapon.id === 'bat' ? 1.5 : 1.9, duration: .18, cutoff: 3500, ...options }); },
-    impact(surface = 'wood', impulse = 6, options = {}) { play(variant(IMPACTS[surface] || IMPACTS.concrete), { volume: Math.min(.3, .10 + impulse * .007), cutoff: 4000, ...options }); },
+    melee(weapon = {}, options = {}) { play(WHOOSH, { volume: weapon.id === 'fists' ? .10 : .15, rate: weapon.id === 'axe' ? 1.2 : weapon.id === 'bat' ? 1.5 : 1.9, duration: .18, ...options }); },
+    impact(surface = 'wood', impulse = 6, options = {}) { play(variant(IMPACTS[surface] || IMPACTS.concrete), { volume: Math.min(.3, .10 + impulse * .007), ...options }); },
     hit(hit, info = {}) {
       const surface = impactSurface(hit), files = surface === 'flesh' && info.kind !== 'firearm' ? IMPACTS.punch : IMPACTS[surface] || IMPACTS.concrete;
-      play(variant(files), { position: hit.point, volume: info.kind === 'firearm' ? .20 : .25, cutoff: surface === 'metal' ? 4800 : 3400 });
-      if (surface === 'metal' && info.kind === 'firearm' && random() < .25) play(RICOCHET, { position: hit.point, volume: .07, cutoff: 4000 });
+      play(variant(files), { position: hit.point, volume: info.kind === 'firearm' ? .20 : .25 });
+      if (surface === 'metal' && info.kind === 'firearm' && random() < .25) play(RICOCHET, { position: hit.point, volume: .07 });
     },
     whiz(from, to) {
       const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z, lengthSq = dx * dx + dy * dy + dz * dz;
@@ -148,7 +142,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
       const point = { x: from.x + dx * fraction, y: from.y + dy * fraction, z: from.z + dz * fraction };
       const distance = Math.hypot(point.x - listener.x, point.y - listener.y, point.z - listener.z);
       if (distance > 3 || Math.hypot(from.x - listener.x, from.y - listener.y, from.z - listener.z) < 1) return false;
-      const item = play(WHOOSH, { position: point, volume: .12 * (1 - distance / 3), duration: .22, rate: 1.7, cutoff: 3000 });
+      const item = play(WHOOSH, { position: point, volume: .12 * (1 - distance / 3), duration: .22, rate: 1.7 });
       if (item) lastWhiz = context.currentTime; return !!item;
     },
     stopAll() { for (const item of voices) stop(item); },

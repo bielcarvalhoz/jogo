@@ -17,9 +17,12 @@ const GRAVITY = 22;
 const STEP_UP = 0.7;
 const TOUCH_FLY_SPEED = 16; // m/s
 
-export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, roofAt, bounds, allowFlight = () => true, canAct = () => true }) {
+export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, roofAt, bounds, allowFlight = () => true, canAct = () => true, canCapture = canAct }) {
   dom.tabIndex = -1;
   const controls = new PointerLockControls(camera, dom);
+  // Three dispatches lock/unlock before updating isLocked. The document owns
+  // the authoritative state, including during rapid menu open/close events.
+  const pointerLocked = () => dom.ownerDocument.pointerLockElement === dom;
   const keys = new Set();
   const feet = new THREE.Vector3();
   const eyePosition = new THREE.Vector3();
@@ -36,7 +39,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   let holstered = false, bodyYaw = 0, orbitDistance = 3.15, armedMode = 'third', armedPitch = 0, returning = null;
   const locomotion = { speed: 0, distance: 0, totalDistance: 0, phase: 0, gait: 'idle', foot: 0 };
 
-  // Estado "jogando": pointer lock, modo arrastar (pointer lock bloqueado) ou modo toque
+  // Desktop gameplay requires real pointer lock. 'drag' is only a UI/lobby state.
   const events = new EventTarget();
   let active = false;
   let mode = 'mouse'; // 'mouse' | 'drag' | 'touch'
@@ -46,35 +49,61 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     if (!v) { keys.clear(); touchControls.reset(); focusedAim = weaponWheelOpen = false; syncPointerSpeed(); }
     events.dispatchEvent(new CustomEvent(v ? 'lock' : 'unlock', { detail: { dragMode: mode === 'drag', touch: mode === 'touch' } }));
   };
-  controls.addEventListener('lock', () => { mode = 'mouse'; setActive(true); });
-  controls.addEventListener('unlock', () => { if (mode === 'mouse') setActive(false); });
-  const enableDragMode = () => { if (!controls.isLocked && mode !== 'touch') { mode = 'drag'; setActive(true); } };
-  document.addEventListener('pointerlockerror', enableDragMode);
+  let capturePending = false, captureTimer = null, captureRevision = 0, captureWanted = false, releasePending = false;
+  const clearCapture = () => { capturePending = false; clearTimeout(captureTimer); captureTimer = null; };
+  controls.addEventListener('lock', () => {
+    clearCapture();
+    if (!captureWanted || document.hidden || document.hasFocus?.() === false || !canCapture()) { controls.unlock(); return; }
+    mode = 'mouse'; setActive(true);
+  });
+  controls.addEventListener('unlock', () => {
+    const expected = releasePending; releasePending = false;
+    if (expected && captureWanted) { resumePointer(); return; }
+    if (mode === 'mouse') setActive(false);
+  });
+  function captureFailed() {
+    if (!capturePending) return;
+    clearCapture(); captureWanted = false; setActive(false);
+    events.dispatchEvent(new Event('pointerlockfailed'));
+  }
+  document.addEventListener('pointerlockerror', captureFailed);
+
+  function resumePointer() {
+    if (mode === 'touch' || capturePending || !canCapture() || document.hidden || document.hasFocus?.() === false) return;
+    captureWanted = true;
+    if (releasePending) return; // exitPointerLock acknowledges asynchronously.
+    if (pointerLocked()) { setActive(true); return; }
+    const revision = ++captureRevision;
+    capturePending = true;
+    dom.focus?.({ preventScroll: true });
+    captureTimer = setTimeout(() => { if (revision === captureRevision) captureFailed(); }, 1200);
+    try {
+      const request = dom.requestPointerLock();
+      request?.catch?.(() => { if (revision === captureRevision) captureFailed(); });
+    } catch { captureFailed(); }
+  }
 
   /** touch = true quando o jogo foi iniciado por toque (celular/tablet) */
   function start(touch = false, { pointerLock = true } = {}) {
+    captureRevision++; clearCapture(); captureWanted = false;
     dom.focus?.({ preventScroll: true });
     if (touch) {
       mode = 'touch';
+      if (pointerLocked()) { releasePending = true; controls.unlock(); }
       setActive(true);
       return;
     }
     if (!pointerLock) { mode = 'drag'; setActive(true); return; }
     mode = 'mouse';
-    try {
-      const p = dom.requestPointerLock();
-      if (p && p.catch) p.catch(enableDragMode);
-    } catch { enableDragMode(); return; }
-    // alguns ambientes ignoram o pedido em silêncio
-    setTimeout(() => { if (!controls.isLocked && !active) enableDragMode(); }, 700);
+    resumePointer();
   }
   function stop() {
+    captureRevision++; clearCapture(); captureWanted = false;
     setActive(false);
-    dragging = false;
-    if (controls.isLocked) controls.unlock();
+    if (pointerLocked()) { releasePending = true; controls.unlock(); }
   }
 
-  // ---------------------------------------------------------------- olhar arrastando
+  // ---------------------------------------------------------------- olhar por toque
   const euler = new THREE.Euler(0, 0, 0, 'YXZ');
   const look = (dx, dy, k) => {
     if (weaponWheelOpen || returning) return;
@@ -84,7 +113,6 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     euler.x = Math.max(-1.5, Math.min(1.5, euler.x - dy * k * scale));
     camera.quaternion.setFromEuler(euler);
   };
-  let dragging = false;
   let stickX = 0, stickY = 0;
   const touchControls = createTouchControls(dom, {
     isActive: () => active && mode === 'touch', onLook: look,
@@ -98,12 +126,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   dom.addEventListener('pointerdown', (e) => {
     if (!active) return;
     dom.focus?.({ preventScroll: true });
-    if (e.pointerType !== 'touch' && mode === 'drag') dragging = true;
-  });
-  window.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') dragging = false; });
-  window.addEventListener('pointermove', (e) => {
-    if (!dragging || e.pointerType === 'touch') return;
-    look(e.movementX, e.movementY, 0.004);
+    if (e.pointerType !== 'touch' && mode !== 'touch') resumePointer();
   });
 
   function toggleAutoFly() {
@@ -153,8 +176,8 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     if (active && canAct()) { onKey(e, true); if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => onKey(e, false));
-  window.addEventListener('blur', () => { keys.clear(); dragging = false; });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) keys.clear(); });
+  window.addEventListener('blur', stop);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
 
   function groundAt(x, z, fromY) {
     let g = terrain.heightAt(x, z);
@@ -243,7 +266,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
 
   function update(dt) {
-    if (!active || !canAct()) { velocity.set(0, 0, 0); locomotion.speed = locomotion.distance = 0; locomotion.gait = 'idle'; return; }
+    if (!active || !canAct() || (mode !== 'touch' && !pointerLocked())) { velocity.set(0, 0, 0); locomotion.speed = locomotion.distance = 0; locomotion.gait = 'idle'; return; }
     dt = Math.min(dt, 0.05);
     const before = feet.clone();
     const wasGrounded = onGround, fallSpeed = Math.max(0, -vy);
@@ -349,6 +372,7 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
   return {
     events,
     start,
+    resumePointer,
     stop,
     update,
     placeAt,
@@ -367,13 +391,15 @@ export function createPlayer(camera, dom, { terrain, collide, bridgeHeightAt, ro
     toggleCrouch: () => setCrouched(!crouched),
     jump,
     setFocusedAim(value) { focusedAim = active && !!value; syncPointerSpeed(); },
-    setWeaponWheelOpen(value) { weaponWheelOpen = active && !!value; syncPointerSpeed(); dragging = false; },
+    setWeaponWheelOpen(value) { weaponWheelOpen = active && !!value; syncPointerSpeed(); },
     bindFireButton: touchControls.bindFireButton,
     releasePointerForUI() {
-      keys.clear(); dragging = false; touchControls.reset();
-      if (controls.isLocked) { mode = 'drag'; controls.unlock(); }
+      captureRevision++; clearCapture(); captureWanted = false;
+      keys.clear(); touchControls.reset();
+      if (pointerLocked()) { mode = 'drag'; releasePending = true; controls.unlock(); }
     },
     get active() { return active; },
+    get pointerLocked() { return pointerLocked(); },
     get dragMode() { return mode === 'drag'; },
     get touchMode() { return mode === 'touch'; },
     get fly() { return fly || autoFly; },
