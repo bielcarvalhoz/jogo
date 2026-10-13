@@ -4,11 +4,11 @@
 body,button,input,select,textarea,kbd{font-family:Nunito,sans-serif}
 .menu-options button,.menu-options #play{font-family:Nunito,sans-serif;font-weight:900;font-size:clamp(22px,2.8vw,34px)}
 .menu-options b{font-weight:900}
-.gta-logo,.logo-sub{font-family:Arcade,monospace}
-.logo-word{letter-spacing:-.025em;line-height:.90;font-size:clamp(76px,min(10vw,15vh),150px)}
-.logo-word:nth-child(1){transform:translateX(-.12em)}
-.logo-word:nth-child(2){transform:translateX(.12em)}
-.logo-sub{letter-spacing:0;font-size:clamp(36px,min(5vw,7vh),70px)}
+.gta-logo{--logo-size:clamp(76px,min(10vw,15vh),150px);font-family:Arcade,monospace;font-size:var(--logo-size);align-items:flex-start;transform:translate(-50%,-50%)}
+.logo-word{letter-spacing:-.025em;line-height:.60;font-size:1em;-webkit-text-stroke-width:.075em}
+.gta-logo>.logo-word:nth-child(2){margin-left:.34em}
+.logo-bottom{display:flex;flex-direction:column;align-items:center;margin-left:.23em}
+.logo-sub{font-family:Arcade,monospace;letter-spacing:0;font-size:.4em;line-height:.85;margin-top:-.11em;color:#ed303b;-webkit-text-stroke-width:.1em}
 #settings-panel h2{font-family:Nunito,sans-serif;font-weight:900}
 button:focus-visible,select:focus-visible{outline-color:var(--ui-accent)}
 body #hud .hud-left{display:none!important}
@@ -104,8 +104,7 @@ body:not(.touch){--hud-minimap-size:clamp(140px,min(17vw,24vh),280px)}
 body:not(.touch) #hud .hud-top-right #minimap{display:block!important}
 body:not(.touch) #hud #btn-weapon{pointer-events:none}
 @media(max-width:700px) and (orientation:portrait){
- .logo-word{font-size:clamp(68px,min(22vw,13vh),112px);-webkit-text-stroke-width:7px}
- .logo-sub{font-size:clamp(32px,11vw,54px);-webkit-text-stroke-width:5px}
+ .gta-logo{--logo-size:clamp(68px,min(22vw,13vh),112px)}
  .menu-options button,.menu-options #play{font-size:clamp(22px,6.3vw,30px);min-height:46px}
 }
 @media(max-height:500px) and (orientation:landscape){
