@@ -43,12 +43,12 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
 
   const dialog = document.createElement('dialog'); dialog.id = 'game-menu';
   dialog.setAttribute('aria-labelledby', 'game-menu-title');
-  dialog.innerHTML = `<header><div><small id="game-menu-mode"></small><h2 id="game-menu-title">Seu jogo</h2></div><button id="game-menu-close" aria-label="Continuar jogando"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header>
-    <p id="game-menu-description"></p><div class="game-menu-settings">
+  dialog.innerHTML = `<header><div><small id="game-menu-mode"></small><h2 id="game-menu-title">Configurações</h2></div><button id="game-menu-close" aria-label="Continuar jogando"><svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#close" /></svg></button></header>
+    <div class="game-menu-settings">
     <label>Câmera<select id="session-camera"><option value="third">Terceira pessoa</option><option value="first">Primeira pessoa</option></select></label>
     <label>Controles na tela<input id="session-touch" type="checkbox" /></label>
     ${[['masterVolume', 'Volume master'], ['musicVolume', 'Música / ambiente'], ['effectsVolume', 'Efeitos sonoros']].map(([key, label]) => `<label class="audio-volume" for="session-${key}"><span>${label} <output id="session-${key}-value">100%</output></span><input id="session-${key}" type="range" min="0" max="100" step="1" value="100" /></label>`).join('')}
-    </div><div id="session-mode-actions"></div>${controlsGuide}<footer><button id="game-menu-resume">Continuar jogando</button><button id="game-menu-exit">Voltar ao menu principal</button></footer>`;
+    </div>${controlsGuide}<footer><button id="game-menu-resume">Continuar jogando</button><button id="game-menu-exit">Voltar ao menu principal</button></footer>`;
   document.body.append(dialog);
   function close(continueGame = true) {
     if (!dialog.open) return;
@@ -65,16 +65,10 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
     document.body.classList.remove('playing'); document.body.classList.add('session-menu-open');
     const names = { training: 'Modo treino', campaign: 'Modo treta · Um jogador', multiplayer: 'Modo treta · Multijogador', tour: 'Modo tour' };
     $('game-menu-mode').textContent = names[game.mode];
-    $('game-menu-description').textContent = game.mode === 'multiplayer' ? 'Ajuste seus controles. A sala continua em andamento.' : 'Ajuste seu jogo e continue de onde parou.';
     $('session-camera').value = game.player.cameraMode;
     $('session-touch').checked = game.player.touchMode;
     dialog.dataset.mode = game.mode;
     for (const key of VOLUME_KEYS) { $('session-' + key).value = $(key).value; $('session-' + key + '-value').textContent = `${$(key).value}%`; }
-    const modeActions = $('session-mode-actions'); modeActions.replaceChildren();
-    if (game.mode === 'training') {
-      const lab = document.createElement('button'); lab.textContent = 'Laboratório de treino';
-      lab.addEventListener('click', () => { close(); game.ui.combatHUD.setOpen(true); }); modeActions.append(lab);
-    }
     dialog.showModal(); $('game-menu-resume').focus();
   }
   $('session-camera').addEventListener('change', () => { $('camera-mode').value = $('session-camera').value; $('camera-mode').dispatchEvent(new Event('change')); });
@@ -86,6 +80,20 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
   $('game-menu-close').addEventListener('click', () => close()); $('game-menu-resume').addEventListener('click', () => close());
   $('game-menu-exit').addEventListener('click', () => { close(false); exit(); });
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+  const outside = event => {
+    const rect = dialog.getBoundingClientRect();
+    return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+  };
+  let backdropPointer = null;
+  dialog.addEventListener('pointerdown', event => {
+    backdropPointer = event.button === 0 && event.target === dialog && outside(event) ? event.pointerId : null;
+  });
+  dialog.addEventListener('pointercancel', () => { backdropPointer = null; });
+  dialog.addEventListener('click', event => {
+    const startedOutside = backdropPointer !== null && (event.pointerId === undefined || event.pointerId === backdropPointer);
+    backdropPointer = null;
+    if (startedOutside && event.target === dialog && outside(event) && document.hasFocus() && !document.hidden) close();
+  });
   game.events.on('modechange', mode => {
     setActions(false); close(false);
     $('btn-fly').hidden = !['campaign'].includes(mode);

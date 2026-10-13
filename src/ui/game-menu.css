@@ -1,6 +1,6 @@
 @font-face{font-family:Nunito;src:url('/fonts/Nunito.ttf') format('truetype');font-weight:200 900;font-display:swap}
 @font-face{font-family:Arcade;src:url('/fonts/Jersey10-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
-:root{--ui-surface:#142331eb;--ui-raised:#214858;--ui-ink:#f4f9fc;--ui-muted:#bbd0db;--ui-accent:#b1e9fb;--hud-edge: max(12px, env(safe-area-inset-top));--hud-bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px))}
+:root{--ui-surface:#142331eb;--ui-raised:#214858;--ui-ink:#f4f9fc;--ui-muted:#bbd0db;--ui-accent:#b1e9fb;--hud-edge: max(12px, env(safe-area-inset-top));--hud-bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));--hud-minimap-size:96px}
 body,button,input,select,textarea,kbd{font-family:Nunito,sans-serif}
 .menu-options button,.menu-options #play{font-family:Nunito,sans-serif;font-weight:900;font-size:clamp(22px,2.8vw,34px)}
 .menu-options b{font-weight:900}
@@ -14,7 +14,7 @@ button:focus-visible,select:focus-visible{outline-color:var(--ui-accent)}
 body #hud .hud-left{display:none!important}
 body #hud .hud-top-right{position:absolute;top:var(--hud-edge);right:max(12px,env(safe-area-inset-right));display:flex!important;gap:10px;align-items:flex-start}
 body #hud .hud-top-right .utility-controls{display:flex!important;margin:0}
-body #hud .hud-top-right #minimap{position:static!important;display:block!important;width:96px;height:96px;margin:0;border:2px solid #d4edffb3;box-shadow:0 6px 22px #0003;border-radius:50%}
+body #hud .hud-top-right #minimap{position:static!important;display:block!important;width:var(--hud-minimap-size);height:var(--hud-minimap-size);margin:0;border:2px solid #d4edffb3;box-shadow:0 6px 22px #0003;border-radius:50%}
 #btn-menu,#actions-toggle{display:grid!important;place-items:center;position:static;width:44px;height:44px;min-height:44px;padding:0;border:1px solid #d4edff24;border-radius:16px;background:var(--ui-surface);color:var(--ui-ink);pointer-events:auto;cursor:pointer;box-shadow:0 5px 18px #0002;backdrop-filter:blur(10px)}
 body #hud #actions-toggle{position:absolute;top:var(--hud-edge);left:max(12px,env(safe-area-inset-left));font-size:22px;line-height:1;letter-spacing:2px;z-index:17}
 #actions-toggle[aria-expanded=true]{background:var(--ui-raised);color:var(--ui-accent)}
@@ -49,10 +49,9 @@ body.training-active #more-actions .compact-location{display:none!important}
 .audio-volume output{color:var(--ui-muted);font-variant-numeric:tabular-nums;font-size:12px}
 #settings-panel .audio-volume input,.game-menu-settings .audio-volume input{width:100%;height:28px;margin:0;accent-color:var(--ui-accent);cursor:pointer;touch-action:pan-y}
 #game-menu footer{display:grid;gap:8px;margin-top:22px}
-#game-menu footer button,#session-mode-actions button{min-height:48px;padding:12px 16px;border:0;border-radius:16px;background:#214858b0;color:var(--ui-ink);font-weight:800;cursor:pointer;font-size:13px}
+#game-menu footer button{min-height:48px;padding:12px 16px;border:0;border-radius:16px;background:#214858b0;color:var(--ui-ink);font-weight:800;cursor:pointer;font-size:13px}
 #game-menu #game-menu-resume{background:var(--ui-accent);color:#13506b}
 #game-menu #game-menu-exit{background:transparent;color:var(--ui-muted)}
-#session-mode-actions:not(:empty){display:grid;margin-top:16px}
 #session-controls{margin-top:18px;border:1px solid #d4edff24;border-radius:18px;background:#111b2140}
 #session-controls summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:0 14px;cursor:pointer;list-style:none;font-size:13px;font-weight:800}
 #session-controls summary::-webkit-details-marker{display:none}
@@ -101,7 +100,8 @@ body.training-active #map-panel .map-tools,body.training-active #map-panel #map-
 body.tour-active #hud .hud-top-right #minimap{display:block!important}
 /* Keyboard shortcuts own desktop menus; keep the playable HUD uncluttered. */
 body:not(.touch):not(.tour-active) #hud #actions-toggle,body:not(.touch):not(.tour-active) #hud #btn-menu,body:not(.touch):not(.tour-active) #hud #desktop-menu,body:not(.touch) #hud #btn-reload,body:not(.touch) #hud .character-controls,body:not(.touch) #hud .compact-help,body:not(.touch) #hud #hud-fps,body:not(.touch) #hud .attrib,body:not(.touch) #hud .mp-status{display:none!important}
-body:not(.touch) #hud .hud-top-right #minimap{display:block!important;width:clamp(140px,min(17vw,24vh),280px);height:clamp(140px,min(17vw,24vh),280px)}
+body:not(.touch){--hud-minimap-size:clamp(140px,min(17vw,24vh),280px)}
+body:not(.touch) #hud .hud-top-right #minimap{display:block!important}
 body:not(.touch) #hud #btn-weapon{pointer-events:none}
 @media(max-width:700px) and (orientation:portrait){
  .logo-word{font-size:clamp(68px,min(22vw,13vh),112px);-webkit-text-stroke-width:7px}
@@ -110,7 +110,7 @@ body:not(.touch) #hud #btn-weapon{pointer-events:none}
 }
 @media(max-height:500px) and (orientation:landscape){
  body.touch{--combat-left:48px;--combat-right:64px;--combat-gap:8px}
- body #hud .hud-top-right #minimap{width:76px;height:76px}
+ body.touch{--hud-minimap-size:76px}
  body.touch #hud .combat-controls{grid-template-rows:64px 48px}
  body.touch #hud #btn-fire{width:64px;height:64px}
  body.touch #hud .ammo-controls{bottom:calc(var(--hud-bottom) + 112px + var(--combat-gap)*2)}

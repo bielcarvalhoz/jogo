@@ -33,8 +33,8 @@ try {
   await page.keyboard.down('KeyQ'); await page.keyboard.up('KeyQ'); await locked(); check('weapon wheel retains capture');
   await page.keyboard.press('KeyM'); assert.equal(await page.locator('#map-panel').evaluate(el => el.classList.contains('open')), true);
   await page.keyboard.press('KeyM'); await locked(); check('map closes with capture restored');
-  await page.keyboard.press('KeyJ'); assert.equal(await page.locator('#combat-lab-panel').isVisible(), true);
-  await page.keyboard.press('KeyJ'); await locked(); check('training lab closes with capture restored');
+  await page.keyboard.press('KeyJ'); assert.equal(await page.locator('#combat-lab-panel').count(), 0);
+  await locked(); check('training controls remain exclusively on the physical console');
   const sizes = [];
   for (const [width, height] of [[1280, 720], [1920, 1080], [2560, 1440]]) {
     await page.setViewportSize({ width, height });

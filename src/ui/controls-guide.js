@@ -14,7 +14,7 @@ export const controlsGuide = `<details id="session-controls"><summary>Controles 
     ${row(key('Z'), 'Guardar / equipar arma')}${row(key('X'), 'Alternar câmera')}
     ${row(key('F'), 'Voar / pousar', 'flight')}${row(key('E') + key('Ctrl'), 'Subir / descer em voo', 'flight')}
     ${row(key('M'), 'Abrir / fechar mapa')}${row(key('Esc'), 'Configurações / continuar')}
-    ${row(key('H'), 'Abrir este guia')}${row(key('J'), 'Laboratório de treino', 'training')}${row(key('Y'), 'Marcar objetivo dos zumbis', 'training')}
+    ${row(key('H'), 'Abrir este guia')}${row(key('Y'), 'Marcar objetivo dos zumbis', 'training')}
     ${row(key('Tab'), 'Segurar para ver o ranking', 'multiplayer')}
     ${row(key('K'), 'Alternar visual cartoon', 'single')}${row(key('P'), 'Exibir / ocultar prédios do entorno', 'city')}
     ${row(key('B'), 'Exibir / ocultar limite do bairro', 'city')}${row(key('L'), 'Exibir / ocultar placas', 'city')}
