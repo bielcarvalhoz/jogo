@@ -1,4 +1,5 @@
 import { controlsGuide } from './controls-guide.js';
+import { VOLUME_KEYS } from '../core/index.js';
 
 /** Secondary controls keep their original handlers when moved into this tray. */
 export function createGameMenu(game, { exit, resume, setTouch }) {
@@ -46,8 +47,7 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
     <p id="game-menu-description"></p><div class="game-menu-settings">
     <label>Câmera<select id="session-camera"><option value="third">Terceira pessoa</option><option value="first">Primeira pessoa</option></select></label>
     <label>Controles na tela<input id="session-touch" type="checkbox" /></label>
-    <label>Música dos menus<input id="session-music" type="checkbox" /></label>
-    <label>Efeitos sonoros<input id="session-effects" type="checkbox" /></label>
+    ${[['masterVolume', 'Volume master'], ['musicVolume', 'Música / ambiente'], ['effectsVolume', 'Efeitos sonoros']].map(([key, label]) => `<label class="audio-volume" for="session-${key}"><span>${label} <output id="session-${key}-value">100%</output></span><input id="session-${key}" type="range" min="0" max="100" step="1" value="100" /></label>`).join('')}
     </div><div id="session-mode-actions"></div>${controlsGuide}<footer><button id="game-menu-resume">Continuar jogando</button><button id="game-menu-exit">Voltar ao menu principal</button></footer>`;
   document.body.append(dialog);
   function close(continueGame = true) {
@@ -69,7 +69,7 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
     $('session-camera').value = game.player.cameraMode;
     $('session-touch').checked = game.player.touchMode;
     dialog.dataset.mode = game.mode;
-    for (const key of ['music', 'effects']) $('session-' + key).checked = $(key).checked;
+    for (const key of VOLUME_KEYS) { $('session-' + key).value = $(key).value; $('session-' + key + '-value').textContent = `${$(key).value}%`; }
     const modeActions = $('session-mode-actions'); modeActions.replaceChildren();
     if (game.mode === 'training') {
       const lab = document.createElement('button'); lab.textContent = 'Laboratório de treino';
@@ -79,7 +79,10 @@ export function createGameMenu(game, { exit, resume, setTouch }) {
   }
   $('session-camera').addEventListener('change', () => { $('camera-mode').value = $('session-camera').value; $('camera-mode').dispatchEvent(new Event('change')); });
   $('session-touch').addEventListener('change', () => setTouch($('session-touch').checked));
-  for (const key of ['music', 'effects']) $('session-' + key).addEventListener('change', () => { $(key).checked = $('session-' + key).checked; $(key).dispatchEvent(new Event('change')); });
+  for (const key of VOLUME_KEYS) $('session-' + key).addEventListener('input', () => {
+    $(key).value = $('session-' + key).value; $(key).dispatchEvent(new Event('input'));
+    $('session-' + key + '-value').textContent = `${$(key).value}%`;
+  });
   $('game-menu-close').addEventListener('click', () => close()); $('game-menu-resume').addEventListener('click', () => close());
   $('game-menu-exit').addEventListener('click', () => { close(false); exit(); });
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });

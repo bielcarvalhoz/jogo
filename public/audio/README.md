@@ -1,8 +1,29 @@
 # Áudio gravado do jogo
 
 Passos, disparos, recargas, golpes, impactos e natureza usam arquivos gravados.
-Não há fallback procedural para esses efeitos. Música do menu e cliques da UI
-continuam no sintetizador que já existia.
+Não há fallback procedural para esses efeitos. Menu e treino usam trilhas gravadas;
+apenas os cliques da UI e notificações continuam no sintetizador.
+
+## Volumes e trilhas
+
+Os controles master, música/ambiente e efeitos vão de 0 a 100%, aplicam na hora
+e persistem entre sessões; estão disponíveis nas configurações iniciais e na pausa.
+Preferências antigas de silenciar música/efeitos continuam respeitadas.
+Natureza segue o volume de música/ambiente, independentemente dos efeitos.
+Os ganhos padrão de todos os disparos foram reduzidos em 30%; o disparo local
+continua sem processamento de timbre ou velocidade.
+
+As trilhas de Portal 2 / SourceSounds substituem a música procedural anterior:
+
+- Menu: [`music/mainmenu/portal2_background01.wav`](https://github.com/sourcesounds/portal2/blob/master/sound/music/mainmenu/portal2_background01.wav), ganho discreto 0,35.
+- Treino: [`music/sp_a2_bts1_b1.wav`](https://github.com/sourcesounds/portal2/blob/master/sound/music/sp_a2_bts1_b1.wav), trilha dos bastidores industriais, ganho 0,16.
+
+Os arquivos locais conservam esses caminhos com extensão `.mp3`, codificados a
+128 kbps por FFmpeg para reduzir o download (cerca de 3,9 MB juntos), sem filtros,
+mudança de velocidade ou cortes. Tocam em loop, na velocidade original, com
+entrada suave. A trilha de treino continua durante a pausa e o mapa; voltar à
+tela inicial seleciona a trilha de menu. Campanha, multiplayer e tour não recebem
+essas trilhas. Créditos e observação de origem dos sons Valve estão abaixo.
 
 ## Portal 2 / SourceSounds
 

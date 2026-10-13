@@ -37,10 +37,10 @@ test('game modes wait for readiness; settings are usable and restart requires co
     el('settings-open').dispatchEvent(new Event('click'));
     assert.equal(el('settings-panel').classList.contains('hidden'),false);
     el('graphics').value='low';
-    el('music').checked=false; el('music').dispatchEvent(new Event('change'));
+    el('musicVolume').value='0'; el('musicVolume').dispatchEvent(new Event('input'));
     assert.equal(reloads,0);
-    assert.deepEqual(saved,[{quality:'med',surroundings:'off',music:false,effects:true}], 'audio saves without applying pending graphics');
-    assert.equal(menu.audio.preferences.music,false); saved.length=0;
+    assert.deepEqual(saved,[{quality:'med',surroundings:'off',music:true,effects:true,masterVolume:1,musicVolume:0,effectsVolume:1}], 'audio saves without applying pending graphics');
+    assert.equal(menu.audio.preferences.musicVolume,0); saved.length=0;
     el('settings-apply').dispatchEvent(new Event('click'));
     assert.equal(el('settings-restart').open,true); assert.equal(reloads,0); assert.deepEqual(saved,[]);
     assert.match(el('restart-description').textContent,/interrompe/);
@@ -68,7 +68,7 @@ test('game modes wait for readiness; settings are usable and restart requires co
     el('settings-apply').dispatchEvent(new Event('click'));
     assert.match(el('restart-description').textContent,/voltará ao menu/);
     el('settings-confirm-restart').dispatchEvent(new Event('click'));
-    assert.equal(reloads,1); assert.deepEqual(saved,[{quality:'low',surroundings:'off',music:false,effects:true}]);
+    assert.equal(reloads,1); assert.deepEqual(saved,[{quality:'low',surroundings:'off',music:true,effects:true,masterVolume:1,musicVolume:0,effectsVolume:1}]);
     els.clear();
     const debugMenu = createFrontMenu({ trainingOnly: true }), debugModes = [];
     assert.equal(el('play').hidden, true); assert.equal(el('tour').hidden, true);
