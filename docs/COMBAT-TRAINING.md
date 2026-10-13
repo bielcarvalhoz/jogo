@@ -1,6 +1,6 @@
 # Combate e laboratório de treino
 
-O modo treino inclui uma bancada com 16 botões físicos, alvos parados e obstáculos de cobertura. Mire em um botão, aproxime-se a até 8 m e pressione **E** ou atacar. **J** abre o mesmo laboratório em um painel, também disponível por toque. IA e movimentação pausam enquanto esse painel está aberto.
+O modo treino inclui uma bancada com 16 botões físicos, alvos parados e obstáculos de cobertura. Mire em um botão, aproxime-se a até 8 m e pressione **E** ou atacar. No toque, use **Acionar** quando um botão físico estiver sob a mira. O laboratório é controlado apenas pela bancada 3D, sem painel de menu ou atalho J.
 
 ## Cenários e controles
 
