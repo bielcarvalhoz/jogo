@@ -17,10 +17,11 @@ const IMPACTS = {
   grass: variations('physics/surfaces', 'sand_impact_bullet'), flesh: variations('physics/flesh', 'flesh_impact_bullet'),
   punch: variations('physics/flesh', 'flesh_impact_hard'),
 };
-const WHOOSH = portal('physics/nearmiss/whoosh_large4'), RICOCHET = portal('weapons/fx/rics/ric1');
+const PAINT_HITS = ['01', '02'].map(id => portal(`physics/paint/paint_blob_splat_${id}`));
+const WHOOSH = portal('physics/nearmiss/whoosh_large4');
 const WIND = portal('ambient/levels/forest/treewind1'), INSECTS = portal('ambient/nature/insects/amb_insects_lp_01'), BIRDS = portal('ambient/levels/forest/dist_birds1');
 export const RECORDED_SOUNDS = Object.freeze([...new Set([
-  ...Object.values(FOOTSTEPS).flat(), ...Object.values(IMPACTS).flat(), WHOOSH, RICOCHET, WIND, INSECTS, BIRDS,
+  ...Object.values(FOOTSTEPS).flat(), ...Object.values(IMPACTS).flat(), ...PAINT_HITS, WHOOSH, WIND, INSECTS, BIRDS,
   ...Object.keys(SHOT_PROFILES).flatMap(id => [shotFile(id), `audio/snakef8/reload-${id}.mp3`]),
 ])]);
 
@@ -40,6 +41,7 @@ export function impactSurface(hit) {
 export function createRecordedAudio({ context, bus, audible, base = '/', fetcher = globalThis.fetch, random = Math.random }) {
   const buffers = new Map(), requests = new Map(), failed = new Set(), voices = new Set(), lastVariants = new Map();
   const listener = { x: 0, y: 0, z: 0 };
+  const recentPaintHits = [];
   let disposed = false, ambience = false, birdsAt = 0, lastWhiz = -Infinity;
   async function load(file) {
     if (buffers.has(file)) return buffers.get(file);
@@ -71,7 +73,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     const t = context.currentTime;
     for (const [axis, value] of Object.entries(p)) if (['x', 'y', 'z'].includes(axis)) item.panner[`position${axis.toUpperCase()}`].setTargetAtTime(value, t, .02);
   }
-  function play(file, { position, volume = .2, rate = 1, attack = .008, loop = false, duration, tag, when = context.currentTime } = {}) {
+  function play(file, { position, volume = .2, rate = 1, attack = .008, release = .055, loop = false, duration, tag, when = context.currentTime } = {}) {
     if (disposed || !audible()) return null;
     const buffer = buffers.get(file); if (!buffer) return null;
     if (voices.size >= 32) stop([...voices].find(item => !item.loop) || voices.values().next().value);
@@ -84,8 +86,9 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
       gain.connect(panner); panner.connect(bus);
     } else gain.connect(bus);
     const length = duration || buffer.duration / rate;
-    gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(volume, when + (loop ? .4 : attack));
-    if (!loop) { gain.gain.setValueAtTime(volume, when + Math.max(.009, length - .055)); gain.gain.linearRampToValueAtTime(0, when + length); }
+    if (loop || attack) { gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(volume, when + (loop ? .4 : attack)); }
+    else gain.gain.setValueAtTime(volume, when);
+    if (!loop && release) { gain.gain.setValueAtTime(volume, when + Math.max(.009, length - release)); gain.gain.linearRampToValueAtTime(0, when + length); }
     const item = { source, gain, panner, position, tag, loop }; voices.add(item); spatial(item);
     source.onended = () => retire(item); source.start(when);
     if (!loop) source.stop(when + length + .01);
@@ -119,7 +122,12 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
   function stopReload(tag = 'reload') { for (const item of voices) if (item.tag === tag) stop(item); }
   return {
     preload, setListener, setAmbience, footstep, stopReload,
-    shot(weapon = 'pistol', options = {}) { const id = weapon.id || weapon; return play(shotFile(id), { ...SHOT_PROFILES[id], ...options }); },
+    shot(weapon = 'pistol', { local = false, ...options } = {}) {
+      const id = weapon.id || weapon;
+      // Own gunfire must match the recording even in third person: the muzzle
+      // relative to the chase camera must never colour or pitch-shift the shot.
+      return play(shotFile(id), { ...SHOT_PROFILES[id], ...options, ...(local ? { position: undefined, rate: 1, attack: 0, release: 0 } : {}) });
+    },
     reload(weapon, { duration = 2.3, position, tag = 'reload' } = {}) {
       stopReload(tag); const id = weapon.id || weapon, file = `audio/snakef8/reload-${id}.mp3`, buffer = buffers.get(file);
       if (!buffer) return;
@@ -131,9 +139,22 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     melee(weapon = {}, options = {}) { play(WHOOSH, { volume: weapon.id === 'fists' ? .10 : .15, rate: weapon.id === 'axe' ? 1.2 : weapon.id === 'bat' ? 1.5 : 1.9, duration: .18, ...options }); },
     impact(surface = 'wood', impulse = 6, options = {}) { play(variant(IMPACTS[surface] || IMPACTS.concrete), { volume: Math.min(.3, .10 + impulse * .007), ...options }); },
     hit(hit, info = {}) {
-      const surface = impactSurface(hit), files = surface === 'flesh' && info.kind !== 'firearm' ? IMPACTS.punch : IMPACTS[surface] || IMPACTS.concrete;
-      play(variant(files), { position: hit.point, volume: info.kind === 'firearm' ? .20 : .25 });
-      if (surface === 'metal' && info.kind === 'firearm' && random() < .25) play(RICOCHET, { position: hit.point, volume: .07 });
+      if (info.kind === 'firearm') {
+        const now = context.currentTime, point = hit.point, surface = impactSurface(hit);
+        // Several shotgun pellets can hit one patch in the same frame. Keep
+        // damage/paint events intact, but avoid stacking nine impact recordings.
+        while (recentPaintHits.length && now - recentPaintHits[0].time >= .05) recentPaintHits.shift();
+        if (point && recentPaintHits.some(previous => previous.surface === surface && Math.hypot(point.x - previous.point.x, point.y - previous.point.y, point.z - previous.point.z) < 1.5)) return;
+        if (point) {
+          if (recentPaintHits.length >= 32) recentPaintHits.shift();
+          recentPaintHits.push({ time: now, surface, point: { x: point.x, y: point.y, z: point.z } });
+        }
+        if (surface === 'metal') play(variant(IMPACTS.metal), { position: point, volume: .045, attack: 0, release: 0 });
+        play(variant(PAINT_HITS), { position: point, volume: .07, attack: 0, release: 0 });
+        return;
+      }
+      const surface = impactSurface(hit), files = surface === 'flesh' ? IMPACTS.punch : IMPACTS[surface] || IMPACTS.concrete;
+      play(variant(files), { position: hit.point, volume: .25 });
     },
     whiz(from, to) {
       const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z, lengthSq = dx * dx + dy * dy + dz * dz;
@@ -145,7 +166,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
       const item = play(WHOOSH, { position: point, volume: .12 * (1 - distance / 3), duration: .22, rate: 1.7 });
       if (item) lastWhiz = context.currentTime; return !!item;
     },
-    stopAll() { for (const item of voices) stop(item); },
+    stopAll() { for (const item of voices) stop(item); recentPaintHits.length = 0; },
     get state() { return { voices: voices.size, loaded: buffers.size, failed: [...failed], ambience }; },
     dispose() { disposed = true; for (const item of voices) stop(item); buffers.clear(); },
   };
