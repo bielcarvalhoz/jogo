@@ -23,7 +23,7 @@ export function createPaintballModule(game) {
     },
     updateWeaponPose: (gun, state) => player.updateWeapon?.(gun, state),
     getShotOrigin: target => player.getShotOrigin ? player.getShotOrigin(target) : camera.getWorldPosition(target),
-    onShot: (weapon, recoil) => { game.audio?.shot(weapon, { position: recoil.origin }); player.avatar?.playShot(recoil?.recoilStrength); game.multiplayer?.attack(weapon, recoil); },
+    onShot: (weapon, recoil) => { game.audio?.shot(weapon, { local: true }); player.avatar?.playShot(recoil?.recoilStrength); game.multiplayer?.attack(weapon, recoil); },
     onReload: (weapon, state) => {
       if (state.active) { player.avatar?.playReload?.(state.duration); game.audio?.reload?.(weapon, { ...state, position: () => player.eyePosition }); }
       else { player.avatar?.stopReload?.(); game.audio?.stopReload?.(); }

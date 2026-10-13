@@ -16,15 +16,16 @@ test('right/left mouse button chords aim and fire independently, ignoring touch 
   };
   const canvas=new EventTarget();
   globalThis.document=Object.assign(new EventTarget(),{getElementById:element,createElement:()=>({}),body:element('body'),pointerLockElement:canvas});
-  let focused=false,system;const bindings=new Map();
+  let focused=false,system;const bindings=new Map(),shotAudio=[];
   const player={active:true,touchMode:false,events:new EventTarget(),bindFireButton(){},setFocusedAim:value=>focused=value};
-  const game={engine:{scene:new THREE.Scene(),camera:new THREE.PerspectiveCamera(70),renderer:{domElement:canvas},addSystem:fn=>system=fn},player,debug:{},events:createEvents(),input:{bind:(code,handler)=>bindings.set(code,handler)},toast(){}};
+  const game={engine:{scene:new THREE.Scene(),camera:new THREE.PerspectiveCamera(70),renderer:{domElement:canvas},addSystem:fn=>system=fn},player,debug:{},events:createEvents(),input:{bind:(code,handler)=>bindings.set(code,handler)},audio:{shot:(weapon,options)=>shotAudio.push({weapon,options})},toast(){}};
   try {
     const paint=createPaintballModule(game);paint.setWeapon('automatic');
     const send=(target,type,button)=>{const event=new Event(type,{cancelable:true});Object.assign(event,{button,clientX:100,clientY:100});target.dispatchEvent(event);};
     send(canvas,'mousedown',2);assert.equal(paint.aiming,true);assert.equal(focused,true);
     send(canvas,'mousedown',0);assert.equal(paint.firing,true);
     for(let i=0;i<20;i++)system(.05);assert.ok(paint.stats.shots>1);
+    assert.equal(shotAudio.length,paint.stats.shots);assert.ok(shotAudio.every(shot=>shot.options.local===true),'player gunfire always uses direct playback');
     send(window,'mouseup',0);assert.equal(paint.firing,false);assert.equal(paint.aiming,true);
     send(window,'mouseup',2);assert.equal(paint.aiming,false);assert.equal(focused,false);
     send(canvas,'mousedown',0);game.ui={weaponWheelOpen:true};game.events.emit('weaponwheel',true);
