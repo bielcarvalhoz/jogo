@@ -4,6 +4,24 @@ import * as THREE from 'three';
 import { loadAvatarGeometry } from './load-avatar.mjs';
 import { sweepHairTips, createScalpGeometry } from '../../src/player/hair.js';
 
+test('fitted hair covers skull facets between vertices across the front, sides and crown', async () => {
+  const gltf = await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), meshes = [];
+  gltf.scene.traverse(mesh => { if (mesh.isMesh) meshes.push(mesh); });
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const head = meshes.filter(mesh => mesh.name.startsWith('Sato_clean_face')).map(mesh => new THREE.Mesh(mesh.geometry, material));
+  const geometry = createScalpGeometry(meshes), cover = new THREE.Mesh(geometry, material);
+  const ray = new THREE.Raycaster(), center = new THREE.Vector3(0, .858, -.009); let checked = 0;
+  for (let col = 0; col < 64; col++) for (let row = 0; row < 12; row++) {
+    const phi = (col + .37) / 64 * Math.PI * 2, theta = .15 + row * .075;
+    const direction = new THREE.Vector3(Math.sin(phi) * Math.sin(theta), Math.cos(theta), Math.cos(phi) * Math.sin(theta));
+    ray.set(center.clone().addScaledVector(direction, .3), direction.clone().negate());
+    const skin = ray.intersectObjects(head)[0], hair = ray.intersectObject(cover)[0];
+    if (!skin) continue; checked++;
+    assert.ok(hair && hair.distance < skin.distance - .0005, `exposed skull between facets at ${col},${row}`);
+  }
+  assert.ok(checked > 700); geometry.dispose(); material.dispose();
+});
+
 test('the nape covering stays within a thin shell of the real skull instead of flaring toward the neck', async () => {
   const gltf = await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), meshes = [];
   gltf.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
@@ -23,6 +41,23 @@ test('the nape covering stays within a thin shell of the real skull instead of f
     assert.ok(napeVertices > 30); geometry.dispose();
   }
   material.dispose();
+});
+
+test('the fitted shell leaves the forehead clear and extends only behind the skull toward the neck', async () => {
+  const gltf = await loadAvatarGeometry(new URL('../../public/models/sato.glb', import.meta.url)), meshes = [];
+  gltf.scene.traverse(mesh => { if (mesh.isMesh) meshes.push(mesh); });
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const skull = meshes.filter(mesh => mesh.name.startsWith('Sato_clean_face')).map(mesh => new THREE.Mesh(mesh.geometry, material));
+  const geometry = createScalpGeometry(meshes), shell = new THREE.Mesh(geometry, material), ray = new THREE.Raycaster();
+  for (const x of [-.025, 0, .025]) {
+    ray.set(new THREE.Vector3(x, .890, .3), new THREE.Vector3(0, 0, -1));
+    const face = ray.intersectObjects(skull)[0], frontHair = ray.intersectObject(shell)[0];
+    assert.ok(face); assert.ok(!frontHair || frontHair.distance > face.distance, 'the shell must not cover the forehead');
+    ray.set(new THREE.Vector3(x, .785, -.3), new THREE.Vector3(0, 0, 1));
+    const nape = ray.intersectObjects(skull)[0], backHair = ray.intersectObject(shell)[0];
+    assert.ok(nape && backHair && backHair.distance < nape.distance, 'the rear covering reaches down toward the neck');
+  }
+  geometry.dispose(); material.dispose();
 });
 
 test('hair changes only a small rest-shape region and preserves rig, UVs and other meshes', async () => {

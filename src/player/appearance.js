@@ -52,7 +52,7 @@ export function createAppearance(model, bones, meshes) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(asset.position, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(asset.normal, 3));
     geometry.setIndex(asset.index);
-    const authored = part(g, geometry, hair, [0, 0, 0]); authored.userData.hairSource = asset.source;
+    const authored = part(g, geometry, hair, [0, -.006, 0]); authored.userData.hairSource = asset.source;
     g.userData.hairSource = asset.source;
   }
   // Merge the fitted scalp and authored asset into one draw call per head.

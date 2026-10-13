@@ -67,7 +67,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
   sweepHairTips(meshes);
   const appearance = createAppearance(model, bones, meshes);
   const stowSockets = {};
-  for (const [name, bone, at] of [['back', bones['DEF-spine003'], [0, .59, -.102]], ['hip', bones['DEF-hips'], [-.13, .40, -.09]]]) {
+  for (const [name, bone, at] of [['back', bones['DEF-spine003'], [0, .59, -.102]], ['hip', bones['DEF-hips'], [-.103, .40, -.061]]]) {
     stowSockets[name] = { bone, position: bone.worldToLocal(model.localToWorld(vector().set(...at))),
       rotation: bone.getWorldQuaternion(quaternion()).invert().multiply(root.quaternion) };
   }
@@ -395,7 +395,7 @@ export function createAvatarFromGLTF(gltf, { scene, camera, player }) {
       const slot = length > .45 ? 'back' : 'hip', socket = stowSockets[slot];
       gun.position.copy(socket.bone.localToWorld(socket.position.clone()));
       gun.quaternion.copy(socket.bone.getWorldQuaternion(quaternion()).multiply(socket.rotation))
-        .multiply(quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, slot === 'back' ? -.32 : .08, 'ZYX')));
+        .multiply(quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, slot === 'hip' ? -.20 : 0, slot === 'back' ? -.32 : .08, 'ZYX')));
       gun.scale.setScalar(.65); gun.userData.stowedVisible = active && player.cameraMode === 'third'; gun.userData.stowSlot = slot;
       gun.updateWorldMatrix(true, true); return true;
     }

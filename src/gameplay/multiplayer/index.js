@@ -217,7 +217,6 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   };
   game.engine.addSystem(update, 'world');
   game.input.bind('KeyE', () => api.interact(), { label: 'iniciar minigame na sala' });
-  game.input.bind('KeyT', () => { if (api.active) api.emote('wave'); }, { label: 'cumprimentar no multiplayer' });
   game.events.on('modechange', mode => { if (mode !== 'multiplayer' && network.session) api.leave(); });
   return api;
 }

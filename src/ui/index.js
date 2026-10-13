@@ -246,11 +246,15 @@ export function createUI(game) {
     document.body.classList.add('playing');
     overlay.classList.add('hidden');
     if (e.detail.touch) toast('Esquerda: andar · Direita: mirar');
-    else if (e.detail.dragMode) toast('Segure e arraste para olhar · clique para atirar');
   });
   player.events.addEventListener('unlock', () => {
     document.body.classList.remove('playing');
     if (walkingMode() && !mapPanel.classList.contains('open')) sessionMenu.open();
+  });
+  player.events.addEventListener('pointerlockfailed', () => {
+    if (!walkingMode() || mapPanel.classList.contains('open')) return;
+    sessionMenu.open();
+    toast('Clique em Continuar jogando para capturar o mouse na mira.');
   });
   player.events.addEventListener('fly', e => {
     document.body.classList.toggle('flying', e.detail.flying);

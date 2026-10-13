@@ -10,13 +10,13 @@ export const controlsGuide = `<details id="session-controls"><summary>Controles 
     ${row('<span class="mouse-key mouse-right" aria-label="Botão direito do mouse"></span>', 'Mirar')}
     ${row(key('R'), 'Recarregar')}${row(['1', '2', '3', '4'].map(key).join(''), 'Escolher arma / soco')}
     ${row(key('Q'), 'Segurar para abrir a roda de armas')}${row(key('E'), 'Pegar arma ou munição')}
-    ${row(key('G'), 'Segurar para escolher reação')}${row(key('V'), 'Trocar cor da tinta')}
+    ${row(key('T'), 'Segurar para abrir interações; mouse escolhe, soltar confirma')}${row(key('V'), 'Trocar cor da tinta')}
     ${row(key('Z'), 'Guardar / equipar arma')}${row(key('X'), 'Alternar câmera')}
     ${row(key('F'), 'Voar / pousar', 'flight')}${row(key('E') + key('Ctrl'), 'Subir / descer em voo', 'flight')}
     ${row(key('M'), 'Abrir / fechar mapa')}${row(key('Esc'), 'Configurações / continuar')}
     ${row(key('H'), 'Abrir este guia')}${row(key('J'), 'Laboratório de treino', 'training')}${row(key('Y'), 'Marcar objetivo dos zumbis', 'training')}
-    ${row(key('Tab'), 'Segurar para ver o ranking', 'multiplayer')}${row(key('T'), 'Acenar', 'multiplayer')}
-    ${row(key('T'), 'Alternar visual cartoon', 'single')}${row(key('P'), 'Exibir / ocultar prédios do entorno', 'city')}
+    ${row(key('Tab'), 'Segurar para ver o ranking', 'multiplayer')}
+    ${row(key('K'), 'Alternar visual cartoon', 'single')}${row(key('P'), 'Exibir / ocultar prédios do entorno', 'city')}
     ${row(key('B'), 'Exibir / ocultar limite do bairro', 'city')}${row(key('L'), 'Exibir / ocultar placas', 'city')}
     <h3>Tela de toque</h3>
     ${row('<span class="touch-stick" aria-hidden="true"></span>', 'Arraste à esquerda para andar; afaste o dedo para correr')}

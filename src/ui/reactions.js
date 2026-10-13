@@ -7,24 +7,25 @@ export function createReactions(game) {
   const player = game.player, ids = Object.keys(EMOTES), scene = game.engine.scene, bubbles = [];
   const textures = new Map(), loader = new THREE.TextureLoader();
   for (const [id, file] of Object.entries(EMOTES)) if (file) { const texture = loader.load(`${base}reactions/${file}`); texture.colorSpace = THREE.SRGBColorSpace; textures.set(id, texture); }
-  const button = document.createElement('button'); button.id = 'btn-reactions'; button.innerHTML = '<svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#interactions" /></svg>'; button.title = 'G · Interações';
-  button.setAttribute('aria-label', 'Interações · G'); button.setAttribute('aria-expanded', 'false'); document.getElementById('hud').append(button);
+  const button = document.createElement('button'); button.id = 'btn-reactions'; button.innerHTML = '<svg class="control-icon" aria-hidden="true"><use href="./icons/controls.svg#interactions" /></svg>'; button.title = 'T · Interações';
+  button.setAttribute('aria-label', 'Interações · T'); button.setAttribute('aria-expanded', 'false'); document.getElementById('hud').append(button);
   const panel = document.createElement('section'); panel.id = 'reaction-wheel'; panel.hidden = true; panel.setAttribute('aria-label', 'Interações');
-  panel.innerHTML = '<div class="reaction-ring" role="menu" aria-label="Interações"><b>INTERAÇÕES<small>G</small></b></div>';
+  panel.innerHTML = '<div class="reaction-ring" role="menu" aria-label="Interações"><b>INTERAÇÕES<small>T</small></b></div>';
   document.getElementById('hud').append(panel); const ring = panel.firstElementChild;
   let opened = false, selected = null, virtualX = 0, virtualY = 0, held = false, localCooldown = 0, previousCamera = null;
-  const canUse = () => player.active && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && !game.ui?.characters.openState && !game.multiplayer?.self?.dead;
+  const canUse = () => player.active && !game.ui?.paused && !game.ui?.sessionMenu?.actionsOpen && game.mode !== 'tour' && !game.ui?.mapOpen && !game.ui?.combatHUD?.panelOpen && !game.ui?.characters.openState && !game.multiplayer?.self?.dead;
   function highlight() { ring.querySelectorAll('button').forEach((el, i) => el.classList.toggle('selected', i === selected)); }
   function close(commit = false) {
     if (!opened) return;
     const id = commit && selected !== null ? ids[selected] : null;
     opened = held = false; panel.hidden = true; button.setAttribute('aria-expanded', 'false'); player.setWeaponWheelOpen(false);
     game.paintball.resetInput(); if (id && canUse()) react(id);
+    player.resumePointer?.();
   }
   function open(key = false) {
     if (opened || !canUse() || game.ui?.weaponWheelOpen) return;
     opened = true; held = key; selected = null; virtualX = virtualY = 0;
-    game.paintball.resetInput(); player.releasePointerForUI(); player.setFocusedAim(false); player.setWeaponWheelOpen(true);
+    game.paintball.resetInput(); if (!key) player.releasePointerForUI(); player.setFocusedAim(false); player.setWeaponWheelOpen(true);
     panel.hidden = false; button.setAttribute('aria-expanded', 'true'); highlight();
   }
   ids.forEach((id, i) => {
@@ -38,7 +39,7 @@ export function createReactions(game) {
     if (opened) close(); else { player.releasePointerForUI(); open(); ring.querySelector('button').focus({ preventScroll: true }); }
   });
   panel.addEventListener('pointerdown', event => { if (event.target === panel) close(); });
-  game.input.bind('KeyG', event => { event.preventDefault(); open(true); }, { label: 'segurar roda de reações' });
+  game.input.bind('KeyT', event => { event.preventDefault(); open(true); }, { label: 'segurar menu de interações' });
   window.addEventListener('pointermove', event => {
     if (!opened) return;
     if (document.pointerLockElement) { virtualX += event.movementX; virtualY += event.movementY; }
@@ -51,7 +52,7 @@ export function createReactions(game) {
     if (event.code.startsWith('Arrow')) { event.preventDefault(); selected = ((selected ?? 0) + (['ArrowLeft', 'ArrowUp'].includes(event.code) ? -1 : 1) + ids.length) % ids.length; highlight(); }
     if (event.code === 'Enter' || event.code === 'Space') { event.preventDefault(); close(true); }
   });
-  window.addEventListener('keyup', event => { if (event.code === 'KeyG' && held) close(true); });
+  window.addEventListener('keyup', event => { if (event.code === 'KeyT' && held) close(true); });
   window.addEventListener('blur', () => close());
   player.events.addEventListener('unlock', () => close());
   function spawn(id, at, local = false) {

@@ -4,6 +4,36 @@ import * as THREE from 'three';
 import {createPlayer} from '../../src/player/controller.js';
 import { GAITS } from '../../src/player/locomotion.js';
 
+test('desktop capture failure, delayed requests, UI release and blur never activate unlocked gameplay', async t => {
+  const originals = { window: globalThis.window, document: globalThis.document };
+  globalThis.window = new EventTarget(); globalThis.document = new EventTarget(); document.hasFocus = () => true;
+  t.after(() => { Object.assign(globalThis, originals); });
+  const dom = new EventTarget(); dom.ownerDocument = document; dom.focus = () => {};
+  document.exitPointerLock = () => { document.pointerLockElement = null; document.dispatchEvent(new Event('pointerlockchange')); };
+  let allowed = true, requests = 0, reject;
+  dom.requestPointerLock = () => { requests++; return new Promise((_, no) => { reject = no; }); };
+  const camera = new THREE.PerspectiveCamera(70), player = createPlayer(camera, dom, {
+    terrain: { heightAt: () => 0 }, bounds: { x0: -100, x1: 100, z0: -100, z1: 100 }, collide: (x, z) => [x, z],
+    bridgeHeightAt: () => -Infinity, roofAt: () => -Infinity, canCapture: () => allowed,
+  });
+  t.after(() => player.stop());
+  let failures = 0; player.events.addEventListener('pointerlockfailed', () => failures++);
+  player.start(); player.resumePointer(); assert.equal(requests, 1, 'capture requests cannot overlap');
+  reject(new Error('denied')); await Promise.resolve(); assert.equal(failures, 1);
+  assert.equal(player.active, false); assert.equal(player.dragMode, false);
+  dom.requestPointerLock = () => { requests++; document.pointerLockElement = dom; document.dispatchEvent(new Event('pointerlockchange')); return Promise.resolve(); };
+  player.start(); assert.equal(player.active, true); assert.equal(player.pointerLocked, true);
+  allowed = false; const before = requests; player.releasePointerForUI(); player.resumePointer();
+  assert.equal(player.active, true); assert.equal(player.pointerLocked, false);
+  assert.equal(requests, before); allowed = true; player.resumePointer(); assert.equal(player.pointerLocked, true);
+  window.dispatchEvent(new Event('blur')); assert.equal(player.active, false); assert.equal(player.pointerLocked, false);
+  // A promise rejected after stop must not revive a fallback mode or report a new failure.
+  dom.requestPointerLock = () => new Promise((_, no) => { reject = no; }); player.start(); player.stop();
+  reject(new Error('cancelled')); await Promise.resolve(); assert.equal(failures, 1); assert.equal(player.active, false);
+  document.pointerLockElement = dom; document.dispatchEvent(new Event('pointerlockchange'));
+  assert.equal(player.pointerLocked, false); assert.equal(player.active, false);
+});
+
 function controllerFixture(collide = (x, z) => [x, z]) {
   const originals = Object.fromEntries(['window', 'document', 'innerWidth', 'innerHeight'].map(key => [key, globalThis[key]]));
   globalThis.window = new EventTarget(); globalThis.document = new EventTarget(); globalThis.innerWidth = 390; globalThis.innerHeight = 844;
