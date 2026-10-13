@@ -1,16 +1,21 @@
 import { createRecordedAudio } from './recorded-audio.js';
-import { mulberry32 } from '../shared/rng.js';
+import { normalizeVolume, VOLUME_KEYS } from './settings.js';
 
-/** Procedural music/UI; recorded footsteps, weapons and environmental foley. */
-export function createAudio({ music = true, effects = true, base = '/', fetcher = globalThis.fetch, contextFactory = () => {
+export const MUSIC_TRACKS = Object.freeze({
+  menu: 'audio/portal2/music/mainmenu/portal2_background01.mp3',
+  training: 'audio/portal2/music/sp_a2_bts1_b1.mp3',
+});
+
+/** Recorded music and gameplay audio; short synthesized UI tones. */
+export function createAudio({ music = true, effects = true, masterVolume = 1, musicVolume = 1, effectsVolume = 1, base = '/', fetcher = globalThis.fetch, contextFactory = () => {
   const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
   return Audio ? new Audio({ latencyHint: 'interactive' }) : null;
-}, schedule = setInterval, unschedule = clearInterval } = {}) {
+} } = {}) {
   let recordings = null;
-  let context = null, musicBus, effectsBus, noiseBuffer, clock = null, step = 0, nextBeat = 0;
-  let menu = true, unlocked = false, disposed = false, hidden = false;
-  const voices = new Set(), rnd = mulberry32(1947);
-  const preferences = { music, effects };
+  let context = null, master, musicBus, effectsBus, musicVoice = null;
+  let menu = true, mode = null, unlocked = false, disposed = false, hidden = false;
+  const voices = new Set(), musicBuffers = new Map(), musicRequests = new Map();
+  const preferences = { music, effects, masterVolume: normalizeVolume(masterVolume), musicVolume: normalizeVolume(musicVolume), effectsVolume: normalizeVolume(effectsVolume) };
   const retire = item => { voices.delete(item); item.source.onended = null; item.source.disconnect(); item.gain.disconnect(); item.filter?.disconnect(); };
   const stopVoice = item => { try { item.source.stop(); } catch { /* already ended */ } retire(item); };
   function voice(source, duration, volume, bus, when = context.currentTime, filter = null) {
@@ -31,66 +36,68 @@ export function createAudio({ music = true, effects = true, base = '/', fetcher 
     oscillator.frequency.exponentialRampToValueAtTime(endFrequency, when + duration);
     voice(oscillator, duration, volume, bus, when);
   };
-  const noise = (duration, volume, bus, when, frequency = 1600, type = 'bandpass') => {
-    const source = context.createBufferSource(); source.buffer = noiseBuffer;
-    const filter = context.createBiquadFilter(); filter.type = type; filter.frequency.value = frequency; filter.Q.value = .8;
-    voice(source, duration, volume, bus, when, filter);
-  };
   function stopMusic() {
-    if (clock !== null) unschedule(clock); clock = null;
-    for (const v of voices) if (v.bus === musicBus) stopVoice(v);
+    if (!musicVoice) return;
+    musicVoice.source.onended = null;
+    musicVoice.source.stop(); musicVoice.source.disconnect(); musicVoice.gain.disconnect(); musicVoice = null;
   }
-  function tick() {
-    if (!context || context.state !== 'running' || hidden) return;
-    // A throttled/background tab skips elapsed beats instead of queuing a burst.
-    if (nextBeat < context.currentTime - .2) nextBeat = context.currentTime + .04;
-    while (nextBeat < context.currentTime + .20) {
-      const i = step % 16, bar = Math.floor(step / 16) % 4, when = nextBeat;
-      if ([0,6,8,11].includes(i)) note(95,.16,.5,musicBus,when,'sine',42);
-      if ([4,12].includes(i)) { noise(.12,.25,musicBus,when,1600); note(155,.065,.12,musicBus,when,'triangle',80); }
-      if (i % 2 === 0) noise(.035,.10,musicBus,when,7000,'highpass');
-      if ([0,3,6,8,10,14].includes(i)) {
-        const bass = [82.41,98,110,73.42][bar] * ([6,14].includes(i) ? 1.5 : 1);
-        note(bass,.22,.26,musicBus,when,'triangle'); note(bass*2,.12,.045,musicBus,when,'sine');
-      }
-      if ([2,7,13].includes(i)) {
-        const lead = [329.63,392,440,293.66][(bar + (i === 7 ? 1 : 0)) % 4];
-        note(lead,.24,.075,musicBus,when,'triangle'); note(lead*1.004,.29,.035,musicBus,when,'sine');
-      }
-      step++; nextBeat += 60 / 88 / 4 * (i % 2 ? .94 : 1.06);
-    }
+  function loadMusic(file) {
+    if (musicRequests.has(file)) return musicRequests.get(file);
+    const request = (async () => {
+      try {
+        const response = await fetcher(`${base}${file}`); if (!response.ok) throw new Error(response.status);
+        const buffer = await context.decodeAudioData(await response.arrayBuffer());
+        if (!disposed) musicBuffers.set(file, buffer);
+      } catch { /* Audio unavailable: leave the scene silent, without synthetic fallback. */ }
+    })();
+    musicRequests.set(file, request); return request;
   }
   function sync() {
-    if (!context) return;
-    musicBus.gain.setTargetAtTime(preferences.music ? .34 : 0,context.currentTime,.015);
-    effectsBus.gain.setTargetAtTime(preferences.effects ? .7 : 0,context.currentTime,.015);
-    if (unlocked && menu && preferences.music && !hidden) {
-      if (clock === null) { nextBeat = context.currentTime + .04; step = 0; tick(); clock = schedule(tick,80); }
-    } else stopMusic();
-    if (!preferences.effects) { for (const v of voices) if (v.bus === effectsBus) stopVoice(v); recordings?.stopAll(); }
+    if (!context || disposed) return;
+    master.gain.setTargetAtTime(.55 * preferences.masterVolume, context.currentTime, .015);
+    musicBus.gain.setTargetAtTime(preferences.music ? .34 * preferences.musicVolume : 0, context.currentTime, .015);
+    effectsBus.gain.setTargetAtTime(preferences.effects ? .7 * preferences.effectsVolume : 0, context.currentTime, .015);
+    const track = musicAudible() ? (mode === 'training' ? 'training' : menu && !mode ? 'menu' : null) : null;
+    if (musicVoice?.track !== track) stopMusic();
+    if (track && !musicVoice) {
+      const file = MUSIC_TRACKS[track], buffer = musicBuffers.get(file);
+      if (buffer) {
+        const source = context.createBufferSource(), gain = context.createGain();
+        source.buffer = buffer; source.loop = true;
+        gain.gain.setValueAtTime(0, context.currentTime); gain.gain.linearRampToValueAtTime(track === 'training' ? .16 : .35, context.currentTime + .6);
+        source.connect(gain); gain.connect(musicBus); source.start(); musicVoice = { source, gain, track };
+      } else if (!musicRequests.has(file)) void loadMusic(file).then(sync);
+    }
+    if (!musicAudible()) recordings?.setAmbience(false);
+    if (!audible()) { for (const v of voices) if (v.bus === effectsBus) stopVoice(v); recordings?.stopEffects(); }
   }
   async function unlock() {
     if (disposed || hidden) return false;
     try {
       if (!context) {
         context = contextFactory(); if (!context) return false;
-        const master = context.createGain(); master.gain.value = .55; master.connect(context.destination);
+        master = context.createGain(); master.gain.value = .55 * preferences.masterVolume; master.connect(context.destination);
         musicBus = context.createGain(); effectsBus = context.createGain(); musicBus.connect(master); effectsBus.connect(master);
-        recordings = createRecordedAudio({ context, bus: effectsBus, audible, base, fetcher });
+        recordings = createRecordedAudio({ context, bus: effectsBus, audible, ambienceBus: musicBus, ambienceAudible: musicAudible, base, fetcher });
         void recordings.preload();
-        noiseBuffer = context.createBuffer(1,Math.ceil(context.sampleRate*.35),context.sampleRate);
-        const data = noiseBuffer.getChannelData(0); for (let i=0;i<data.length;i++) data[i] = rnd()*2-1;
       }
       if (context.state !== 'running') await context.resume();
       unlocked = context.state === 'running'; sync(); return unlocked;
     } catch { return false; }
   }
-  const audible = () => !disposed && unlocked && !hidden && preferences.effects && context?.state === 'running';
+  const active = () => !disposed && unlocked && !hidden && preferences.masterVolume > 0 && context?.state === 'running';
+  const audible = () => active() && preferences.effects && preferences.effectsVolume > 0;
+  const musicAudible = () => active() && preferences.music && preferences.musicVolume > 0;
   let lastUi = -Infinity;
   return {
     unlock,
-    setPreferences(next) { for (const key of ['music','effects']) if (typeof next[key] === 'boolean') preferences[key] = next[key]; sync(); },
+    setPreferences(next) {
+      for (const key of ['music','effects']) if (typeof next[key] === 'boolean') preferences[key] = next[key];
+      for (const key of VOLUME_KEYS) if (key in next) preferences[key] = normalizeVolume(next[key], preferences[key]);
+      sync();
+    },
     setMenu(value) { menu = !!value; sync(); },
+    setMode(value) { mode = value; sync(); },
     async setHidden(value) { hidden = !!value; sync(); if (hidden) { for (const v of voices) stopVoice(v); recordings?.stopAll(); } if (context) { if (hidden) await context.suspend().catch(()=>{}); else if (unlocked) await unlock(); } },
     ui(kind = 'select') {
       if (!audible() || context.currentTime - lastUi < .045) return;
@@ -108,7 +115,7 @@ export function createAudio({ music = true, effects = true, base = '/', fetcher 
       tone.frequency.setValueAtTime(620, context.currentTime); tone.frequency.setTargetAtTime(880, context.currentTime + .06, .02);
       voice(tone, .18, .12, effectsBus, context.currentTime, panner);
     },
-    preload() { return recordings?.preload() || Promise.resolve([]); },
+    async preload() { if (context) { await Promise.all([recordings?.preload(), ...Object.values(MUSIC_TRACKS).map(loadMusic)]); sync(); } },
     setListener(...args) { recordings?.setListener(...args); },
     setAmbience(value) { recordings?.setAmbience(value); },
     shot(...args) { recordings?.shot(...args); },
@@ -122,7 +129,7 @@ export function createAudio({ music = true, effects = true, base = '/', fetcher 
     reload(...args) { recordings?.reload(...args); },
     stopReload(...args) { recordings?.stopReload(...args); },
     get preferences() { return {...preferences}; },
-    get state() { return { unlocked, running: context?.state === 'running', musicPlaying: clock !== null, voices: voices.size + (recordings?.state.voices || 0), recordings: recordings?.state }; },
+    get state() { return { unlocked, running: context?.state === 'running', musicPlaying: !!musicVoice, musicTrack: musicVoice?.track || null, voices: voices.size + (recordings?.state.voices || 0) + (musicVoice ? 1 : 0), recordings: recordings?.state }; },
     dispose() { if (disposed) return; disposed = true; recordings?.dispose(); stopMusic(); for (const v of voices) stopVoice(v); context?.close().catch(()=>{}); },
   };
 }

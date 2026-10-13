@@ -9,7 +9,7 @@ export { detectQuality, qualityProfile, debugOptions, IS_TOUCH } from './quality
 export { setupVisualStyle } from './visual.js';
 export { createStyler } from './style.js';
 
-export { loadSettings, saveSettings, normalizeSettings, DEFAULT_SETTINGS } from './settings.js';
+export { loadSettings, saveSettings, normalizeSettings, DEFAULT_SETTINGS, VOLUME_KEYS } from './settings.js';
 export { createTour } from './tour.js';
 export { createTraining } from './training.js';
 export { partitionStaticInstances } from './instances.js';

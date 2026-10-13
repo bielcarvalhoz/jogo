@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, createAudio, createCharacterStore, IS_TOUCH } from '../core/index.js';
+import { loadSettings, saveSettings, createAudio, createCharacterStore, IS_TOUCH, VOLUME_KEYS } from '../core/index.js';
 
 import { startIntro } from './intro.js';
 
@@ -47,10 +47,15 @@ export function createFrontMenu({ trainingOnly = false } = {}) {
   const characters = createCharacterStore();
   const audio = createAudio({ ...settings, base: import.meta.env?.BASE_URL || '/' });
   $('graphics').value = settings.quality; $('surroundings').value = settings.surroundings;
-  for (const key of ['music','effects']) {
-    $(key).checked = settings[key];
-    $(key).addEventListener('change', () => {
-      settings[key] = $(key).checked;
+  for (const key of VOLUME_KEYS) {
+    const enabled = key === 'musicVolume' ? settings.music : key === 'effectsVolume' ? settings.effects : true;
+    $(key).value = Math.round((enabled ? settings[key] : 0) * 100);
+    $(key + '-value').textContent = `${$(key).value}%`;
+    $(key).addEventListener('input', () => {
+      settings[key] = Number($(key).value) / 100;
+      if (key === 'musicVolume') settings.music = true;
+      if (key === 'effectsVolume') settings.effects = true;
+      $(key + '-value').textContent = `${$(key).value}%`;
       audio.setPreferences(settings); saveSettings(settings);
     });
   }

@@ -7,9 +7,9 @@ export const FOOTSTEPS = Object.freeze({
 });
 const shotFile = id => `audio/snakef8/${id === 'pistol' ? 'pistol-clean.wav' : `${id}.mp3`}`;
 export const SHOT_PROFILES = Object.freeze({
-  pistol: { volume: .27, rate: 1.04, attack: .0015 }, automatic: { volume: .24, rate: 1.25 },
-  revolver: { volume: .31, rate: .93 }, shotgun: { volume: .34, rate: 1.05 },
-  sniper: { volume: .32, rate: .88 }, smg: { volume: .19, rate: 1.35 },
+  pistol: { volume: .189, rate: 1.04, attack: .0015 }, automatic: { volume: .168, rate: 1.25 },
+  revolver: { volume: .217, rate: .93 }, shotgun: { volume: .238, rate: 1.05 },
+  sniper: { volume: .224, rate: .88 }, smg: { volume: .133, rate: 1.35 },
 });
 const IMPACTS = {
   concrete: variations('physics/concrete', 'concrete_impact_bullet'), wood: variations('physics/wood', 'wood_box_impact_bullet'),
@@ -38,7 +38,7 @@ export function impactSurface(hit) {
 
 /** Recorded foley with native HRTF and continuous inverse-distance attenuation.
  * No generated footstep/weapon fallback. */
-export function createRecordedAudio({ context, bus, audible, base = '/', fetcher = globalThis.fetch, random = Math.random }) {
+export function createRecordedAudio({ context, bus, audible, ambienceBus = bus, ambienceAudible = audible, base = '/', fetcher = globalThis.fetch, random = Math.random }) {
   const buffers = new Map(), requests = new Map(), failed = new Set(), voices = new Set(), lastVariants = new Map();
   const listener = { x: 0, y: 0, z: 0 };
   const recentPaintHits = [];
@@ -74,7 +74,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     for (const [axis, value] of Object.entries(p)) if (['x', 'y', 'z'].includes(axis)) item.panner[`position${axis.toUpperCase()}`].setTargetAtTime(value, t, .02);
   }
   function play(file, { position, volume = .2, rate = 1, attack = .008, release = .055, loop = false, duration, tag, when = context.currentTime } = {}) {
-    if (disposed || !audible()) return null;
+    if (disposed || !(tag === 'ambience' ? ambienceAudible() : audible())) return null;
     const buffer = buffers.get(file); if (!buffer) return null;
     if (voices.size >= 32) stop([...voices].find(item => !item.loop) || voices.values().next().value);
     const source = context.createBufferSource(), gain = context.createGain();
@@ -83,8 +83,8 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
     const panner = position && context.createPanner ? context.createPanner() : null;
     if (panner) {
       panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse'; panner.refDistance = 3; panner.rolloffFactor = 1.15; panner.maxDistance = 10000;
-      gain.connect(panner); panner.connect(bus);
-    } else gain.connect(bus);
+      gain.connect(panner); panner.connect(tag === 'ambience' ? ambienceBus : bus);
+    } else gain.connect(tag === 'ambience' ? ambienceBus : bus);
     const length = duration || buffer.duration / rate;
     if (loop || attack) { gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(volume, when + (loop ? .4 : attack)); }
     else gain.gain.setValueAtTime(volume, when);
@@ -112,7 +112,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
   }
   function setAmbience(value) {
     ambience = !!value;
-    if (!ambience || !audible()) { for (const item of voices) if (item.tag === 'ambience' && !item.stopping) { item.stopping = true; stop(item, .4); } return; }
+    if (!ambience || !ambienceAudible()) { for (const item of voices) if (item.tag === 'ambience' && !item.stopping) { item.stopping = true; stop(item, .4); } return; }
     for (const [file, volume] of [[WIND, .10], [INSECTS, .045]]) if (![...voices].some(item => item.source.buffer === buffers.get(file) && !item.stopping)) play(file, { volume, loop: true, tag: 'ambience' });
     if (context.currentTime >= birdsAt) {
       play(BIRDS, { position: { x: listener.x + 15, y: listener.y + 5, z: listener.z - 12 }, volume: .17, tag: 'ambience' });
@@ -167,6 +167,7 @@ export function createRecordedAudio({ context, bus, audible, base = '/', fetcher
       if (item) lastWhiz = context.currentTime; return !!item;
     },
     stopAll() { for (const item of voices) stop(item); recentPaintHits.length = 0; },
+    stopEffects() { for (const item of voices) if (item.tag !== 'ambience') stop(item); recentPaintHits.length = 0; },
     get state() { return { voices: voices.size, loaded: buffers.size, failed: [...failed], ambience }; },
     dispose() { disposed = true; for (const item of voices) stop(item); buffers.clear(); },
   };

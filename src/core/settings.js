@@ -1,4 +1,6 @@
-export const DEFAULT_SETTINGS = Object.freeze({ quality: 'med', surroundings: 'off', music: true, effects: true });
+export const DEFAULT_SETTINGS = Object.freeze({ quality: 'med', surroundings: 'off', music: true, effects: true, masterVolume: 1, musicVolume: 1, effectsVolume: 1 });
+export const VOLUME_KEYS = Object.freeze(['masterVolume', 'musicVolume', 'effectsVolume']);
+export const normalizeVolume = (value, fallback = 1) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 const KEY = 'cdd-settings-v1';
 
 export function normalizeSettings(value = {}) {
@@ -7,6 +9,7 @@ export function normalizeSettings(value = {}) {
     surroundings: ['off', 'fog', 'on'].includes(value?.surroundings) ? value.surroundings : DEFAULT_SETTINGS.surroundings,
     music: typeof value?.music === 'boolean' ? value.music : DEFAULT_SETTINGS.music,
     effects: typeof value?.effects === 'boolean' ? value.effects : DEFAULT_SETTINGS.effects,
+    ...Object.fromEntries(VOLUME_KEYS.map(key => [key, normalizeVolume(value?.[key])])),
   };
 }
 

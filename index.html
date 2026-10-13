@@ -44,8 +44,9 @@
           <label>Gráficos <select id="graphics"><option value="low">Low · Leve</option><option value="med" selected>Med · Equilibrado</option><option value="high">High · Detalhado</option></select></label>
           <label>Entorno de Osasco <select id="surroundings"><option value="off" selected>Desabilitado</option><option value="fog">Com neblina</option><option value="on">Ativado</option></select></label>
           <label>Câmera <select id="camera-mode"><option value="third">Terceira pessoa</option><option value="first">Primeira pessoa</option></select></label>
-          <label for="music">Música dos menus <input id="music" type="checkbox" checked /></label>
-          <label for="effects">Efeitos sonoros <input id="effects" type="checkbox" checked /></label>
+          <label class="audio-volume" for="masterVolume"><span>Volume master <output id="masterVolume-value">100%</output></span><input id="masterVolume" type="range" min="0" max="100" step="1" value="100" /></label>
+          <label class="audio-volume" for="musicVolume"><span>Música / ambiente <output id="musicVolume-value">100%</output></span><input id="musicVolume" type="range" min="0" max="100" step="1" value="100" /></label>
+          <label class="audio-volume" for="effectsVolume"><span>Efeitos sonoros <output id="effectsVolume-value">100%</output></span><input id="effectsVolume" type="range" min="0" max="100" step="1" value="100" /></label>
           <label class="paint-choice" for="paint-color">Cor da tinta <select id="paint-color" aria-label="Cor da tinta" disabled><option value="vermelho">Vermelho</option></select></label>
           <p class="setting-note">Gráficos e entorno recarregam a cidade.</p>
           <div class="settings-actions"><button id="settings-back">Voltar</button><button id="settings-apply">Aplicar</button></div>

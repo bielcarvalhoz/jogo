@@ -11,6 +11,7 @@ import { createPhysics } from './physics.js';
  */
 export function createGame({ quality, debug, status, container, settings, audio }) {
   const events = createEvents();
+  events.on('modechange', mode => audio?.setMode?.(mode));
   const game = {
     quality,
     settings,
