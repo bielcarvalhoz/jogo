@@ -53,6 +53,20 @@ export function updateHumanoidHitboxes(entity, crouched = false) {
   const p = entity.position, yaw = entity.yaw || 0, c = Math.cos(yaw), s = Math.sin(yaw), h = crouched ? .68 : 1;
   const point = (x, y, z = 0) => ({ x: p.x + c * x + s * z, y: p.y + y * h, z: p.z - s * x + c * z });
   const capsule = (region, a, b, radius) => ({ region, a, b, radius });
+  // Network envelopes cover the supplied 1.95 m Quaternius rig's walk bob and
+  // attack lean. Single-player views continue using their animated bone rig.
+  if (entity.kind === 'zombie') {
+    const lean = entity.action === 'melee' ? -.35 : .12;
+    entity.hitboxes = [
+      capsule('head', point(0, 1.57, lean), point(0, 1.91, lean), .25),
+      capsule('thorax', point(0, .8), point(0, 1.37), .31),
+      ...[-1, 1].flatMap(side => [
+        capsule('limb', point(side * .38, 1.37), point(side * .48, .92, -.2), .12),
+        capsule('limb', point(side * .16, .82), point(side * .16, .16), .15),
+      ]),
+    ];
+    return entity.hitboxes;
+  }
   entity.hitboxes = [
     capsule('head', point(0, 1.6), point(0, 1.66), .16),
     capsule('thorax', point(0, .91), point(0, 1.34), .23),

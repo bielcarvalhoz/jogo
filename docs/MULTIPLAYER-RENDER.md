@@ -1,13 +1,13 @@
 # Multiplayer: salas e publicação no Render
 
-O multiplayer usa um **serviço novo, `jogo-server`**, no repositório `bielcarvalhoz/jogo`. A estrutura segue o `defend_the_crystal`: Node + Socket.IO como autoridade, reconexão por token e WebRTC opcional para poses. O frontend continua na Vercel. O `dtc-server` existente continua atendendo o Defend the Crystal.
+O multiplayer usa um **serviço novo, `jogo-server`**, no repositório `bielcarvalhoz/jogo`. A estrutura segue o `defend_the_crystal`: Node + Socket.IO como autoridade e reconexão por token. O frontend continua na Vercel. O `dtc-server` existente continua atendendo o Defend the Crystal. Veja também o [diagnóstico de latência, correções de acerto e ajustes de infraestrutura](MULTIPLAYER-LATENCY.md).
 
 ## O que foi implementado
 
 - Salas públicas listadas ao abrir **Modo treta → Multijogador**, criação com nome e entrada pela lista ou código. Até **10 jogadores**, incluindo vagas reservadas durante uma reconexão.
 - Cada sala tem jogadores, vida, mortes, kills, zumbis, caixas e placares próprios. Todos nascem em posições livres diferentes, perto da Portaria Bussocaba.
 - Friendly fire ligado. O servidor calcula colisões dos projéteis, dano, cadência, proteção inicial de 2 segundos e respawn após 3 segundos.
-- Emoji sobre o personagem; `T` acena, `G` libera o cursor e foca as opções. No celular, toque nos emojis.
+- Emoji sobre o personagem; segure `T` para escolher aceno, dança ou reação e solte para confirmar. No celular, abra as interações.
 - Círculo **DEFENDER O PRATA** na entrada inferior, junto ao acesso Prata -2: chegue perto e pressione `E` ou toque em **Iniciar**. São 5 waves, com portais perto da Bussocaba e 1.200 pontos de vida do prédio. Todos da sala podem ajudar; derrotar uma wave dá 5 segundos até a próxima.
 - Círculo **FUTEBOL DE CAIXA** no centro do campo: `E`/toque inicia. Empurre, golpeie ou atire na caixa de madeira para mandá-la a um dos gols. Cada lado tem um placar; o primeiro a 5 vence. Depois de um gol a caixa volta ao centro em 2 segundos. A caixa precisa cruzar inteira entre as traves e abaixo do travessão.
 
@@ -54,7 +54,7 @@ Copie a URL HTTPS exibida pelo serviço. O Render escolhe a URL final; **`https:
 Abra `SUA_URL/health`. Deve aparecer um JSON com:
 
 ```json
-{"ok":true,"game":"jogo-do-biel","protocol":1,"rooms":0,"maxPlayers":10}
+{"ok":true,"game":"jogo-do-biel","protocol":2,"rooms":0,"maxPlayers":10,"netcode":1,"tickHz":60,"snapshotHz":18,"maxRewindMs":500}
 ```
 
 `rooms` muda conforme as salas criadas. O servidor serve esse diagnóstico e a rede; a tela do jogo continua no frontend.
@@ -73,23 +73,17 @@ Para testar temporariamente um servidor sem alterar a variável, também existe 
 
 1. Uma pessoa cria a sala; a outra abre Multijogador e escolhe **Entrar** na lista. Também é possível copiar o código no HUD.
 2. Confirmem seus personagens. O visual e o nome escolhidos aparecem para os outros.
-3. Andem, acenem com `T` e testem os emojis. No HUD aparece a latência e se há conexão direta com outro jogador.
+3. Andem, segurem `T` para escolher aceno/reações e testem as interações. No HUD aparecem latência, transporte e eventual oscilação.
 4. Depois dos 2 segundos de proteção, atirem um no outro para testar friendly fire. A vida, kill, morte e respawn precisam aparecer para ambos.
 5. Caminhem até o Prata e iniciem a defesa. Os portais aparecem na Bussocaba e os zumbis seguem até o prédio.
 6. No centro do campo, iniciem o futebol. Mandem a madeira a um dos gols e confiram o placar e o retorno ao centro.
 7. Interrompam brevemente a rede de um aparelho: a conexão tenta voltar e preserva a identidade por até 20 segundos. **Recarregar a página começa uma nova sessão**; o token fica só na memória do navegador.
 
-## WebRTC e fallback
+## Transporte e sincronização
 
-O servidor simula a 60 Hz e transmite snapshots a aproximadamente 18 Hz. Cada cliente prevê seu próprio movimento; o servidor limita velocidade, altura e deslocamento e varre prédios/muros antes de aceitar a pose. Os outros jogadores, zumbis e caixas são interpolados. Vida, acertos, caixas físicas, waves e gols pertencem ao servidor.
+O servidor simula a 60 Hz e transmite snapshots a aproximadamente 18 Hz. Cada cliente prevê seu próprio movimento; o servidor limita velocidade, altura e deslocamento e varre prédios/muros antes de aceitar a pose. Os outros jogadores, zumbis e caixas são interpolados pelo relógio da simulação, com janela de 60–150 ms conforme a variação recebida. Vida, acertos, caixas físicas, waves e gols pertencem ao servidor. Tiros carregam horário do disparo e horário exibido dos alvos para consultar até 500 ms de histórico de colisões; gravidade e dispersão são compartilhadas.
 
-WebRTC negocia pelo Socket.IO e cria datachannels não ordenados, sem retransmissão, enviando **somente a pose do próprio jogador a 30 Hz**. Com dez jogadores, cada navegador pode ter nove links. O snapshot autoritativo continua chegando o tempo todo; se um canal falhar ou ficar sem poses, o visual volta ao servidor automaticamente. Peers nunca decidem dano ou placar.
-
-STUN público vem configurado. Algumas redes não permitem uma conexão direta; o jogo continua pelo Socket.IO. Opcionalmente, configure **`VITE_RTC_ICE_SERVERS`** no build do frontend com uma lista JSON de servidores ICE. Dados `VITE_*` ficam públicos: para TURN autenticado, use credenciais temporárias, em vez de embutir uma senha permanente.
-
-```json
-[{"urls":"stun:stun.l.google.com:19302"}]
-```
+O cliente tenta WebSocket primeiro e usa HTTP polling quando a rede o bloqueia. Os alvos de combate usam a mesma linha de tempo autoritativa; o fluxo do jogo deixou de iniciar links WebRTC. O módulo antigo de peers permanece no código. Durante congestionamento, o servidor guarda somente o snapshot mais recente para entregar quando houver espaço. O HUD mostra o transporte, ping e oscilação; um segundo sem atualização exibe aviso e suspende novos ataques até a recuperação.
 
 ## Operação e diagnóstico
 
@@ -102,7 +96,7 @@ O Free do Render dorme após 15 minutos sem tráfego e pode levar cerca de um mi
 | “Multiplayer ainda não foi configurado” | `VITE_SERVER_URL` no ambiente correto e novo deploy da Vercel |
 | Conectando por muito tempo | Render Live, logs, URL `/health` e eventual inicialização do Free |
 | `/health` abre, mas a sala não conecta | Origem do site em `CLIENT_ORIGINS`, URL HTTPS e frontend atualizado |
-| Só aparece “Conexão pelo servidor” | A rede pode bloquear WebRTC; isso é um caminho funcional de fallback |
+| HUD mostra HTTP ou “Rede oscilando” | Conferir bloqueios de WebSocket, Wi-Fi/VPN, ping e intervalos com `diagnose:multiplayer` |
 | Sala sumiu depois de deploy | Estado é em memória; crie outra sala |
 | Sala lotada após alguém perder a conexão | Aguarde até 20 segundos pela liberação da vaga reservada |
 
@@ -126,4 +120,4 @@ npm run build
 npm run qa:multiplayer
 ```
 
-O QA sobe o servidor real e dois clientes Chromium, um desktop e outro mobile. Use `CHROMIUM_PATH` se o Chrome estiver em outro local. Relatórios e screenshots ficam em `artifacts/multiplayer/` e não entram no Git. Os testes de rede também podem ser executados separadamente com `npm run test:multiplayer`.
+O QA sobe o servidor real e dois clientes Chromium, um desktop e outro mobile. Use `CHROMIUM_PATH` se o Chrome estiver em outro local. Relatórios e screenshots ficam em `artifacts/multiplayer/` e não entram no Git. Os testes de rede também podem ser executados separadamente com `npm run test:multiplayer`. `npm run qa:latency` testa tiros em alvos móveis até 300 ms de atraso configurado, oscilação e falhas de atualização. `npm run diagnose:multiplayer -- URL --duration=45 --room` compara transportes contra um servidor publicado em uma sala própria.

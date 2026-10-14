@@ -2,9 +2,11 @@ import { createCombatSimulation } from '../src/gameplay/combat/simulation.js';
 import { updateHumanoidHitboxes } from '../src/gameplay/combat/hitboxes.js';
 import { WEAPON_BY_ID } from '../src/gameplay/paintball/weapons.js';
 import { createAmmoStore } from '../src/gameplay/paintball/ammo.js';
-import { EMOTES, finitePoint, separatedSpawn, cleanName } from '../src/shared/multiplayer.js';
+import { NET, EMOTES, finitePoint, separatedSpawn, cleanName } from '../src/shared/multiplayer.js';
 import { ammoPosition, AMMO_RESPAWN_SECONDS } from '../src/shared/props.js';
 import { moveWithContacts, slideCharacterContacts } from '../src/shared/movement.js';
+import { advanceProjectile, projectileDirections } from '../src/shared/ballistics.js';
+import { attackTiming, createHitboxHistory } from './lag-compensation.js';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -12,7 +14,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * As in DTC, browsers predict their poses; the server bounds speed and sweeps
  * every accepted move against the surveyed building/wall geometry. */
 export function createRoomSimulation(world, { onEvent = () => {}, random = Math.random } = {}) {
-  const players = new Map(), physics = world.createCrates(), projectiles = [];
+  const players = new Map(), physics = world.createCrates(), projectiles = [], history = createHitboxHistory();
   const defense = { status: 'idle', wave: 0, totalWaves: 5, remaining: 0, nextWaveAt: 0 };
   const football = { status: 'idle', score: [0, 0], target: 5, resetAt: 0, lastScorer: null };
   const ammoLoot = { position: ammoPosition(world.landmarks.field), availableAt: 0 };
@@ -47,7 +49,8 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const entity = sim.spawn({ kind: 'player', id, position: spawnFor() });
     entity.protectedUntil = sim.time + 2;
     const player = { entity, ready: phase === 'running', character: { name: cleanName(character?.name, 'Bancário', 24), appearance: character?.appearance || {} }, seq: 0,
-      connected: true, ammunition: createAmmoStore(), aiming: false, budget: .7, nextAttackAt: 0, nextEmoteAt: 0, emote: null, life: 1, lastPoseAt: sim.time, weapon: 'pistol', holstered: false };
+      connected: true, ammunition: createAmmoStore(), aiming: false, budget: .7, nextAttackAt: 0, lastShotId: 0, nextEmoteAt: 0, emote: null, life: 1, lastPoseAt: sim.time, weapon: 'pistol', holstered: false };
+    entity.networkLife = player.life;
     players.set(id, player); return player;
   }
   function removePlayer(id) { const p = players.get(id); if (p) sim.remove(p.entity); players.delete(id); tryStart(); }
@@ -93,15 +96,16 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     }
     return true;
   }
-  function firstHit(a, b, source) {
-    const actor = sim.traceActors(a, b, { source }), wall = world.trace(a, b), crate = physics.trace(a, b);
+  function firstHit(a, b, source, at = sim.time) {
+    const actor = at < sim.time - 1e-6 ? history.trace(a, b, source, at) : sim.traceActors(a, b, { source }), wall = world.trace(a, b), crate = physics.trace(a, b);
     return [actor, wall, crate].filter(Boolean).sort((x, y) => x.distance - y.distance)[0] || null;
   }
-  function impact(hit, source, weapon, direction, paintColor = '#d91e44') {
+  function impact(hit, source, weapon, direction, paintColor = '#d91e44', shotId, pellet) {
     const surface = hit.entity ? 'flesh' : hit.crate?.type || (Math.abs(hit.normal?.y || 0) > .7 ? 'dirt' : 'concrete');
-    emit('impact', { point: hit.point, surface, kind: weapon.kind });
+    emit('impact', { player: source.id, shotId, pellet, point: hit.point, surface, kind: weapon.kind });
     if (hit.entity) {
-      if (weapon.kind === 'firearm') emit('paintHit', { victim: hit.entity.id, point: hit.point, normal: hit.normal, paintColor });
+      if (weapon.kind === 'firearm') emit('paintHit', { victim: hit.entity.id, point: hit.point, normal: hit.normal, paintColor,
+        targetPose: hit.targetPose || { position: { ...hit.entity.position }, yaw: hit.entity.yaw || 0 } });
       sim.damage(hit.entity, { source, region: hit.region, weapon });
     }
     if (hit.crate) {
@@ -112,7 +116,9 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
   }
   function attack(p, action) {
     const weapon = typeof action.weapon === 'string' && Object.hasOwn(WEAPON_BY_ID, action.weapon) ? WEAPON_BY_ID[action.weapon] : null, e = p.entity;
-    if (!weapon || p.holstered || e.dead || sim.time + .015 < p.nextAttackAt || !finitePoint(action.origin) || !finitePoint(action.direction)) return false;
+    const timing = attackTiming(action, sim.time);
+    if (!weapon || !timing || p.holstered || e.dead || timing.shotTime + .015 < p.nextAttackAt || !finitePoint(action.origin) || !finitePoint(action.direction)) return false;
+    if (action.shotId !== undefined && (!Number.isSafeInteger(action.shotId) || action.shotId <= p.lastShotId || action.shotId > 0x7fffffff)) return false;
     const expected = { x: e.position.x, y: e.position.y + (e.crouched ? 1.1 : 1.7), z: e.position.z };
     if (Math.hypot(action.origin.x - expected.x, action.origin.y - expected.y, action.origin.z - expected.z) > 1.8) return false;
     const len = Math.hypot(action.direction.x, action.direction.y, action.direction.z);
@@ -120,32 +126,49 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
     const direction = { x: action.direction.x / len, y: action.direction.y / len, z: action.direction.z / len };
     if (p.weapon !== weapon.id) p.ammunition.cancel();
     if (weapon.kind === 'firearm' && !p.ammunition.consume(weapon.id)) return false;
-    p.nextAttackAt = sim.time + weapon.interval; p.weapon = weapon.id;
+    p.nextAttackAt = timing.shotTime + weapon.interval; p.weapon = weapon.id;
+    if (action.shotId !== undefined) p.lastShotId = action.shotId;
+    history.record(sim.time, sim.actors);
     // Never let a third-person muzzle beyond a wall shoot through that wall.
     const obstruction = world.trace(expected, action.origin), origin = obstruction ? expected : { ...action.origin };
     if (weapon.kind !== 'firearm') {
       const to = { x: origin.x + direction.x * weapon.range, y: origin.y + direction.y * weapon.range, z: origin.z + direction.z * weapon.range };
       let hit = null;
       for (const offset of [0, -.13, .13]) {
-        const end = { ...to, x: to.x + direction.z * offset, z: to.z - direction.x * offset }, next = firstHit(origin, end, e);
+        const end = { ...to, x: to.x + direction.z * offset, z: to.z - direction.x * offset }, next = firstHit(origin, end, e, timing.viewTime);
         if (next && (!hit || next.distance < hit.distance)) hit = next;
       }
       if (hit) impact(hit, e, weapon, direction);
       emit('attack', { player: e.id, weapon: weapon.id }); return true;
     }
-    const rightLen = Math.hypot(direction.x, direction.z) || 1;
-    const right = { x: -direction.z / rightLen, y: 0, z: direction.x / rightLen };
-    const up = { x: right.z * direction.y, y: right.x * direction.z - right.z * direction.x, z: -right.x * direction.y };
     const bullets = [];
-    for (let i = 0; i < weapon.pellets; i++) {
-      const a = random() * Math.PI * 2, r = i === 0 && weapon.pellets > 1 ? 0 : Math.sqrt(random()) * (action.aiming ? weapon.spread : weapon.hipSpread || weapon.spread);
-      const d = { x: direction.x + right.x * Math.cos(a) * r + up.x * Math.sin(a) * r, y: direction.y + up.y * Math.sin(a) * r, z: direction.z + right.z * Math.cos(a) * r + up.z * Math.sin(a) * r };
-      const l = Math.hypot(d.x, d.y, d.z); for (const key of ['x', 'y', 'z']) d[key] /= l;
-      const bullet = { id: ++serial, source: e, weapon, position: { ...origin }, direction: d, traveled: 0, paintColor: /^#[0-9a-f]{6}$/i.test(action.paintColor || '') ? action.paintColor : '#d91e44' };
+    for (const [pellet, d] of projectileDirections(direction, weapon, action.aiming, action.shotId, random).entries()) {
+      const bullet = { id: ++serial, source: e, weapon, position: { ...origin }, direction: d,
+        velocity: { x: d.x * weapon.speed, y: d.y * weapon.speed, z: d.z * weapon.speed },
+        shotId: action.shotId, pellet, age: 0, viewTime: timing.viewTime, firedAt: timing.shotTime,
+        traveled: 0, paintColor: /^#[0-9a-f]{6}$/i.test(action.paintColor || '') ? action.paintColor : '#d91e44' };
       if (projectiles.length < 256) projectiles.push(bullet);
       bullets.push({ id: bullet.id, direction: d });
     }
-    emit('shot', { player: e.id, weapon: weapon.id, origin, speed: weapon.speed, bullets }); return true;
+    emit('shot', { player: e.id, shotId: action.shotId, weapon: weapon.id, origin, speed: weapon.speed, firedAt: timing.shotTime, bullets });
+    // Replay only the bounded uplink delay, sweeping every fixed step.
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const b = projectiles[i]; if (b.source !== e || b.shotId !== action.shotId || b.firedAt !== timing.shotTime) continue;
+      const catchup = sim.time - timing.shotTime;
+      let remaining = catchup;
+      while (remaining > 1e-6) { const dt = Math.min(remaining, 1 / NET.tickHz); if (advanceBullet(b, dt)) { projectiles.splice(i, 1); break; } remaining -= dt; }
+    }
+    return true;
+  }
+  function advanceBullet(b, dt) {
+    const step = advanceProjectile(b.position, b.velocity, dt);
+    const hit = firstHit(b.position, step.position, b.source, b.viewTime + b.age + dt);
+    b.traveled += Math.hypot(step.position.x - b.position.x, step.position.y - b.position.y, step.position.z - b.position.z); b.age += dt;
+    if (hit) impact(hit, b.source, b.weapon, b.direction, b.paintColor, b.shotId, b.pellet);
+    const ended = !!hit || b.traveled >= b.weapon.range || b.age >= 3;
+    if (ended) emit('bulletEnd', { bullet: b.id, player: b.source.id, shotId: b.shotId, pellet: b.pellet, victim: hit?.entity?.id });
+    else { b.position = step.position; b.velocity = step.velocity; }
+    return ended;
   }
   function startDefense() {
     for (const e of [...sim.actors]) if (e.kind === 'zombie') sim.remove(e);
@@ -189,16 +212,14 @@ export function createRoomSimulation(world, { onEvent = () => {}, random = Math.
       if (p.entity.dead) p.ammunition.cancel(); else p.ammunition.update(dt);
       p.budget = Math.min(2.6, p.budget + dt * (p.entity.crouched ? 1.6 : p.aiming ? 3.1 : 9.5));
       if (sim.time - p.lastPoseAt > .2) { p.entity.velocity = { x: 0, y: 0, z: 0 }; p.entity.action = 'idle'; }
-      if (p.entity.dead && sim.time - p.entity.dead.at >= 3) { sim.revive(p.entity, spawnFor()); p.ammunition.reset(); p.life++; p.seq = p.seq || 0; p.budget = .7; emit('respawn', { player: p.entity.id }); }
+      if (p.entity.dead && sim.time - p.entity.dead.at >= 3) { sim.revive(p.entity, spawnFor()); p.ammunition.reset(); p.life++; p.entity.networkLife = p.life; p.seq = p.seq || 0; p.budget = .7; emit('respawn', { player: p.entity.id }); }
       if (p.emote && p.emote.until <= sim.time) p.emote = null;
     }
     sim.update(dt);
     for (const e of sim.agents) { e.position.y = world.terrain.heightAt(e.position.x, e.position.z); updateHumanoidHitboxes(e); }
+    history.record(sim.time, sim.actors);
     for (let i = projectiles.length - 1; i >= 0; i--) {
-      const b = projectiles[i], next = { x: b.position.x + b.direction.x * b.weapon.speed * dt, y: b.position.y + b.direction.y * b.weapon.speed * dt, z: b.position.z + b.direction.z * b.weapon.speed * dt };
-      const hit = firstHit(b.position, next, b.source); b.traveled += b.weapon.speed * dt;
-      if (hit) { impact(hit, b.source, b.weapon, b.direction, b.paintColor); emit('bulletEnd', { bullet: b.id }); }
-      if (hit || b.traveled >= b.weapon.range) projectiles.splice(i, 1); else b.position = next;
+      if (advanceBullet(projectiles[i], dt)) projectiles.splice(i, 1);
     }
     const wood = physics.crates[0], before = { ...wood.body.translation() };
     physics.step();

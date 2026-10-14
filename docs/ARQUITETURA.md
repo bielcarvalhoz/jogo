@@ -374,15 +374,25 @@ lobby. O cliente prevê seu movimento, reconcilia poses pela sequência aceita e
 interpola atores/caixas. Os avatars remotos clonam o rig e o visual selecionado;
 zumbis reutilizam `combat.createActorView`. O modo desativa voo e teletransporte.
 
-`multiplayer/peers.js` negocia WebRTC pelo mesmo socket. O menor ID inicia o link;
-os datachannels enviam a própria pose a 30 Hz, sem ordem/retransmissão. Poses
-antigas, inválidas ou distantes da autoridade são ignoradas. O servidor continua
-enviando snapshots durante toda a sessão e controla dano, caixas e minigames.
+`multiplayer/timeline.js` interpola pelo relógio da simulação, com janela adaptativa
+de 60–150 ms. Jogadores e zumbis usam essa mesma linha de tempo para o visual e os
+acertos; o jogo deixou de iniciar os peers WebRTC, cujo módulo permanece disponível.
+`server/lag-compensation.js` guarda até 500 ms de hitboxes e consulta o histórico
+sem alterar entidades vivas, respeitando desconexão e gerações de respawn.
+`shared/ballistics.js` compartilha gravidade e dispersão por ID do tiro. Os ataques
+enviam `shotId`, `shotTime`, `viewTime` e pose validada; o servidor avança até 250 ms
+de percurso de envio e confirma aceitação. Snapshots congestionados guardam somente
+o estado mais recente por conexão. O `/health` publica versão e atraso do event loop.
+`game.multiplayer` também expõe `predictImpact`, `connectionStale` e `interpolationMs`;
+paintball expõe `endNetworkShot` e `rejectNetworkShot` para reconciliar os efeitos e
+a munição de um disparo rejeitado. Sem atualizações por um segundo, novos ataques
+ficam suspensos até a rede voltar. Veja [diagnóstico e validação](MULTIPLAYER-LATENCY.md).
 `ui/multiplayer.js` desenha lobby, status, placares, emojis e interações.
 
 Configuração e operação: [Multiplayer no Render](MULTIPLAYER-RENDER.md).
 `npm run test:multiplayer` testa salas e regras; `npm run qa:multiplayer` executa
 dois navegadores reais, desktop/mobile, com Socket.IO e Rapier reais.
+`npm run qa:latency` verifica headshots com atraso e falhas de snapshot simulados.
 
 ### Aprovação, ranking e reações
 

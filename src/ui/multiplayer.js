@@ -110,14 +110,15 @@ export function createMultiplayerUI(game) {
       ranked.forEach((p, i) => { const row = document.createElement('tr'); row.classList.toggle('self', p.id === self.id); for (const value of [i + 1, `${mp.roster.get(p.id)?.character.name || 'Jogador'}${p.connected ? '' : ' · offline'}`, p.kills, p.assists || 0, p.deaths]) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); } body.append(row); });
     }
     h('mp-session').textContent = `${net.session.name} · ${net.session.code} · ${snapshot.players.length}/10`;
-    h('mp-transport').textContent = `${net.latency} ms · ${mp.peerCount ? `Conexão direta com ${mp.peerCount} jogador(es)` : 'Conexão pelo servidor'}`;
+    h('mp-transport').textContent = `${net.rttSamples.length ? `${net.latency} ms` : 'Medindo ping…'} · ${net.transport === 'websocket' ? 'WebSocket' : 'HTTP'}${net.jitter > 25 ? ' · Rede oscilando' : ''}`;
+    h('mp-transport').title = `Variação ${Math.round(net.jitter)} ms · Suavização ${mp.interpolationMs} ms · ${net.timeouts} pings sem resposta`;
     h('mp-health').textContent = `VIDA ${Math.ceil(self.health)}/${self.maxHealth}`;
     h('mp-health-fill').style.transform = `scaleX(${self.health / self.maxHealth})`;
     h('mp-score').textContent = `${self.kills} K · ${self.assists || 0} A · ${self.deaths} M`;
     const d = snapshot.defense, f = snapshot.football;
     h('mp-defense-score').textContent = d.status === 'idle' ? 'Prata: inicie a defesa na entrada do prédio.' : `Prata · ${d.status === 'won' ? 'VITÓRIA' : d.status === 'lost' ? 'DERROTA' : `Wave ${d.wave}/${d.totalWaves} · ${d.remaining} zumbis`} · Prédio ${Math.ceil(d.health)}/${d.maxHealth}`;
     h('mp-football-score').textContent = f.status === 'idle' ? 'Campo: inicie o futebol de caixa no círculo central.' : `Futebol de caixa · Azul ${f.score[0]} × ${f.score[1]} Amarelo${f.status === 'finished' ? ' · FIM DE JOGO' : ' · até 5 gols'}`;
-    h('mp-reconnect').hidden = net.ready; h('mp-reconnect').textContent = statusText[net.status] || 'Reconectando…';
+    h('mp-reconnect').hidden = net.ready && !mp.connectionStale; h('mp-reconnect').textContent = net.ready && mp.connectionStale ? 'Aguardando atualizações do servidor…' : statusText[net.status] || 'Reconectando…';
     h('mp-respawn').hidden = !self.dead; if (self.dead) h('mp-respawn').textContent = `Você morreu · renasce na Bussocaba em ${Math.ceil(self.respawnIn)}s`;
     h('mp-hit').hidden = performance.now() > hitUntil; hud.classList.toggle('mp-hurt', performance.now() < hurtUntil);
     h('mp-interact').hidden = !mp.nearby || !mp.canAct || game.ui?.mapOpen;
