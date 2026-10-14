@@ -67,10 +67,10 @@ try {
   assert.equal(await a.locator('#mp-ranking tbody tr').count(), 2);
   await a.screenshot({ path: path.join(directory, 'desktop-ranking.png') }); await a.keyboard.up('Tab');
   assert.equal(await a.locator('#mp-ranking').isVisible(), false);
-  await a.keyboard.down('KeyG'); await a.keyboard.press('ArrowRight');
+  await a.keyboard.down('KeyT'); await a.keyboard.press('ArrowRight');
   assert.equal(await a.locator('#reaction-wheel').isVisible(), true);
   await a.screenshot({ path: path.join(directory, 'desktop-reactions.png') });
-  await a.keyboard.press('Escape'); await a.keyboard.up('KeyG');
+  await a.keyboard.press('Escape'); await a.keyboard.up('KeyT');
   await b.locator('#actions-toggle').click(); await b.locator('#btn-reactions').click(); await b.getByRole('menuitem', { name: 'Dançar', exact: true }).click();
   await a.waitForFunction(() => [...__cdd.game.multiplayer.views.values()].some(v => v.avatar.animationState.motion === 'Dance_Loop'));
   assert.equal(await a.locator('.reaction-bubble').count(), 0);
@@ -83,7 +83,7 @@ try {
   await a.waitForTimeout(250);
   const movement = await a.evaluate(() => ({ local: __cdd.player.feet.toArray(), authoritative: __cdd.game.multiplayer.self }));
   assert.ok(Math.hypot(movement.local[0] - movement.authoritative.x, movement.local[2] - movement.authoritative.z) < 1);
-  await a.keyboard.press('KeyT');
+  await a.evaluate(() => __cdd.game.ui.reactions.react('wave'));
   await b.waitForFunction(() => __cdd.game.multiplayer.snapshot.players.some(p => p.emote?.id === 'wave'));
   // Verify map open/close retains this multiplayer session and cannot teleport.
   await b.evaluate(() => __cdd.game.ui.openMap()); await b.locator('#map-close').click();
@@ -93,10 +93,8 @@ try {
   await a.evaluate(() => __cdd.game.multiplayer.network.socket.io.engine.close());
   await a.waitForFunction(id => __cdd.game.multiplayer.network.ready && __cdd.game.multiplayer.network.session.selfId === id, oldId, { timeout: 20000 });
   await a.waitForTimeout(500); assert.equal(room.members.size, 2);
-  // WebRTC is optional, but Chromium on one machine should establish it.
-  await a.waitForFunction(() => __cdd.game.multiplayer.peerCount === 1, null, { timeout: 20000 });
-  await a.evaluate(() => __cdd.game.multiplayer.network.emit('disconnect'));
-  assert.equal(await a.evaluate(() => __cdd.game.multiplayer.peerCount), 0);
+  // Combat targets and hit registration share the authoritative timeline.
+  await a.waitForFunction(() => __cdd.game.multiplayer.network.transport === 'websocket');
   await a.waitForFunction(() => __cdd.game.multiplayer.views.size === 1);
   for (const client of clients) {
     await client.page.screenshot({ path: path.join(directory, `${client.label}-playing.png`) });

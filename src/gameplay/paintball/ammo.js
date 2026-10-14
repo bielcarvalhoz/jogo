@@ -57,5 +57,9 @@ export function createAmmoStore() {
     }
     return gained;
   }
-  return { state, reload, consume, update, cancel, reset, refill };
+  function refund(id) {
+    const ammo = rounds.get(id), weapon = WEAPON_BY_ID[id];
+    if (ammo) ammo.loaded = Math.min(weapon.magazineSize, ammo.loaded + 1);
+  }
+  return { state, reload, consume, update, cancel, reset, refill, refund };
 }

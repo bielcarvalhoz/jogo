@@ -1,6 +1,7 @@
 import { ringCentroid } from './geo.js';
 
-export const NET = Object.freeze({ maxPlayers: 10, tickHz: 60, snapshotHz: 18, poseHz: 30, graceMs: 20000, emptyMs: 25000, protocol: 2 });
+export const NET = Object.freeze({ maxPlayers: 10, tickHz: 60, snapshotHz: 18, poseHz: 30, graceMs: 20000, emptyMs: 25000, protocol: 2,
+  minInterpolation: .06, maxInterpolation: .15, maxRewind: .5, maxCatchup: .25, staleSeconds: 1 });
 export const EV = Object.freeze({ list: 'rooms:list', rooms: 'rooms:update', create: 'room:create', join: 'room:join', leave: 'room:leave', welcome: 'room:welcome', roster: 'room:roster', pose: 'player:pose', action: 'player:action', snapshot: 'world:snapshot', event: 'world:event', signal: 'rtc:signal' });
 export const EMOTES = Object.freeze({ wave: null, dance: null, smile: 'smile.png', heart: 'heart.png', gg: 'gg.png', fire: 'fire.png' });
 export const EMOTE_NAMES = Object.freeze({ wave: 'Acenar', dance: 'Dançar', smile: 'Sorrir', heart: 'Coração', gg: 'Boa!', fire: 'Provocar' });

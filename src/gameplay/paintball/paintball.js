@@ -4,6 +4,7 @@ import { WEAPONS, createWeaponInventory } from './weapons.js';
 import { createAmmoStore } from './ammo.js';
 import { createMuzzlePaint } from './muzzle-paint.js';
 import { createSurfacePaintGeometry, projectSurfacePaint, surfacePaintMaterial } from './surface-paint.js';
+import { PAINT_GRAVITY, advanceProjectile, projectileDirections } from '../../shared/ballistics.js';
 
 export const PAINTBALL_PALETTE = Object.freeze([
   { id: 'cinza', label: 'Cinza', color: '#88939b' },
@@ -17,15 +18,13 @@ export const PAINTBALL_PALETTE = Object.freeze([
   { id: 'marrom', label: 'Marrom', color: '#7b4a2c' },
 ].map(Object.freeze));
 
-export const PAINTBALL_LIMITS = Object.freeze({ projectiles: 48, marks: 96, speed: 34, gravity: 3, lifetime: 3, interval: .15 });
+export const PAINTBALL_LIMITS = Object.freeze({ projectiles: 48, marks: 96, speed: 34, gravity: PAINT_GRAVITY, lifetime: 3, interval: .15 });
 export const PAINTBALL_WEAPONS = WEAPONS;
 
 /** Exact ballistic integration, independent of the render frame duration. */
 export function advancePaintball(position, velocity, dt, gravity = PAINTBALL_LIMITS.gravity) {
-  return {
-    position: position.clone().addScaledVector(velocity, dt).add(new THREE.Vector3(0, -gravity * dt * dt / 2, 0)),
-    velocity: velocity.clone().add(new THREE.Vector3(0, -gravity * dt, 0)),
-  };
+  const step = advanceProjectile(position, velocity, dt, gravity);
+  return { position: new THREE.Vector3().copy(step.position), velocity: new THREE.Vector3().copy(step.velocity) };
 }
 
 function excludedFromPaint(object, ignored, checkVisibility = true) {
@@ -253,21 +252,16 @@ export function createPaintball({ scene, camera, getActive = () => true, getVisi
       muzzleOrigin.copy(shotOrigin);
     }
     const direction = target.clone().sub(muzzleOrigin).normalize();
-    const right = new THREE.Vector3().crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
-    const up = new THREE.Vector3().crossVectors(right, direction).normalize();
-    for (let pellet = 0; pellet < weapon.pellets; pellet++) {
+    const shotId = shots + 1;
+    for (const [pellet, d] of projectileDirections(direction, weapon, aiming, shotId, random).entries()) {
       const ball = projectiles[projectileIndex++ % projectiles.length]; ball.mesh.position.copy(muzzleOrigin);
-      const spread = weapon.hipSpread && !aiming ? weapon.hipSpread : weapon.spread;
-      // The central pellet follows the reticle, with other pellets distributed
-      // across a disk. One shell is one shot and one sound, even with nine hits.
-      const angle = random() * Math.PI * 2, radius = weapon.pellets > 1 && pellet === 0 ? 0 : Math.sqrt(random()) * spread;
-      ball.velocity.copy(direction).addScaledVector(right, Math.cos(angle) * radius).addScaledVector(up, Math.sin(angle) * radius).normalize().multiplyScalar(weapon.speed);
-      ball.weapon = weapon; ball.distance = 0;
+      ball.velocity.copy(d).multiplyScalar(weapon.speed);
+      ball.weapon = weapon; ball.distance = 0; ball.shotId = shotId; ball.pellet = pellet; ball.networkRejected = false;
       ball.mesh.material = colors[colorIndex].ball; ball.mesh.userData.paintColor = colorIndex; ball.mesh.visible = true; ball.age = 0;
     }
     recoil = weapon.recoilStrength; recoilDecay = weapon.recoilDecay;
     muzzlePaint.emit(muzzleOrigin, direction, PAINTBALL_PALETTE[colorIndex].color);
-    shots++; onShot(weapon.id, { recoilStrength: weapon.recoilStrength, recoilDecay: weapon.recoilDecay, origin: muzzleOrigin.clone(), direction: direction.clone(), aiming });
+    shots++; onShot(weapon.id, { shotId, recoilStrength: weapon.recoilStrength, recoilDecay: weapon.recoilDecay, origin: muzzleOrigin.clone(), direction: direction.clone(), aiming });
   }
 
   function meleeImpact(weapon) {
@@ -385,7 +379,7 @@ export function createPaintball({ scene, camera, getActive = () => true, getVisi
       ball.age += elapsed;
       ball.distance += ball.mesh.position.distanceTo(step.position);
       if (hit) {
-        onImpact(hit, { weapon: ball.weapon, damage: ball.weapon.damage, impulse: ball.weapon.impulse, direction: ball.velocity.clone().normalize(), kind: 'firearm', paintColor: PAINTBALL_PALETTE[ball.mesh.userData.paintColor].color });
+        onImpact(hit, { shotId: ball.shotId, pellet: ball.pellet, weapon: ball.weapon, damage: ball.weapon.damage, impulse: ball.weapon.impulse, direction: ball.velocity.clone().normalize(), kind: 'firearm', paintColor: PAINTBALL_PALETTE[ball.mesh.userData.paintColor].color });
         if (hit.entity || hit.corpse) { ball.mesh.visible = false; continue; }
         const mark = marks[markIndex++ % marks.length]; mark.material = colors[ball.mesh.userData.paintColor].paint;
         const projection = projectSurfacePaint(hit, refreshColliders(), mark.geometry, markIndex);
@@ -425,6 +419,12 @@ export function createPaintball({ scene, camera, getActive = () => true, getVisi
   gun.visible = !!getActive();
   return {
     root, gun, update, shoot, reload, setColor, setTrigger, setWeapon, setHolstered, setWeaponModels, resetInput, clearEffects, palette: PAINTBALL_PALETTE, weapons: PAINTBALL_WEAPONS, dispose,
+    endNetworkShot(shotId, pellet) { for (const ball of projectiles) if (ball.shotId === shotId && (pellet === undefined || ball.pellet === pellet)) ball.mesh.visible = false; },
+    rejectNetworkShot(shotId) {
+      const shot = projectiles.find(ball => ball.shotId === shotId);
+      if (shot && !shot.networkRejected) ammunition.refund(shot.weapon.id);
+      for (const ball of projectiles) if (ball.shotId === shotId) { ball.mesh.visible = false; ball.networkRejected = true; }
+    },
     get ammo() { return ammunition.state(PAINTBALL_WEAPONS[weaponIndex].id); },
     refillAmmo: () => ammunition.refill(),
     resetAmmo() { cancelReload(); ammunition.reset(); },

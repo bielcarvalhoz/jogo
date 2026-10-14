@@ -12,6 +12,8 @@
     "test": "node scripts/check-modules.mjs && node --test \"tests/**/*.test.mjs\"",
     "test:multiplayer": "node --test \"tests/multiplayer/*.test.mjs\"",
     "qa:multiplayer": "node scripts/qa-multiplayer.mjs",
+    "qa:latency": "node scripts/qa-latency.mjs",
+    "diagnose:multiplayer": "node scripts/diagnose-multiplayer.mjs",
     "preview": "vite preview",
     "campus": "node scripts/build-campus.mjs",
     "check:modules": "node scripts/check-modules.mjs"

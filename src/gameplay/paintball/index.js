@@ -33,7 +33,7 @@ export function createPaintballModule(game) {
     onStrike: (weapon, info) => game.multiplayer?.attack(weapon, info),
     onImpact: (hit, info) => {
       if (hit.corpse) { game.audio?.hit?.(hit, info); game.ragdolls.impact(hit, info); return; }
-      if (game.multiplayer?.active) return;
+      if (game.multiplayer?.active) { game.multiplayer.predictImpact(hit, info); return; }
       game.audio?.hit?.(hit, info);
       if (!game.combat?.impact(hit, info)) game.dynamicProps?.impact(hit, info);
     },

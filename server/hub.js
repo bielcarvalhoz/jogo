@@ -10,6 +10,11 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
     connected: [...r.members.values()].filter(m => m.socketId).length, maxPlayers: NET.maxPlayers, full: r.members.size >= NET.maxPlayers,
     defense: r.sim.defense.status === 'running' ? `Wave ${r.sim.defense.wave}` : r.sim.snapshot().phase === 'waiting' ? 'Aguardando aprovação' : 'Em partida', football: r.sim.football.status === 'running' }));
   const broadcastDirectory = () => io.to('directory').emit(EV.rooms, directory());
+  const flushSnapshot = socket => {
+    if (!socket.data.room || !socket.data.latestSnapshot || !socket.conn.transport.writable) return;
+    const snapshot = socket.data.latestSnapshot; socket.data.latestSnapshot = null;
+    socket.volatile.emit(EV.snapshot, snapshot);
+  };
   const roster = room => ({ code: room.code, name: room.name, ownerId: room.ownerId, players: [...room.members.values()].map(m => ({ id: m.id, character: m.character, connected: !!m.socketId })) });
   function announce(room) { io.to(room.code).emit(EV.roster, roster(room)); broadcastDirectory(); }
   function destroy(room) {
@@ -25,7 +30,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
   }
   function detach(socket, immediate = false) {
     const room = rooms.get(socket.data.room), member = room?.members.get(socket.data.player);
-    socket.data.room = socket.data.player = null;
+    socket.data.room = socket.data.player = socket.data.latestSnapshot = null;
     if (!room || !member || member.socketId !== socket.id) return;
     socket.leave(room.code); member.socketId = null; room.sim.players.get(member.id).connected = false; room.sim.players.get(member.id).ready = false;
     // A disconnected player cannot absorb damage while occupying a slot.
@@ -52,12 +57,31 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
       if (![...room.members.values()].some(m => m.socketId)) { room.accumulator = room.snapAccumulator = 0; return; }
       room.accumulator += elapsed; room.snapAccumulator += elapsed;
       while (room.accumulator >= 1 / NET.tickHz) { room.sim.step(1 / NET.tickHz); room.accumulator -= 1 / NET.tickHz; }
-      if (room.snapAccumulator >= 1 / NET.snapshotHz) { room.snapAccumulator %= 1 / NET.snapshotHz; io.to(code).volatile.emit(EV.snapshot, room.sim.snapshot()); }
+      if (room.snapAccumulator >= 1 / NET.snapshotHz) {
+        room.snapAccumulator %= 1 / NET.snapshotHz;
+        const snapshot = room.sim.snapshot();
+        for (const member of room.members.values()) {
+          const socket = io.sockets.sockets.get(member.socketId); if (!socket) continue;
+          // Keep one newest state during backpressure, never a queue of old
+          // worlds. Polling receives it with its next available response.
+          socket.data.latestSnapshot = snapshot; flushSnapshot(socket);
+        }
+      }
     }, 1000 / NET.tickHz);
     rooms.set(code, room); return room;
   }
   io.on('connection', socket => {
     socket.join('directory'); socket.emit(EV.rooms, directory());
+    const ready = () => flushSnapshot(socket);
+    let transport;
+    const watch = next => {
+      transport?.removeListener('ready', ready); transport?.removeListener('drain', ready);
+      transport = next; transport.prependListener('ready', ready); transport.on('drain', ready);
+    };
+    watch(socket.conn.transport); socket.conn.on('upgrade', watch);
+    socket.on('disconnect', () => {
+      socket.conn.removeListener('upgrade', watch); transport.removeListener('ready', ready); transport.removeListener('drain', ready);
+    });
     const buckets = new Map();
     const rate = (key, limit, seconds = 1) => {
       const now = performance.now() / 1000, b = buckets.get(key) || { tokens: limit, at: now };
@@ -86,6 +110,7 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
       const player = room.sim.players.get(member.id); player.connected = true; player.entity.networkGhost = false; player.entity.protectedUntil = room.sim.sim.time + 2;
       room.ownerId ||= member.id;
       socket.data.room = room.code; socket.data.player = member.id; socket.join(room.code);
+      socket.data.latestSnapshot = null;
       const welcome = { ok: true, code: room.code, name: room.name, selfId: member.id, token: member.token, protocol: NET.protocol, roster: roster(room), snapshot: room.sim.snapshot(), landmarks: world.landmarks };
       socket.emit(EV.welcome, welcome); reply(ack, { ok: true }); announce(room);
     }
@@ -111,14 +136,24 @@ export function attachHub(io, world, { graceMs = NET.graceMs, emptyMs = NET.empt
       return member?.socketId === socket.id ? { room, member } : {};
     };
     socket.on(EV.pose, data => { const { room, member } = current(); if (room && rate('pose', 65)) room.sim.setPose(member.id, data); });
-    socket.on(EV.action, data => { const { room, member } = current(); if (room && rate('action', 35)) room.sim.handleAction(member.id, data); });
+    socket.on(EV.action, (data, ack) => {
+      const { room, member } = current(); if (!room || !rate('action', 35)) return;
+      // Fire carries the current bounded pose so a dropped volatile update
+      // cannot leave its muzzle at the previous movement sample.
+      if (data?.type === 'attack' && data.pose) room.sim.setPose(member.id, data.pose);
+      const accepted = room.sim.handleAction(member.id, data);
+      reply(ack, { ok: true, accepted, shotId: data?.shotId });
+    });
     socket.on(EV.signal, data => {
       const { room, member } = current();
       if (!room || !rate('signal', 80) || !data || typeof data.to !== 'string' || data.to === member.id) return;
       const target = room.members.get(data.to);
       if (target?.socketId && JSON.stringify(data.data || {}).length <= 32768) io.to(target.socketId).emit(EV.signal, { from: member.id, data: data.data });
     });
-    socket.on('latency:ping', (_, ack) => { if (rate('ping', 3)) reply(ack, { ok: true }); });
+    socket.on('latency:ping', (_, ack) => {
+      const { room } = current();
+      if (rate('ping', 3)) reply(ack, { ok: true, time: room?.sim.sim.time });
+    });
     socket.on(EV.leave, (_, ack) => { detach(socket, true); reply(ack, { ok: true }); });
     socket.on('disconnect', () => detach(socket));
   });

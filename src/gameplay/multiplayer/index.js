@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { createActorView, traceHitboxes, updateHumanoidHitboxes } from '../combat/index.js';
 import { MultiplayerNetwork } from './network.js';
-import { PeerMesh } from './peers.js';
+import { SnapshotTimeline } from './timeline.js';
 import { footSurface } from '../../core/index.js';
 import { EV, NET, interpolatePose, multiplayerLandmarks } from '../../shared/multiplayer.js';
 import { slideCharacterContacts } from '../../shared/movement.js';
+import { advanceProjectile } from '../../shared/ballistics.js';
 
 export function createMultiplayerModule(game, { weaponModels } = {}) {
   const network = new MultiplayerNetwork(), views = new Map(), zombies = new Map(), roster = new Map();
@@ -22,7 +23,8 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   const ballGeometry = new THREE.SphereGeometry(.075, 6, 4), ballMaterial = new THREE.MeshBasicMaterial({ color: 0xf0b16b, toneMapped: false });
   const bullets = Array.from({ length: 128 }, () => { const ball = new THREE.Mesh(ballGeometry, ballMaterial); ball.visible = false; root.add(ball); return { ball, id: null, velocity: new THREE.Vector3(), age: 0 }; });
   let bulletIndex = 0;
-  let mesh = null, latest = null, snapshots = [], seq = 0, pending = [], sendAccumulator = 0, meshTimer = 0, life = 0, nearby = null;
+  const timeline = new SnapshotTimeline(), predictedImpacts = new Map();
+  let latest = null, seq = 0, pending = [], sendAccumulator = 0, life = 0, nearby = null;
   const now = () => performance.now() / 1000;
   const worldEvents = event => game.events.emit('multiplayerevent', event);
   const actor = pose => ({ id: pose.id, kind: pose.kind, radius: .35, position: { x: pose.x, y: pose.y, z: pose.z }, yaw: pose.yaw, velocity: { x: pose.vx || 0, y: 0, z: pose.vz || 0 }, health: { current: pose.health, max: pose.maxHealth, lastHitAt: -Infinity }, dead: pose.dead, deathImpulse: pose.deathImpulse, networkGhost: pose.kind === 'player' && !pose.connected, action: pose.action, actionSerial: pose.actionSerial, hitboxes: [] });
@@ -64,7 +66,6 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   }
   function setRoster(data) {
     roster.clear(); for (const p of data.players) roster.set(p.id, p);
-    mesh?.setPeers(data.players.filter(p => p.connected && p.id !== network.session?.selfId).map(p => p.id));
     game.events.emit('multiplayerroster', data);
   }
   function reconcile(snapshot, force = false) {
@@ -85,26 +86,36 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     pending = pending.filter(p => p.seq > me.seq);
   }
   function receiveSnapshot(snapshot, force = false) {
-    latest = snapshot; snapshots.push({ data: snapshot, at: now() }); if (snapshots.length > 12) snapshots.shift();
+    if (!timeline.add(snapshot, now())) return;
+    latest = snapshot;
     reconcile(snapshot, force);
     game.events.emit('multiplayersnapshot', snapshot);
   }
   network.on('welcome', info => {
-    snapshots = []; pending = []; mesh?.close();
-    mesh = new PeerMesh({ selfId: info.selfId, signal: (to, data) => network.signal(to, data) });
+    timeline.clear(); predictedImpacts.clear(); pending = [];
     setRoster(info.roster); receiveSnapshot(info.snapshot, true);
     game.events.emit('multiplayerjoined', info);
   });
   network.on(EV.roster, setRoster); network.on(EV.snapshot, snapshot => receiveSnapshot(snapshot));
-  network.on(EV.signal, ({ from, data }) => { void mesh?.receive(from, data); });
-  network.on('disconnect', () => { mesh?.close(); mesh = null; game.paintball.resetInput(); game.events.emit('multiplayerstatus', network.status); });
+  network.on('disconnect', () => { game.paintball.resetInput(); game.events.emit('multiplayerstatus', network.status); });
   network.on('status', status => game.events.emit('multiplayerstatus', status));
   network.on('ended', message => { game.toast(message); game.ui?.showMenu(); });
   network.on(EV.event, event => {
     if (event.type === 'ammoPickup' && event.player === network.session?.selfId) { game.paintball.refillAmmo(); game.audio?.ui('confirm'); game.toast('Munição coletada · +2 carregadores por arma'); }
     if (event.type === 'paintHit') {
-      const victim = event.victim === network.session?.selfId ? game.player.avatar.root : views.get(event.victim)?.avatar.root || zombies.get(event.victim)?.view.root;
-      game.bodyPaint?.stamp(victim, event.point, event.normal, event.paintColor);
+      const own = event.victim === network.session?.selfId, view = views.get(event.victim) || zombies.get(event.victim);
+      const victim = own ? game.player.avatar.root : view?.avatar?.root || view?.view.root;
+      let point = event.point, normal = event.normal;
+      if (event.targetPose) {
+        const position = own ? game.player.feet : view?.entity.position;
+        const yaw = own ? game.player.yaw : view?.entity.yaw;
+        if (position) {
+          const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw - event.targetPose.yaw);
+          point = new THREE.Vector3().copy(point).sub(event.targetPose.position).applyQuaternion(turn).add(position);
+          normal = new THREE.Vector3().copy(normal).applyQuaternion(turn);
+        }
+      }
+      game.bodyPaint?.stamp(victim, point, normal, event.paintColor);
     }
     if (event.type === 'emote') (event.player === network.session?.selfId ? game.player.avatar : views.get(event.player)?.avatar)?.playEmote(event.emote);
     if (event.type === 'shot' && event.player !== network.session?.selfId) {
@@ -112,8 +123,15 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       game.audio?.shot(event.weapon, { position: event.origin });
       for (const b of event.bullets) { const visual = bullets[bulletIndex++ % bullets.length]; visual.id = b.id; visual.age = 0; visual.passed = false; visual.ball.position.copy(event.origin); visual.velocity.copy(b.direction).multiplyScalar(event.speed); visual.ball.visible = true; }
     }
-    if (event.type === 'impact') game.audio?.hit?.({ point: event.point, surface: event.surface }, { kind: event.kind || 'firearm' });
-    if (event.type === 'bulletEnd') { const visual = bullets.find(b => b.id === event.bullet); if (visual) visual.ball.visible = false; }
+    if (event.type === 'impact') {
+      const key = `${event.shotId}:${event.pellet}`;
+      if (event.player !== network.session?.selfId || !predictedImpacts.has(key)) game.audio?.hit?.({ point: event.point, surface: event.surface }, { kind: event.kind || 'firearm' });
+      if (event.player === network.session?.selfId && event.shotId !== undefined) predictedImpacts.set(key, now());
+    }
+    if (event.type === 'bulletEnd') {
+      const visual = bullets.find(b => b.id === event.bullet); if (visual) visual.ball.visible = false;
+      if (event.player === network.session?.selfId && event.victim && event.shotId !== undefined) game.paintball.endNetworkShot(event.shotId, event.pellet);
+    }
     if (event.type === 'attack' && event.player !== network.session?.selfId) { const weapon = game.paintball.weapons.find(w => w.id === event.weapon); views.get(event.player)?.avatar.playAttack(weapon); const pose = latest?.players.find(p => p.id === event.player); if (pose) game.audio?.melee?.(weapon, { position: pose }); }
     if (event.type === 'reload' && event.player !== network.session?.selfId) {
       const view = views.get(event.player), weapon = game.paintball.weapons.find(w => w.id === event.weapon);
@@ -135,13 +153,11 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     worldEvents(event);
   });
   function sample() {
-    if (!snapshots.length) return null;
-    const target = now() - .1;
-    while (snapshots.length > 2 && snapshots[1].at < target) snapshots.shift();
-    const a = snapshots[0], b = snapshots[1] || a, alpha = a === b ? 1 : Math.max(0, Math.min(1, (target - a.at) / (b.at - a.at)));
-    return { ...b.data, players: b.data.players.map(p => interpolatePose(a.data.players.find(q => q.id === p.id), p, alpha)), zombies: b.data.zombies.map(p => interpolatePose(a.data.zombies.find(q => q.id === p.id), p, alpha)),
-      crates: b.data.crates.map(p => {
-        const previous = a.data.crates.find(q => q.id === p.id);
+    const frame = timeline.sample(now()); if (!frame) return null;
+    const { a, b, alpha, time } = frame;
+    return { ...b, time, players: b.players.map(p => interpolatePose(a.players.find(q => q.id === p.id), p, alpha)), zombies: b.zombies.map(p => interpolatePose(a.zombies.find(q => q.id === p.id), p, alpha)),
+      crates: b.crates.map(p => {
+        const previous = a.crates.find(q => q.id === p.id);
         if (!previous || new THREE.Vector3().copy(previous.position).distanceTo(new THREE.Vector3().copy(p.position)) > 8) return p;
         const position = new THREE.Vector3().copy(previous.position).lerp(p.position, alpha);
         const rotation = new THREE.Quaternion().copy(previous.rotation).slerp(p.rotation, alpha);
@@ -149,24 +165,29 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       }),
     };
   }
+  function currentPose() {
+    const p = game.player, pose = { seq: ++seq, x: p.feet.x, y: p.feet.y, z: p.feet.z, yaw: p.yaw, crouched: p.crouched, aiming: game.paintball.aiming, weapon: game.paintball.weapon.id, holstered: game.paintball.holstered };
+    pending.push(pose); if (pending.length > 150) pending.shift(); return pose;
+  }
   function update(dt) {
     root.visible = game.mode === 'multiplayer' && !!network.session;
     if (!root.visible || !latest) return;
     const data = sample(); if (!data) return;
     game.dynamicProps.applyNetworkState(data.crates);
-    for (const b of bullets) if (b.ball.visible) { const before = b.ball.position.clone(); b.ball.position.addScaledVector(b.velocity, Math.min(.1, dt)); if (!b.passed && game.audio?.whiz?.(before, b.ball.position)) b.passed = true; b.age += dt; if (b.age > 6) b.ball.visible = false; }
-    sendAccumulator += Math.min(.1, dt); meshTimer += dt;
+    for (const b of bullets) if (b.ball.visible) { const before = b.ball.position.clone(), step = advanceProjectile(before, b.velocity, Math.min(.1, dt)); b.ball.position.copy(step.position); b.velocity.copy(step.velocity); if (!b.passed && game.audio?.whiz?.(before, b.ball.position)) b.passed = true; b.age += dt; if (b.age > 3) b.ball.visible = false; }
+    for (const [key, at] of predictedImpacts) if (now() - at > 4) predictedImpacts.delete(key);
+    sendAccumulator += Math.min(.1, dt);
     if (network.ready && sendAccumulator >= 1 / NET.poseHz) {
       sendAccumulator %= 1 / NET.poseHz;
-      const p = game.player, pose = { seq: ++seq, x: p.feet.x, y: p.feet.y, z: p.feet.z, yaw: p.yaw, crouched: p.crouched, aiming: game.paintball.aiming, weapon: game.paintball.weapon.id, holstered: game.paintball.holstered };
-      pending.push(pose); if (pending.length > 150) pending.shift(); network.pose(pose); mesh?.send(pose);
+      network.pose(currentPose());
     }
-    if (meshTimer > 10) { meshTimer = 0; mesh?.setPeers([...roster.values()].filter(p => p.connected).map(p => p.id)); }
     const wanted = new Set();
     for (const p of data.players) {
       if (p.id === network.session.selfId) continue;
       wanted.add(p.id); if (!views.has(p.id)) views.set(p.id, remote(p));
-      const rendered = mesh?.sample(p.id, p, dt) || p; views.get(p.id).update(rendered, dt);
+      // Render every combat target on the same authoritative timeline used
+      // for rewind; cosmetic peer poses cannot define a hittable position.
+      views.get(p.id).update(p, dt);
     }
     for (const [id, view] of views) if (!wanted.has(id)) { view.dispose(); views.delete(id); }
     const zombieIds = new Set();
@@ -174,9 +195,10 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
       zombieIds.add(p.id);
       if (!zombies.has(p.id)) { const entity = actor(p); zombies.set(p.id, { entity, view: createActorView(entity, game.combat.models.zombie, { parent: root, ragdolls: game.ragdolls }) }); }
       const z = zombies.get(p.id), lastHit = z.entity.health.lastHitAt;
-      // Preserve the view's bone-driven hitboxes while applying authoritative state.
+      // Animate the supplied rig, then restore the shared network hitboxes.
       Object.assign(z.entity, { position: { x: p.x, y: p.y, z: p.z }, yaw: p.yaw, dead: p.dead, deathImpulse: p.deathImpulse, action: p.action, actionSerial: p.actionSerial });
-      z.entity.health.current = p.health; z.entity.health.lastHitAt = lastHit; z.view.update(dt, latest.time, game.engine.camera);
+      z.entity.health.current = p.health; z.entity.health.lastHitAt = lastHit; z.view.update(dt, data.time, game.engine.camera);
+      updateHumanoidHitboxes(z.entity);
     }
     for (const [id, z] of zombies) if (!zombieIds.has(id)) { game.bodyPaint?.clear(z.view.root); z.view.dispose(); zombies.delete(id); }
     const me = api.self;
@@ -186,7 +208,7 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
     for (const marker of markers) marker.mesh.rotation.z += dt * .3;
   }
   function clear() {
-    mesh?.close(); mesh = null; latest = null; snapshots = []; pending = []; nearby = null; root.visible = false;
+    latest = null; timeline.clear(); predictedImpacts.clear(); pending = []; nearby = null; root.visible = false;
     for (const b of bullets) b.ball.visible = false;
     for (const v of views.values()) v.dispose(); views.clear(); for (const z of zombies.values()) { game.bodyPaint?.clear(z.view.root); z.view.dispose(); } zombies.clear(); roster.clear();
     game.events.emit('multiplayerleft');
@@ -194,9 +216,23 @@ export function createMultiplayerModule(game, { weaponModels } = {}) {
   network.on('left', clear);
   const api = { network, root, views, zombies, markers, landmarks, update,
     get active() { return game.mode === 'multiplayer'; }, get self() { return latest?.players.find(p => p.id === network.session?.selfId); },
-    get canAct() { return !api.active || (network.ready && latest?.phase === 'running' && !!api.self && !api.self.dead); },
-    get snapshot() { return latest; }, get roster() { return roster; }, get peerCount() { return mesh?.connectedCount || 0; }, get nearby() { return nearby; },
-    attack(weapon, info) { if (api.active) network.action({ type: 'attack', weapon: weapon.id || weapon, origin: info.origin, direction: info.direction, aiming: !!info.aiming, paintColor: game.paintball.color.color }); },
+    get canAct() { return !api.active || (network.ready && !timeline.stale(now()) && latest?.phase === 'running' && !!api.self && !api.self.dead); },
+    get snapshot() { return latest; }, get roster() { return roster; }, get peerCount() { return 0; }, get nearby() { return nearby; },
+    get connectionStale() { return timeline.stale(now()); }, get interpolationMs() { return Math.round(timeline.delay * 1000); },
+    attack(weapon, info) {
+      if (!api.active || !api.canAct) return;
+      const at = now(), shotTime = network.serverNow(at) ?? timeline.serverNow(at, network.latency);
+      network.action({ type: 'attack', weapon: weapon.id || weapon, origin: info.origin, direction: info.direction, aiming: !!info.aiming,
+        shotId: info.shotId, shotTime, viewTime: Math.min(shotTime, timeline.renderTime), pose: currentPose(), paintColor: game.paintball.color.color }, reply => {
+        if (reply?.accepted === false && info.shotId !== undefined) game.paintball.rejectNetworkShot(info.shotId);
+      });
+    },
+    predictImpact(hit, info) {
+      if (info.shotId === undefined) return;
+      const key = `${info.shotId}:${info.pellet}`;
+      if (!predictedImpacts.has(key)) game.audio?.hit?.(hit, info);
+      predictedImpacts.set(key, now());
+    },
     pickupAmmo() { if (api.active && api.canAct) network.action({ type: 'pickupAmmo' }); },
     reload(weapon, active) { if (api.active) network.action({ type: active ? 'reload' : 'cancelReload', weapon }); },
     emote(id) { if (api.active && network.ready && api.self && !api.self.dead) network.action({ type: 'emote', emote: id }); },

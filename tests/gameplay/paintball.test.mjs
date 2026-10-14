@@ -197,6 +197,16 @@ test('shot audio receives actual weapon shots only, including held automatic fir
   paint.dispose();
 });
 
+test('a rejected predicted shotgun shell refunds one round and ends every pellet only once', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(); scene.add(camera);
+  const paint = createPaintball({ scene, camera }); paint.pickupWeapon('shotgun');
+  assert.ok(paint.shoot()); assert.equal(paint.ammo.loaded, 7); assert.equal(paint.stats.projectiles, 9);
+  paint.rejectNetworkShot(paint.stats.shots);
+  assert.equal(paint.ammo.loaded, 8); assert.equal(paint.stats.projectiles, 0);
+  paint.rejectNetworkShot(paint.stats.shots); assert.equal(paint.ammo.loaded, 8);
+  paint.dispose();
+});
+
 test('a character-held gun keeps its world pose and fires from its muzzle in either camera', () => {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70);
   const states = [];
